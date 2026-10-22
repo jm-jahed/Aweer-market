@@ -1,0 +1,9 @@
+packages:
+  - 'Frontend'
+  - 'backend'
+  - 'shopadmin'
+  - 'superadmin'
+  - 'packages/*'
+
+allowBuilds:
+  esbuild: true

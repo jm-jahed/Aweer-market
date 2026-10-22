@@ -1,0 +1,20 @@
+{
+  "name": "@aweermarket/validation",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "lint": "echo \"No linting required for validation package\"",
+    "test": "echo \"No tests for validation package\""
+  },
+  "dependencies": {
+    "@aweermarket/types": "workspace:*",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

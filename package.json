@@ -1,0 +1,24 @@
+{
+  "name": "aweermarket-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AweerMarket - Dubai Al Aweer Wholesale Fruits & Vegetables Marketplace Monorepo",
+  "scripts": {
+    "dev:backend": "pnpm --filter @aweermarket/api dev",
+    "dev:frontend": "pnpm --filter @aweermarket/web dev",
+    "dev:shopadmin": "pnpm --filter @aweermarket/admin dev",
+    "dev:superadmin": "pnpm --filter @aweermarket/super-admin dev",
+    "dev:api": "pnpm --filter @aweermarket/api dev",
+    "dev:web": "pnpm --filter @aweermarket/web dev",
+    "dev:admin": "pnpm --filter @aweermarket/admin dev",
+    "dev:super-admin": "pnpm --filter @aweermarket/super-admin dev",
+    "build:packages": "pnpm --filter \"@aweermarket/types\" build && pnpm --filter \"@aweermarket/validation\" build",
+    "build": "pnpm -r build",
+    "type-check": "pnpm -r type-check",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
