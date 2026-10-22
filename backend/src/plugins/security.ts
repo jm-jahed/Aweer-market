@@ -290,31 +290,47 @@ export function requireTenantScope(resourceShopIdKey = 'shopId') {
 }
 
 /**
+ * Safe error handler: Never leaks passwords, secrets, internal DB details, or stack traces
+ */
+export function safeErrorHandler(error: FastifyError, request: FastifyRequest, reply: FastifyReply) {
+  request.log.error({
+    err: {
+      message: error.message,
+      code: error.code,
+      statusCode: error.statusCode
+    },
+    url: request.raw.url,
+    method: request.raw.method
+  });
+
+  const statusCode = error.statusCode || 500;
+  let errorTitle = error.name || 'Error';
+  let message: string;
+
+  if (statusCode === 503) {
+    errorTitle = 'Service Unavailable';
+    message = 'Service temporarily unavailable. Please try again later.';
+  } else if (statusCode >= 500) {
+    errorTitle = 'Internal Server Error';
+    message = 'Internal server error';
+  } else {
+    message = error.message;
+  }
+
+  return reply.status(statusCode).send({
+    statusCode,
+    error: errorTitle,
+    message
+  });
+}
+
+/**
  * Fastify plugin registering security headers, error filtering, and startup secret validation.
  */
 export const securityPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   // Validate secrets on startup (fails closed if secrets are missing or weak)
   validateAllSecrets();
 
-  // Safe error handler: Never leaks passwords, secrets, or internal stack traces to client
-  fastify.setErrorHandler((error: FastifyError, request, reply) => {
-    request.log.error({
-      err: {
-        message: error.message,
-        code: error.code,
-        statusCode: error.statusCode
-      },
-      url: request.raw.url,
-      method: request.raw.method
-    });
-
-    const statusCode = error.statusCode || 500;
-    const message = statusCode >= 500 ? 'Internal server error' : error.message;
-
-    return reply.status(statusCode).send({
-      statusCode,
-      error: error.name || 'Error',
-      message
-    });
-  });
+  // Safe error handler
+  fastify.setErrorHandler(safeErrorHandler);
 };

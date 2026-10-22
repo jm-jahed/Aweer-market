@@ -1,0 +1,234 @@
+.header {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.navContainer {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brandLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.logoIcon {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.1rem;
+  box-shadow: 0 2px 4px rgba(22, 163, 74, 0.25);
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+}
+
+.brandName {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #15803d;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.brandTagline {
+  font-size: 0.725rem;
+  color: #64748b;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.navRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.navLinks {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.navLink {
+  color: #475569;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.navLink:hover {
+  color: #0f172a;
+  background-color: #f1f5f9;
+}
+
+.authGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.loginBtn {
+  color: #15803d;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border: 1.5px solid #22c55e;
+  border-radius: 8px;
+  background-color: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.loginBtn:hover {
+  background-color: #f0fdf4;
+  color: #166534;
+}
+
+.registerBtn {
+  background-color: #15803d;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1.5px solid #15803d;
+  transition: background-color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.registerBtn:hover {
+  background-color: #166534;
+  border-color: #166534;
+}
+
+.userMenu {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.userGreeting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: #0f172a;
+}
+
+.userGreetingLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: #0f172a;
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.userGreetingLink:hover {
+  background-color: #f1f5f9;
+}
+
+.userBadge {
+  background-color: #dcfce7;
+  color: #166534;
+  font-size: 0.725rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  letter-spacing: 0.04em;
+}
+
+.userName {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.logoutBtn {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  font-size: 0.825rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.logoutBtn:hover:not(:disabled) {
+  border-color: #ef4444;
+  color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.logoutBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loadingPlaceholder {
+  height: 32px;
+  width: 90px;
+  background-color: #f1f5f9;
+  border-radius: 6px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (max-width: 640px) {
+  .brandTagline {
+    display: none;
+  }
+
+  .navLinks {
+    display: none;
+  }
+
+  .userGreeting {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+}

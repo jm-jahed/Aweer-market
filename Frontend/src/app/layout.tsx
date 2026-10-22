@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { AuthProvider } from '@/lib/auth-context';
+import { Navbar } from '@/components/layout/Navbar';
 
 export const metadata: Metadata = {
   title: 'AweerMarket — Dubai Al Aweer Wholesale Fruits & Vegetables Marketplace',
@@ -13,8 +15,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body style={{ margin: 0, fontFamily: 'system-ui, -apple-system, sans-serif', backgroundColor: '#f8fafc', color: '#0f172a' }}>
-        {children}
+        <AuthProvider>
+          <Navbar />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
 }
+

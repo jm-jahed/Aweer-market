@@ -120,18 +120,22 @@ export const CreateProductSchema = z.object({
 // Order Schemas
 // ============================================================================
 
+export const CreateOrderItemSchema = z.object({
+  productId: z.string({ required_error: 'Product ID is required' }).min(1),
+  quantity: z.number({ required_error: 'Quantity is required' }).int().positive('Quantity must be at least 1')
+}).strict();
+
 export const CreateOrderSchema = z.object({
-  vendorId: z.string().min(1),
+  shopId: z.string().min(1).optional(),
+  /** @deprecated Backward compatibility alias for shopId */
+  vendorId: z.string().min(1).optional(),
   deliveryType: z.nativeEnum(DeliveryType),
-  deliveryAddress: z.string().optional(),
-  pickupTime: z.string().optional(),
-  items: z.array(
-    z.object({
-      productId: z.string().min(1),
-      quantity: z.number().int().positive(),
-      unitPriceAed: z.number().positive()
-    })
-  ).min(1, 'Order must contain at least one item')
+  deliveryAddress: z.string().trim().optional(),
+  pickupTime: z.string().trim().optional(),
+  items: z.array(CreateOrderItemSchema).min(1, 'Order must contain at least one item')
+}).strict().refine((data) => Boolean(data.shopId || data.vendorId), {
+  message: 'Either shopId or vendorId is required',
+  path: ['shopId']
 });
 
 // ============================================================================

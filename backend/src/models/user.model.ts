@@ -142,11 +142,25 @@ function createInMemoryRecord(data: Omit<UserRecord, 'toUserSummary'>): UserReco
   };
 }
 
+export class DatabaseUnavailableError extends Error {
+  readonly statusCode: number = 503;
+  readonly code: string = 'DATABASE_UNAVAILABLE';
+
+  constructor(message = 'Database service is unavailable') {
+    super(message);
+    this.name = 'DatabaseUnavailableError';
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
 /**
  * Resets the in-memory test store between unit test runs.
+ * Gated strictly to test environment.
  */
 export function resetInMemoryUsers(): void {
-  inMemoryUsersById.clear;
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('In-memory user store is only permitted in test environment');
+  }
   inMemoryUsersById.clear();
   inMemoryUsersByEmail.clear();
   idCounter = 1;
@@ -163,7 +177,8 @@ export interface CreateBuyerData {
 
 /**
  * Looks up user by email with optional passwordHash inclusion.
- * Transparently falls back to isolated in-memory store in disconnected/test environments.
+ * Strictly requires active database connection in non-test runtime.
+ * Falls back to isolated in-memory store ONLY in test runtime (NODE_ENV === 'test').
  */
 export async function findUserByEmail(
   email: string,
@@ -179,6 +194,11 @@ export async function findUserByEmail(
     return await query.exec();
   }
 
+  // Fail closed in production and development: never silently use volatile in-memory storage
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
   const userId = inMemoryUsersByEmail.get(normalizedEmail);
   if (!userId) {
     return null;
@@ -192,16 +212,24 @@ export async function findUserByEmail(
 
 /**
  * Looks up user by unique ID.
+ * Strictly requires active database connection in non-test runtime.
  */
 export async function findUserById(id: string): Promise<IUserDocument | UserRecord | null> {
   if (isDatabaseConnected()) {
     return await UserModel.findById(id).exec();
   }
+
+  // Fail closed in production and development
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
   return inMemoryUsersById.get(id) || null;
 }
 
 /**
  * Creates a new Buyer user. Enforces server-side UserRole.BUYER assignment.
+ * Strictly requires active database connection in non-test runtime.
  * Throws duplicate key error (code 11000) if email already exists.
  */
 export async function createBuyerUser(data: CreateBuyerData): Promise<IUserDocument | UserRecord> {
@@ -221,7 +249,12 @@ export async function createBuyerUser(data: CreateBuyerData): Promise<IUserDocum
     });
   }
 
-  // In-memory test store
+  // Fail closed in production and development
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. User creation rejected in fail-closed mode.');
+  }
+
+  // In-memory test store (strictly gated to NODE_ENV === 'test')
   if (inMemoryUsersByEmail.has(normalizedEmail)) {
     const duplicateError = new Error(`E11000 duplicate key error collection: users index: email_1 dup key: { email: "${normalizedEmail}" }`);
     (duplicateError as unknown as { code: number }).code = 11000;
@@ -252,12 +285,19 @@ export async function createBuyerUser(data: CreateBuyerData): Promise<IUserDocum
 
 /**
  * Sets user active status (used for deactivation tests and administration).
+ * Strictly requires active database connection in non-test runtime.
  */
 export async function setUserActiveStatus(userId: string, isActive: boolean): Promise<boolean> {
   if (isDatabaseConnected()) {
     const res = await UserModel.updateOne({ _id: userId }, { $set: { isActive } });
     return res.modifiedCount > 0;
   }
+
+  // Fail closed in production and development
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
   const user = inMemoryUsersById.get(userId);
   if (user) {
     user.isActive = isActive;

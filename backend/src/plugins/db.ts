@@ -25,12 +25,18 @@ export function getDatabaseState(): 'connected' | 'connecting' | 'disconnecting'
 
 /**
  * Connects to MongoDB with safe timeouts to prevent startup hangs.
+ * In production and non-test environments, throws explicit errors on missing configuration
+ * or connection failure to enforce fail-closed startup.
  */
-export async function connectDatabase(uri?: string): Promise<boolean> {
+export async function connectDatabase(uri?: string, options?: mongoose.ConnectOptions): Promise<boolean> {
   const mongoUri = uri || process.env.MONGODB_URI;
 
   if (!mongoUri) {
-    console.warn('[MongoDB] No MONGODB_URI provided. Database remains disconnected.');
+    const errorMsg = '[MongoDB] No MONGODB_URI provided. Server cannot start in fail-closed mode.';
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(errorMsg);
+    }
+    console.warn(errorMsg);
     return false;
   }
 
@@ -41,13 +47,17 @@ export async function connectDatabase(uri?: string): Promise<boolean> {
 
     await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 10000
+      connectTimeoutMS: 10000,
+      ...options
     });
 
     console.log('[MongoDB] Connected successfully to MongoDB.');
     return true;
   } catch (err) {
     console.error('[MongoDB] Connection error:', err);
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(`[Database] Failed to connect to MongoDB: ${(err as Error).message}`);
+    }
     return false;
   }
 }

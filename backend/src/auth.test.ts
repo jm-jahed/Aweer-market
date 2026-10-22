@@ -1,14 +1,20 @@
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { UserRole } from '@aweermarket/types';
-import { buildServer } from './server.js';
+import { buildServer, start } from './server.js';
 import {
   resetInMemoryUsers,
   findUserByEmail,
-  setUserActiveStatus
+  findUserById,
+  createBuyerUser,
+  setUserActiveStatus,
+  DatabaseUnavailableError
 } from './models/user.model.js';
 import { signSessionToken } from './utils/crypto.js';
 import { getSecretForRole } from './plugins/security.js';
+import { connectDatabase } from './plugins/db.js';
+
+process.env.NODE_ENV = 'test';
 
 const TEST_SECRET = 'test_buyer_secret_minimum_32_characters_long_ok!';
 const TEST_SHOP_SECRET = 'test_shopadmin_secret_minimum_32_characters_ok!';
@@ -17,6 +23,7 @@ const TEST_SUPER_SECRET = 'test_superadmin_secret_minimum_32_characters_ok!';
 describe('Phase 3.1: Backend Buyer Authentication Endpoints', () => {
   beforeEach(() => {
     // Isolate test database state
+    process.env.NODE_ENV = 'test';
     resetInMemoryUsers();
     process.env.JWT_SECRET = TEST_SECRET;
     process.env.ADMIN_JWT_SECRET = TEST_SHOP_SECRET;
@@ -461,6 +468,193 @@ describe('Phase 3.1: Backend Buyer Authentication Endpoints', () => {
     assert.match(setCookie, /HttpOnly/i);
     assert.match(setCookie, /SameSite=Lax/i);
     assert.match(setCookie, /Path=\/api\/v1/);
+    await server.close();
+  });
+});
+
+describe('FINDING-01: Production Database Fail-Closed Protection', () => {
+  const originalMongoUri = process.env.MONGODB_URI;
+
+  afterEach(() => {
+    // Always restore safe test environment state
+    process.env.NODE_ENV = 'test';
+    if (originalMongoUri !== undefined) {
+      process.env.MONGODB_URI = originalMongoUri;
+    } else {
+      delete process.env.MONGODB_URI;
+    }
+  });
+
+  const testBuyer = {
+    email: 'failclosed@aweermarket.ae',
+    password: 'SecurePassword123!',
+    fullName: 'Test Fail Closed',
+    phone: '+971501234567'
+  };
+
+  it('1. In test mode, isolated in-memory repository works without external database', async () => {
+    process.env.NODE_ENV = 'test';
+    resetInMemoryUsers();
+
+    const created = await createBuyerUser({
+      email: testBuyer.email,
+      passwordHash: 'dummy_hash',
+      fullName: testBuyer.fullName
+    });
+    assert.strictEqual(created.email, testBuyer.email);
+
+    const retrieved = await findUserByEmail(testBuyer.email);
+    assert.strictEqual(retrieved?.email, testBuyer.email);
+
+    const retrievedById = await findUserById(created.id);
+    assert.strictEqual(retrievedById?.id, created.id);
+
+    const activeUpdated = await setUserActiveStatus(created.id, false);
+    assert.strictEqual(activeUpdated, true);
+  });
+
+  it('2. Outside test mode, repository operations FAIL CLOSED when database is disconnected', async () => {
+    process.env.NODE_ENV = 'production';
+
+    // Disconnected database must NEVER trigger in-memory reads or writes
+    await assert.rejects(
+      async () => await findUserByEmail(testBuyer.email),
+      (err: Error) => {
+        assert.ok(err instanceof DatabaseUnavailableError);
+        assert.strictEqual((err as DatabaseUnavailableError).statusCode, 503);
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      async () => await findUserById('usr_dummy_id'),
+      (err: Error) => {
+        assert.ok(err instanceof DatabaseUnavailableError);
+        assert.strictEqual((err as DatabaseUnavailableError).statusCode, 503);
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      async () =>
+        await createBuyerUser({
+          email: 'prod_leak_test@aweermarket.ae',
+          passwordHash: 'dummy_hash',
+          fullName: 'Production Leak Test'
+        }),
+      (err: Error) => {
+        assert.ok(err instanceof DatabaseUnavailableError);
+        assert.strictEqual((err as DatabaseUnavailableError).statusCode, 503);
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      async () => await setUserActiveStatus('usr_dummy_id', false),
+      (err: Error) => {
+        assert.ok(err instanceof DatabaseUnavailableError);
+        assert.strictEqual((err as DatabaseUnavailableError).statusCode, 503);
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      async () => resetInMemoryUsers(),
+      (err: Error) => {
+        assert.ok(err instanceof DatabaseUnavailableError);
+        assert.strictEqual((err as DatabaseUnavailableError).statusCode, 503);
+        return true;
+      }
+    );
+
+    // Verify nothing was written into memory store
+    process.env.NODE_ENV = 'test';
+    const checkInMemory = await findUserByEmail('prod_leak_test@aweermarket.ae');
+    assert.strictEqual(checkInMemory, null, 'In-memory store must remain completely empty after production rejection');
+  });
+
+  it('3. Missing MongoDB configuration prevents startup from accepting requests in production', async () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.MONGODB_URI;
+
+    // connectDatabase must throw rather than silently continuing
+    await assert.rejects(
+      async () => await connectDatabase(),
+      /No MONGODB_URI provided/i
+    );
+
+    // start() must throw and abort startup without listening
+    await assert.rejects(
+      async () => await start(),
+      /No MONGODB_URI provided/i
+    );
+  });
+
+  it('4. Failed database connection prevents startup from accepting requests in production', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.MONGODB_URI = 'invalid-mongo-protocol://127.0.0.1:27017/aweer_prod';
+
+    await assert.rejects(
+      async () => await connectDatabase(),
+      /Failed to connect to MongoDB/i
+    );
+
+    await assert.rejects(
+      async () => await start(),
+      /Failed to connect to MongoDB/i
+    );
+  });
+
+  it('5. Runtime database disconnect causes auth HTTP endpoints to fail safely with 503 Service Unavailable', async () => {
+    process.env.NODE_ENV = 'production';
+    const server = await buildServer();
+
+    // 5a. POST /register fails safely with 503
+    const regRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: testBuyer
+    });
+    assert.strictEqual(regRes.statusCode, 503);
+    const regBody = JSON.parse(regRes.payload);
+    assert.strictEqual(regBody.statusCode, 503);
+    assert.strictEqual(regBody.error, 'Service Unavailable');
+    assert.strictEqual(regBody.message, 'Service temporarily unavailable. Please try again later.');
+    // Ensure no internal DB details or credentials leaked
+    assert.strictEqual(regBody.stack, undefined);
+    assert.strictEqual(regBody.database, undefined);
+
+    // 5b. POST /login fails safely with 503
+    const loginRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: testBuyer.email,
+        password: testBuyer.password
+      }
+    });
+    assert.strictEqual(loginRes.statusCode, 503);
+    const loginBody = JSON.parse(loginRes.payload);
+    assert.strictEqual(loginBody.statusCode, 503);
+    assert.strictEqual(loginBody.error, 'Service Unavailable');
+    assert.strictEqual(loginBody.message, 'Service temporarily unavailable. Please try again later.');
+
+    // 5c. GET /me fails safely with 503 when session token is provided
+    const validBuyerToken = signSessionToken(
+      { userId: 'buyer_test_1', role: UserRole.BUYER, email: testBuyer.email },
+      TEST_SECRET
+    );
+    const meRes = await server.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: { cookie: `aweer_session=${validBuyerToken}` }
+    });
+    assert.strictEqual(meRes.statusCode, 503);
+    const meBody = JSON.parse(meRes.payload);
+    assert.strictEqual(meBody.statusCode, 503);
+    assert.strictEqual(meBody.error, 'Service Unavailable');
+    assert.strictEqual(meBody.message, 'Service temporarily unavailable. Please try again later.');
+
     await server.close();
   });
 });

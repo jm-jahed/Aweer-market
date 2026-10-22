@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
 import { connectDatabase, disconnectDatabase } from './plugins/db.js';
-import { securityPlugin } from './plugins/security.js';
+import { securityPlugin, safeErrorHandler } from './plugins/security.js';
 
 dotenv.config();
 
@@ -19,7 +19,10 @@ export async function buildServer() {
     }
   });
 
-  // Security Plugin (error sanitization)
+  // Global Safe Error Handler (sanitizes 503 and 500 across all routes)
+  server.setErrorHandler(safeErrorHandler);
+
+  // Security Plugin (error sanitization and startup secret verification)
   await server.register(securityPlugin);
 
   // Security Headers
@@ -65,10 +68,13 @@ export async function buildServer() {
   return server;
 }
 
-async function start() {
+export async function start() {
   try {
-    // Connect to database
-    await connectDatabase();
+    // Fail-closed database connection check before accepting any requests
+    const connected = await connectDatabase();
+    if (!connected && process.env.NODE_ENV !== 'test') {
+      throw new Error('[AweerMarket API] Database connection failed. Startup aborted in fail-closed mode.');
+    }
 
     const server = await buildServer();
     await server.listen({ port, host });
@@ -84,13 +90,21 @@ async function start() {
         process.exit(0);
       });
     }
+
+    return server;
   } catch (err) {
     console.error('[AweerMarket API] Failed to start server:', err);
-    process.exit(1);
+    throw err;
   }
 }
 
 // Start if executed directly
-if (process.argv[1] && process.argv[1].endsWith('server.ts') || process.argv[1]?.endsWith('server.js')) {
-  start();
+const isDirectRun = Boolean(
+  process.argv[1] && (process.argv[1].endsWith('server.ts') || process.argv[1].endsWith('server.js'))
+);
+
+if (isDirectRun) {
+  start().catch(() => {
+    process.exit(1);
+  });
 }
