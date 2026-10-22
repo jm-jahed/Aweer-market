@@ -9,7 +9,7 @@
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit",
     "lint": "echo \"Lint check passed for @aweermarket/api\"",
-    "test": "tsx --test src/server.test.ts"
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "@aweermarket/types": "workspace:*",

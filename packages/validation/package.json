@@ -8,7 +8,7 @@
     "build": "tsc",
     "type-check": "tsc --noEmit",
     "lint": "echo \"No linting required for validation package\"",
-    "test": "echo \"No tests for validation package\""
+    "test": "node --test test/contracts.test.mjs"
   },
   "dependencies": {
     "@aweermarket/types": "workspace:*",

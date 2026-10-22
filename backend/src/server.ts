@@ -3,7 +3,9 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import dotenv from 'dotenv';
 import { healthRoutes } from './routes/health.js';
+import { authRoutes } from './routes/auth.js';
 import { connectDatabase, disconnectDatabase } from './plugins/db.js';
+import { securityPlugin } from './plugins/security.js';
 
 dotenv.config();
 
@@ -16,6 +18,9 @@ export async function buildServer() {
       level: process.env.NODE_ENV === 'test' ? 'silent' : 'info'
     }
   });
+
+  // Security Plugin (error sanitization)
+  await server.register(securityPlugin);
 
   // Security Headers
   await server.register(helmet, {
@@ -44,6 +49,9 @@ export async function buildServer() {
   // Base API routes
   await server.register(healthRoutes, { prefix: '/api/v1' });
   await server.register(healthRoutes); // root /health alias
+
+  // Authentication routes
+  await server.register(authRoutes, { prefix: '/api/v1/auth' });
 
   server.get('/', async (_req, reply) => {
     return reply.send({

@@ -5,9 +5,32 @@
 
 export enum UserRole {
   BUYER = 'buyer',
+  SHOP_ADMIN = 'shop_admin',
+  SUPER_ADMIN = 'super_admin',
+  /**
+   * @deprecated Retained for backward-compatibility with earlier Phase 1 drafts.
+   * Consumers should migrate to UserRole.SHOP_ADMIN.
+   */
   VENDOR = 'vendor',
-  ADMIN = 'admin',
-  SUPER_ADMIN = 'super_admin'
+  /**
+   * @deprecated Retained for backward-compatibility with earlier Phase 1 drafts.
+   * Consumers should migrate explicitly to UserRole.SHOP_ADMIN or UserRole.SUPER_ADMIN.
+   */
+  ADMIN = 'admin'
+}
+
+/**
+ * Type guard for shop administration privileges (including legacy aliases)
+ */
+export function isShopAdminRole(role: UserRole | string): boolean {
+  return role === UserRole.SHOP_ADMIN || role === UserRole.VENDOR || role === UserRole.ADMIN;
+}
+
+/**
+ * Type guard strictly for super admin privileges
+ */
+export function isSuperAdminRole(role: UserRole | string): boolean {
+  return role === UserRole.SUPER_ADMIN;
 }
 
 export enum WholesaleUnit {
@@ -45,22 +68,78 @@ export enum DeliveryType {
   SCHEDULED_DELIVERY = 'scheduled_delivery'
 }
 
+/**
+ * Safe user identity summary: never contains passwords, hashes, MFA secrets, or tokens.
+ */
 export interface UserSummary {
   id: string;
   email: string;
   fullName: string;
   role: UserRole;
+  shopId?: string;
+  /** @deprecated Backward compatibility alias for shopId */
+  vendorId?: string;
   businessName?: string;
   isActive: boolean;
+  isEmailVerified?: boolean;
   createdAt: string;
 }
 
+/**
+ * Trusted server-side authentication session payload.
+ */
 export interface AuthSessionPayload {
   userId: string;
   role: UserRole;
   email: string;
+  shopId?: string;
+  /** @deprecated Backward compatibility alias for shopId */
   vendorId?: string;
   isMfaVerified?: boolean;
+  issuedAt?: number;
+  expiresAt?: number;
+}
+
+/**
+ * Tenant authorization context derived securely on the server.
+ */
+export interface TenantAuthorizationContext {
+  userId: string;
+  role: UserRole;
+  shopId: string;
+  isAuthorized: boolean;
+}
+
+/**
+ * Security audit event classifications for future security logging.
+ */
+export enum AuditEventType {
+  LOGIN_SUCCESS = 'login_success',
+  LOGIN_FAILURE = 'login_failure',
+  LOGOUT = 'logout',
+  MFA_CHALLENGE = 'mfa_challenge',
+  MFA_VERIFIED = 'mfa_verified',
+  PASSWORD_CHANGED = 'password_changed',
+  PRIVILEGE_ELEVATION_ATTEMPT = 'privilege_elevation_attempt',
+  TENANT_ACCESS_DENIED = 'tenant_access_denied',
+  ADMIN_PROVISIONED = 'admin_provisioned',
+  ACCOUNT_STATUS_CHANGED = 'account_status_changed'
+}
+
+/**
+ * Audit event metadata contract.
+ */
+export interface AuditEventMetadata {
+  eventId: string;
+  eventType: AuditEventType;
+  userId?: string;
+  actorRole?: UserRole;
+  ipAddress?: string;
+  userAgent?: string;
+  resourceType?: string;
+  resourceId?: string;
+  details?: Record<string, unknown>;
+  timestamp: string;
 }
 
 export interface ProductOfferSummary {

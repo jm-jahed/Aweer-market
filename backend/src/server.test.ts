@@ -12,7 +12,8 @@ describe('AweerMarket Central API - Health & Security Endpoints', () => {
 
     assert.strictEqual(response.statusCode, 200);
     const body = JSON.parse(response.payload);
-    assert.strictEqual(body.status, 'ok');
+    assert.strictEqual(body.status, 'degraded'); // Disconnected in test environment
+    assert.strictEqual(body.database, 'disconnected');
     assert.strictEqual(body.service, 'AweerMarket Central API');
     assert.strictEqual(body.version, '1.0.0-phase1');
     assert.ok(body.timestamp);
@@ -28,7 +29,8 @@ describe('AweerMarket Central API - Health & Security Endpoints', () => {
 
     assert.strictEqual(response.statusCode, 200);
     const body = JSON.parse(response.payload);
-    assert.strictEqual(body.status, 'ok');
+    assert.strictEqual(body.status, 'degraded');
+    assert.strictEqual(body.database, 'disconnected');
     await server.close();
   });
 
