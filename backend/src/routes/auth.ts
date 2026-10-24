@@ -1,14 +1,17 @@
 import { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { RegisterBuyerSchema, RegisterVendorSchema, LoginSchema, ShopAdminLoginSchema, SuperAdminLoginSchema } from '@aweermarket/validation';
 import { UserRole } from '@aweermarket/types';
-import { hashPassword, verifyPassword, signSessionToken } from '../utils/crypto.js';
+import { hashPassword, verifyPassword, signSessionToken, verifySessionToken } from '../utils/crypto.js';
 import { getSecretForRole, authenticate } from '../plugins/security.js';
-import { serializeSessionCookie } from '../utils/cookie.js';
+import { rateLimitLogin, rateLimitRegister } from '../plugins/rate-limit.js';
+import { serializeSessionCookie, parseCookie, SESSION_COOKIE_NAME } from '../utils/cookie.js';
 import {
   findUserByEmail,
   findUserById,
   createBuyerUser,
-  createShopAdminUser
+  createShopAdminUser,
+  incrementUserTokenVersion,
+  DatabaseUnavailableError
 } from '../models/user.model.js';
 import {
   createShop,
@@ -21,7 +24,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * POST /api/v1/auth/register
    * Registers a provisional buyer account and sets HTTP-only session cookie.
    */
-  fastify.post('/register', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/register', { preHandler: [rateLimitRegister] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const parseResult = RegisterBuyerSchema.safeParse(request.body);
     if (!parseResult.success) {
       return reply.status(400).send({
@@ -75,7 +78,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       {
         userId: newUser.id,
         role: UserRole.BUYER,
-        email: newUser.email
+        email: newUser.email,
+        tokenVersion: newUser.tokenVersion ?? 0
       },
       getSecretForRole(UserRole.BUYER)
     );
@@ -94,7 +98,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * POST /api/v1/auth/login
    * Authenticates buyer credentials, verifies active status, and sets HTTP-only session cookie.
    */
-  fastify.post('/login', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/login', { preHandler: [rateLimitLogin] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const parseResult = LoginSchema.safeParse(request.body);
     if (!parseResult.success) {
       return reply.status(400).send({
@@ -150,7 +154,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       {
         userId: user.id,
         role: UserRole.BUYER,
-        email: user.email
+        email: user.email,
+        tokenVersion: user.tokenVersion ?? 0
       },
       getSecretForRole(UserRole.BUYER)
     );
@@ -179,7 +184,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // Query current user from database to prevent stale token claims from granting access
-    const user = await findUserById(request.user.userId);
+    const user = request.dbUser || await findUserById(request.user.userId);
     if (!user) {
       return reply.status(401).send({
         statusCode: 401,
@@ -215,7 +220,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * POST /api/v1/auth/super-admin/login
    * Authenticates super admin credentials and sets role-bound session cookie.
    */
-  fastify.post('/super-admin/login', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/super-admin/login', { preHandler: [rateLimitLogin] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const parseResult = SuperAdminLoginSchema.safeParse(request.body);
     if (!parseResult.success) {
       return reply.status(400).send({
@@ -268,7 +273,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       {
         userId: user.id,
         role: UserRole.SUPER_ADMIN,
-        email: user.email
+        email: user.email,
+        tokenVersion: user.tokenVersion ?? 0
       },
       getSecretForRole(UserRole.SUPER_ADMIN)
     );
@@ -296,7 +302,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    const user = await findUserById(request.user.userId);
+    const user = request.dbUser || await findUserById(request.user.userId);
     if (!user || user.role !== UserRole.SUPER_ADMIN) {
       return reply.status(401).send({
         statusCode: 401,
@@ -324,7 +330,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * Registers a wholesale vendor account, creates a stall record with isApproved: false,
    * and sets an HTTP-only session cookie bound to UserRole.SHOP_ADMIN.
    */
-  fastify.post('/vendor/register', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/vendor/register', { preHandler: [rateLimitRegister] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const parseResult = RegisterVendorSchema.safeParse(request.body);
     if (!parseResult.success) {
       return reply.status(400).send({
@@ -404,7 +410,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         userId: newUser.id,
         role: UserRole.SHOP_ADMIN,
         email: newUser.email,
-        shopId: shop.id
+        shopId: shop.id,
+        tokenVersion: newUser.tokenVersion ?? 0
       },
       getSecretForRole(UserRole.SHOP_ADMIN)
     );
@@ -423,7 +430,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * POST /api/v1/auth/vendor/login
    * Authenticates vendor (Shop Admin) credentials, sets role-bound session cookie.
    */
-  fastify.post('/vendor/login', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/vendor/login', { preHandler: [rateLimitLogin] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const parseResult = ShopAdminLoginSchema.safeParse(request.body);
     if (!parseResult.success) {
       return reply.status(400).send({
@@ -486,7 +493,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         userId: user.id,
         role: UserRole.SHOP_ADMIN,
         email: user.email,
-        shopId: shop?.id || user.shopId
+        shopId: shop?.id || user.shopId,
+        tokenVersion: user.tokenVersion ?? 0
       },
       getSecretForRole(UserRole.SHOP_ADMIN)
     );
@@ -515,7 +523,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    const user = await findUserById(request.user.userId);
+    const user = request.dbUser || await findUserById(request.user.userId);
     if (!user || (user.role !== UserRole.SHOP_ADMIN && user.role !== UserRole.VENDOR)) {
       return reply.status(401).send({
         statusCode: 401,
@@ -550,10 +558,58 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * POST /api/v1/auth/logout
-   * Clears the HTTP-only session cookie.
+   * Server-side JWT revocation via atomic tokenVersion increment and cookie clearance.
+   * Attaches cookie-clearing header even if upstream database revocation fails.
    */
-  fastify.post('/logout', async (_request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/logout', async (request: FastifyRequest, reply: FastifyReply) => {
+    // Always attach the cookie-clearing header to guarantee client session hygiene
     reply.header('Set-Cookie', serializeSessionCookie('', { clear: true }));
+
+    let token: string | undefined;
+
+    // 1. Try reading token from HTTP-only session cookie
+    if (request.headers.cookie) {
+      const cookieToken = parseCookie(request.headers.cookie, SESSION_COOKIE_NAME);
+      if (cookieToken) {
+        token = cookieToken.trim();
+      }
+    }
+
+    // 2. Fall back to Authorization: Bearer <token> header
+    if (!token && request.headers.authorization?.startsWith('Bearer ')) {
+      token = request.headers.authorization.substring(7).trim();
+    }
+
+    if (token) {
+      try {
+        const parts = token.split('.');
+        if (parts.length === 2 && parts[0]) {
+          const jsonString = Buffer.from(parts[0], 'base64url').toString('utf8');
+          const unverified = JSON.parse(jsonString) as Record<string, unknown>;
+          if (unverified && typeof unverified === 'object' && typeof unverified.role === 'string') {
+            const secret = getSecretForRole(unverified.role);
+            const verified = verifySessionToken(token, secret);
+            if (verified && verified.userId) {
+              await incrementUserTokenVersion(verified.userId);
+            }
+          }
+        }
+      } catch (err: unknown) {
+        if (err instanceof DatabaseUnavailableError || (err as { statusCode?: number })?.statusCode === 503) {
+          return reply.status(503).send({
+            statusCode: 503,
+            error: 'Service Unavailable',
+            message: 'Database is disconnected. Operation rejected in fail-closed mode.'
+          });
+        }
+        request.log.error({ err }, 'Error during logout token revocation');
+        return reply.status(500).send({
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: 'Failed to revoke session token'
+        });
+      }
+    }
 
     return reply.status(200).send({
       statusCode: 200,

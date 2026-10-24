@@ -1,8 +1,14 @@
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { buildServer } from './server.js';
+import { disconnectDatabase } from './plugins/db.js';
+
+process.env.NODE_ENV = 'test';
 
 describe('AweerMarket Central API - Health & Security Endpoints', () => {
+  beforeEach(async () => {
+    await disconnectDatabase();
+  });
   it('GET /health returns 200 with service information and database status', async () => {
     const server = await buildServer();
     const response = await server.inject({

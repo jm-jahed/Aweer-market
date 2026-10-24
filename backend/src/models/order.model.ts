@@ -103,6 +103,11 @@ export class DatabaseUnavailableError extends Error {
   }
 }
 
+export function isInMemoryOrderStoreAllowed(): boolean {
+  if (process.env.NODE_ENV === 'production') return false;
+  return process.env.NODE_ENV === 'test' || process.env.ALLOW_IN_MEMORY_DB === 'true';
+}
+
 export function resetInMemoryOrders(): void {
   if (process.env.NODE_ENV !== 'test') {
     throw new DatabaseUnavailableError('In-memory order store is only permitted in test environment');
@@ -171,7 +176,7 @@ export async function createOrderRecord(data: CreateOrderRecordData): Promise<IO
     });
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryOrderStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Order creation rejected in fail-closed mode.');
   }
 
@@ -203,7 +208,7 @@ export async function findOrderById(id: string): Promise<IOrderDocument | OrderR
     return await OrderModel.findById(id).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryOrderStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -215,7 +220,7 @@ export async function findOrdersByBuyerId(buyerId: string): Promise<Array<IOrder
     return await OrderModel.find({ buyerId }).sort({ createdAt: -1 }).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryOrderStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -229,9 +234,116 @@ export async function countOrders(): Promise<number> {
     return await OrderModel.countDocuments();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryOrderStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
   return inMemoryOrders.size;
 }
+
+export async function findOrdersByShopId(shopId: string): Promise<Array<IOrderDocument | OrderRecord>> {
+  if (isDatabaseConnected()) {
+    return await OrderModel.find({ shopId }).sort({ createdAt: -1 }).exec();
+  }
+
+  if (!isInMemoryOrderStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  return Array.from(inMemoryOrders.values())
+    .filter((o) => o.shopId === shopId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export async function updateOrderStatus(
+  orderId: string,
+  status: OrderStatus
+): Promise<IOrderDocument | OrderRecord | null> {
+  if (isDatabaseConnected()) {
+    return await OrderModel.findByIdAndUpdate(orderId, { $set: { status } }, { new: true }).exec();
+  }
+
+  if (!isInMemoryOrderStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const order = inMemoryOrders.get(orderId);
+  if (!order) return null;
+  order.status = status;
+  order.updatedAt = new Date();
+  return order;
+}
+
+export interface OrderFinancialMetrics {
+  totalGmvAed: number;
+  totalCommissionAed: number;
+  commissionRatePercent: number;
+  deliveredGmvAed: number;
+  deliveredCommissionAed: number;
+  ordersByStatus: Record<string, number>;
+}
+
+export async function listAllOrdersAdmin(filter?: {
+  status?: OrderStatus;
+  shopId?: string;
+}): Promise<Array<IOrderDocument | OrderRecord>> {
+  if (isDatabaseConnected()) {
+    const q: Record<string, unknown> = {};
+    if (filter?.status) q.status = filter.status;
+    if (filter?.shopId) q.shopId = filter.shopId;
+    return await OrderModel.find(q).sort({ createdAt: -1 }).exec();
+  }
+
+  if (!isInMemoryOrderStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  let list = Array.from(inMemoryOrders.values());
+  if (filter?.status) {
+    list = list.filter((o) => o.status === filter.status);
+  }
+  if (filter?.shopId) {
+    list = list.filter((o) => o.shopId === filter.shopId);
+  }
+  return list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export async function getOrderFinancialMetrics(): Promise<OrderFinancialMetrics> {
+  const orders = await listAllOrdersAdmin();
+
+  let totalGmvAed = 0;
+  let deliveredGmvAed = 0;
+  const ordersByStatus: Record<string, number> = {
+    pending: 0,
+    confirmed: 0,
+    preparing: 0,
+    ready_for_pickup: 0,
+    out_for_delivery: 0,
+    delivered: 0,
+    cancelled: 0
+  };
+
+  for (const order of orders) {
+    ordersByStatus[order.status] = (ordersByStatus[order.status] || 0) + 1;
+    if (order.status !== OrderStatus.CANCELLED) {
+      totalGmvAed += order.totalAmountAed;
+    }
+    if (order.status === OrderStatus.DELIVERED) {
+      deliveredGmvAed += order.totalAmountAed;
+    }
+  }
+
+  const commissionRatePercent = 5;
+  const totalCommissionAed = Math.round(totalGmvAed * 0.05 * 100) / 100;
+  const deliveredCommissionAed = Math.round(deliveredGmvAed * 0.05 * 100) / 100;
+
+  return {
+    totalGmvAed: Math.round(totalGmvAed * 100) / 100,
+    totalCommissionAed,
+    commissionRatePercent,
+    deliveredGmvAed: Math.round(deliveredGmvAed * 100) / 100,
+    deliveredCommissionAed,
+    ordersByStatus
+  };
+}
+

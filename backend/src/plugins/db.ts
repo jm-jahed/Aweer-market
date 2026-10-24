@@ -29,6 +29,11 @@ export function getDatabaseState(): 'connected' | 'connecting' | 'disconnecting'
  * or connection failure to enforce fail-closed startup.
  */
 export async function connectDatabase(uri?: string, options?: mongoose.ConnectOptions): Promise<boolean> {
+  if (process.env.ALLOW_IN_MEMORY_DB === 'true' && process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
+    console.log('[MongoDB] ALLOW_IN_MEMORY_DB=true: Running with isolated in-memory storage (skipping external connection).');
+    return false;
+  }
+
   const mongoUri = uri || process.env.MONGODB_URI;
 
   if (!mongoUri) {

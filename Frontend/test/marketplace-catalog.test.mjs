@@ -252,6 +252,76 @@ describe('AweerMarket Step 6 — Buyer Marketplace Catalog & Shop Storefront', (
       assert.strictEqual(res.products.length, 1);
       assert.strictEqual(res.products[0].name, 'Egyptian Oranges');
       assert.strictEqual(res.products[0].offers[0].priceAed, 45);
+      // Ensure all offers strictly belong to the stall shopId
+      assert.strictEqual(res.products[0].offers[0].vendorId, res.shop.id);
+      assert.ok(res.products[0].id.length > 0);
+    });
+
+    it('returns empty array when backend has no approved shops without fabricating mock stalls', async () => {
+      globalThis.fetch = async () => {
+        return new Response(
+          JSON.stringify({
+            statusCode: 200,
+            shops: []
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const res = await getShops();
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(res.shops.length, 0);
+    });
+
+    it('verifies product offer vendorId generates real /shops/${vendorId} route', () => {
+      const bestOffer = {
+        vendorId: 'shop_real_123',
+        shopName: 'Al Barakah Stall'
+      };
+      const vendorUrl = `/shops/${bestOffer.vendorId}`;
+      assert.strictEqual(vendorUrl, '/shops/shop_real_123');
+      assert.doesNotMatch(vendorUrl, /shop_alnoor_1/);
+    });
+  });
+
+  describe('5. Category Slug Mapping & Produce Image Utilities', async () => {
+    const { mapSlugToBackendCategory, resolveProduceImage } = await import(
+      '../src/lib/catalog-utils.ts'
+    );
+
+    it('maps legacy /fruits and /vegetables to backend enum values', () => {
+      assert.strictEqual(mapSlugToBackendCategory('fruits'), 'fresh_fruits');
+      assert.strictEqual(mapSlugToBackendCategory('fresh_fruits'), 'fresh_fruits');
+      assert.strictEqual(mapSlugToBackendCategory('vegetables'), 'fresh_vegetables');
+      assert.strictEqual(mapSlugToBackendCategory('fresh_vegetables'), 'fresh_vegetables');
+    });
+
+    it('maps citrus, greens, spices, berries, and root vegetables', () => {
+      assert.strictEqual(mapSlugToBackendCategory('citrus'), 'citrus');
+      assert.strictEqual(mapSlugToBackendCategory('leafy_greens'), 'leafy_greens');
+      assert.strictEqual(mapSlugToBackendCategory('herbs_greens'), 'leafy_greens');
+      assert.strictEqual(mapSlugToBackendCategory('exotic_produce'), 'exotic_produce');
+      assert.strictEqual(mapSlugToBackendCategory('spices'), 'exotic_produce');
+      assert.strictEqual(mapSlugToBackendCategory('berries'), 'berries');
+      assert.strictEqual(mapSlugToBackendCategory('root_vegetables'), 'root_vegetables');
+    });
+
+    it('returns undefined for all, search, or invalid category slugs', () => {
+      assert.strictEqual(mapSlugToBackendCategory('all'), undefined);
+      assert.strictEqual(mapSlugToBackendCategory('search'), undefined);
+      assert.strictEqual(mapSlugToBackendCategory(''), undefined);
+      assert.strictEqual(mapSlugToBackendCategory(undefined), undefined);
+    });
+
+    it('resolves deterministic food photography based on name keywords', () => {
+      assert.strictEqual(resolveProduceImage('Local Red Tomato'), '/images/tomato.jpg');
+      assert.strictEqual(resolveProduceImage('Fresh Yellow Onion'), '/images/onion.jpg');
+      assert.strictEqual(resolveProduceImage('New Crop Potato'), '/images/potato.jpg');
+      assert.strictEqual(resolveProduceImage('Cavendish Banana'), '/images/banana.jpg');
+      assert.strictEqual(resolveProduceImage('Royal Gala Apple'), '/images/apple.jpg');
+      assert.strictEqual(resolveProduceImage('Sweet Carrots'), '/images/carrots.jpg');
+      assert.strictEqual(resolveProduceImage('Fresh Culinary Mint'), '/images/carrots.jpg');
+      assert.strictEqual(resolveProduceImage('Unknown Specialty Item'), '/images/hero-basket.jpg');
     });
   });
 });

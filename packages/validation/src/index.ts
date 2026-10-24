@@ -118,7 +118,13 @@ export const RegisterVendorSchema = z.object({
 export const UpdateShopProfileSchema = z.object({
   name: z.string().trim().min(2, 'Stall name must be at least 2 characters').optional(),
   stallNumber: z.string().trim().min(1, 'Stall number cannot be empty').optional(),
-  phone: z.string().trim().min(7, 'Phone number must be at least 7 digits').optional()
+  phone: z.string().trim().min(7, 'Phone number must be at least 7 digits').optional(),
+  logoUrl: z.string().trim().optional(),
+  coverImageUrl: z.string().trim().optional(),
+  address: z.string().trim().optional(),
+  openingHours: z.string().trim().optional(),
+  weeklySchedule: z.string().trim().optional(),
+  marketLocation: z.string().trim().optional()
 }).strict();
 
 // ============================================================================
@@ -138,6 +144,7 @@ export const CreateProductSchema = z.object({
   category: z.nativeEnum(ProductCategory),
   originCountry: z.string().min(2),
   description: z.string().default(''),
+  imageUrl: z.string().optional(),
   offer: ProductOfferSchema
 });
 
@@ -152,6 +159,15 @@ export const UpdateProductOfferSchema = z.object({
   minOrderQuantity: z.number().int().positive('MOQ must be at least 1').optional(),
   availableStock: z.number().int().nonnegative('Stock cannot be negative').optional(),
   isActive: z.boolean().optional()
+}).strict();
+
+export const UpdateVendorProductSchema = z.object({
+  name: z.string().min(2).optional(),
+  category: z.nativeEnum(ProductCategory).optional(),
+  originCountry: z.string().min(2).optional(),
+  description: z.string().optional(),
+  imageUrl: z.string().optional(),
+  offer: UpdateProductOfferSchema.optional()
 }).strict();
 
 // ============================================================================
@@ -176,6 +192,34 @@ export const CreateOrderSchema = z.object({
   path: ['shopId']
 });
 
+export const UpdateOrderStatusSchema = z.object({
+  status: z.nativeEnum(OrderStatus)
+}).strict();
+
+// ============================================================================
+// Category Schemas
+// ============================================================================
+
+export const CreateCategorySchema = z.object({
+  name: z.string({ required_error: 'Category name is required' }).trim().min(2, 'Name must be at least 2 characters').max(60),
+  slug: z.string({ required_error: 'Category slug is required' }).trim().min(2).max(60).regex(/^[a-z0-9_]+$/, 'Slug must only contain lowercase letters, numbers, and underscores'),
+  description: z.string().trim().max(300).optional().default(''),
+  icon: z.string().trim().max(30).optional().default('📦'),
+  bannerUrl: z.string().trim().optional().default(''),
+  sortOrder: z.number().int().optional().default(0),
+  isActive: z.boolean().optional().default(true)
+}).strict();
+
+export const UpdateCategorySchema = z.object({
+  name: z.string().trim().min(2).max(60).optional(),
+  slug: z.string().trim().min(2).max(60).regex(/^[a-z0-9_]+$/, 'Slug must only contain lowercase letters, numbers, and underscores').optional(),
+  description: z.string().trim().max(300).optional(),
+  icon: z.string().trim().max(30).optional(),
+  bannerUrl: z.string().trim().optional(),
+  sortOrder: z.number().int().optional(),
+  isActive: z.boolean().optional()
+}).strict();
+
 // ============================================================================
 // Inferred TypeScript Types
 // ============================================================================
@@ -190,4 +234,9 @@ export type UpdateShopProfileInput = z.infer<typeof UpdateShopProfileSchema>;
 export type CreateProductInput = z.infer<typeof CreateProductSchema>;
 export type VendorAddOfferInput = z.infer<typeof VendorAddOfferSchema>;
 export type UpdateProductOfferInput = z.infer<typeof UpdateProductOfferSchema>;
+export type UpdateVendorProductInput = z.infer<typeof UpdateVendorProductSchema>;
 export type CreateOrderInput = z.infer<typeof CreateOrderSchema>;
+export type UpdateOrderStatusInput = z.infer<typeof UpdateOrderStatusSchema>;
+export type CreateCategoryInput = z.infer<typeof CreateCategorySchema>;
+export type UpdateCategoryInput = z.infer<typeof UpdateCategorySchema>;
+

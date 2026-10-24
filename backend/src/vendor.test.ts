@@ -2,10 +2,14 @@ import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { FastifyInstance } from 'fastify';
 import { buildServer } from './server.js';
-import { resetInMemoryUsers } from './models/user.model.js';
-import { resetInMemoryShops } from './models/shop.model.js';
-import { resetInMemoryProducts } from './models/product.model.js';
-import { UserRole, WholesaleUnit, ProductCategory } from '@aweermarket/types';
+import { resetInMemoryUsers, findUserById, findUserByEmail } from './models/user.model.js';
+import { resetInMemoryShops, findShopById } from './models/shop.model.js';
+import { resetInMemoryProducts, findProductById } from './models/product.model.js';
+import { resetInMemoryOrders, createOrderRecord } from './models/order.model.js';
+import { UserRole, WholesaleUnit, ProductCategory, OrderStatus, DeliveryType } from '@aweermarket/types';
+import { signSessionToken } from './utils/crypto.js';
+import { getSecretForRole } from './plugins/security.js';
+
 
 describe('AweerMarket Step 4 — Shop Admin & Vendor Foundation', () => {
   let app: FastifyInstance;
@@ -29,7 +33,9 @@ describe('AweerMarket Step 4 — Shop Admin & Vendor Foundation', () => {
     resetInMemoryUsers();
     resetInMemoryShops();
     resetInMemoryProducts();
+    resetInMemoryOrders();
   });
+
 
   // ==========================================================================
   // 1. Vendor Registration Flow
@@ -643,5 +649,455 @@ describe('AweerMarket Step 4 — Shop Admin & Vendor Foundation', () => {
       assert.strictEqual(catalog.products[0].lowestPriceAedPerKg, 1.5);
     });
   });
+
+  // ==========================================================================
+  // 6. Vendor Order Management & Fulfillment (Port 3001 Backend)
+  // ==========================================================================
+  describe('6. Vendor Order Management & Fulfillment', () => {
+    let vendorACookie: string;
+    let vendorBCookie: string;
+    let shopAId: string;
+    let shopBId: string;
+    let prodOrangeId: string;
+
+    beforeEach(async () => {
+      // Register Vendor A
+      const resA = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/vendor/register',
+        payload: {
+          email: 'orderVendorA@al-aweer.ae',
+          password: 'PasswordA123!',
+          fullName: 'Vendor Orders A',
+          stallName: 'Al Aweer Stall A',
+          stallNumber: 'ST-01',
+          tradeLicenseNumber: 'TL-ORD-01',
+          phone: '+971501111111'
+        }
+      });
+      vendorACookie = resA.headers['set-cookie'] as string;
+      shopAId = resA.json().shop.id;
+
+      // Register Vendor B
+      const resB = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/vendor/register',
+        payload: {
+          email: 'orderVendorB@al-aweer.ae',
+          password: 'PasswordB123!',
+          fullName: 'Vendor Orders B',
+          stallName: 'Al Aweer Stall B',
+          stallNumber: 'ST-02',
+          tradeLicenseNumber: 'TL-ORD-02',
+          phone: '+971502222222'
+        }
+      });
+      vendorBCookie = resB.headers['set-cookie'] as string;
+      shopBId = resB.json().shop.id;
+
+      // Vendor A lists oranges with stock 50
+      const prodRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/vendor/products',
+        headers: { cookie: vendorACookie },
+        payload: {
+          name: 'Valencia Oranges',
+          category: ProductCategory.CITRUS,
+          originCountry: 'Egypt',
+          offer: {
+            unit: WholesaleUnit.CARTON,
+            unitWeightKg: 15,
+            priceAed: 45,
+            minOrderQuantity: 5,
+            availableStock: 50
+          }
+        }
+      });
+      prodOrangeId = prodRes.json().product.id;
+    });
+
+    it('Vendor A retrieves only orders placed for their stall (Multi-Tenant Isolation)', async () => {
+      // Create an order for Shop A
+      const orderA = await createOrderRecord({
+        buyerId: 'buyer_101',
+        shopId: shopAId,
+        shopName: 'Al Aweer Stall A',
+        deliveryType: DeliveryType.SCHEDULED_DELIVERY,
+        deliveryAddress: 'Business Bay, Dubai',
+        items: [
+          {
+            productId: prodOrangeId,
+            name: 'Valencia Oranges',
+            unit: WholesaleUnit.CARTON,
+            unitWeightKg: 15,
+            quantity: 10,
+            unitPriceAed: 45
+          }
+        ]
+      });
+
+      // Vendor A fetches orders
+      const resA = await app.inject({
+        method: 'GET',
+        url: '/api/v1/vendor/orders',
+        headers: { cookie: vendorACookie }
+      });
+
+      assert.strictEqual(resA.statusCode, 200);
+      const bodyA = resA.json();
+      assert.strictEqual(bodyA.orders.length, 1);
+      assert.strictEqual(bodyA.orders[0].orderNumber, orderA.orderNumber);
+      assert.strictEqual(bodyA.orders[0].totalAmountAed, 450);
+
+      // Vendor B fetches orders (must be empty for Vendor B)
+      const resB = await app.inject({
+        method: 'GET',
+        url: '/api/v1/vendor/orders',
+        headers: { cookie: vendorBCookie }
+      });
+
+      assert.strictEqual(resB.statusCode, 200);
+      assert.strictEqual(resB.json().orders.length, 0);
+    });
+
+    it('Vendor A progresses order status from pending -> confirmed -> preparing -> delivered', async () => {
+      const order = await createOrderRecord({
+        buyerId: 'buyer_101',
+        shopId: shopAId,
+        shopName: 'Al Aweer Stall A',
+        deliveryType: DeliveryType.SHOP_PICKUP,
+        items: [
+          {
+            productId: prodOrangeId,
+            name: 'Valencia Oranges',
+            unit: WholesaleUnit.CARTON,
+            unitWeightKg: 15,
+            quantity: 5,
+            unitPriceAed: 45
+          }
+        ]
+      });
+
+      // Confirm order
+      const resConfirm = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/vendor/orders/${order.id}/status`,
+        headers: { cookie: vendorACookie },
+        payload: { status: OrderStatus.CONFIRMED }
+      });
+      assert.strictEqual(resConfirm.statusCode, 200);
+      assert.strictEqual(resConfirm.json().order.status, 'confirmed');
+
+      // Preparing
+      const resPreparing = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/vendor/orders/${order.id}/status`,
+        headers: { cookie: vendorACookie },
+        payload: { status: OrderStatus.PREPARING }
+      });
+      assert.strictEqual(resPreparing.statusCode, 200);
+      assert.strictEqual(resPreparing.json().order.status, 'preparing');
+
+      // Delivered
+      const resDelivered = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/vendor/orders/${order.id}/status`,
+        headers: { cookie: vendorACookie },
+        payload: { status: OrderStatus.DELIVERED }
+      });
+      assert.strictEqual(resDelivered.statusCode, 200);
+      assert.strictEqual(resDelivered.json().order.status, 'delivered');
+    });
+
+    it('PREVENTS Vendor B from modifying Vendor A order status (403 Forbidden)', async () => {
+      const order = await createOrderRecord({
+        buyerId: 'buyer_101',
+        shopId: shopAId,
+        shopName: 'Al Aweer Stall A',
+        deliveryType: DeliveryType.SHOP_PICKUP,
+        items: [
+          {
+            productId: prodOrangeId,
+            name: 'Valencia Oranges',
+            unit: WholesaleUnit.CARTON,
+            unitWeightKg: 15,
+            quantity: 5,
+            unitPriceAed: 45
+          }
+        ]
+      });
+
+      // Vendor B attempts to cancel Vendor A's order
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/vendor/orders/${order.id}/status`,
+        headers: { cookie: vendorBCookie },
+        payload: { status: OrderStatus.CANCELLED }
+      });
+
+      assert.strictEqual(res.statusCode, 403);
+      assert.match(res.json().message, /cannot modify orders for another stall/i);
+    });
+
+    it('rolls back reserved stock when order is cancelled by the vendor', async () => {
+      // Simulate that 10 cartons were reserved (stock decreased to 40)
+      const prodBefore = await findProductById(prodOrangeId);
+      const offerBefore = prodBefore?.offers.find((o) => o.shopId === shopAId);
+      assert.ok(offerBefore);
+      offerBefore.availableStock = 40; // 50 - 10 reserved
+
+      const order = await createOrderRecord({
+        buyerId: 'buyer_101',
+        shopId: shopAId,
+        shopName: 'Al Aweer Stall A',
+        deliveryType: DeliveryType.SHOP_PICKUP,
+        items: [
+          {
+            productId: prodOrangeId,
+            name: 'Valencia Oranges',
+            unit: WholesaleUnit.CARTON,
+            unitWeightKg: 15,
+            quantity: 10,
+            unitPriceAed: 45
+          }
+        ]
+      });
+
+      // Vendor A cancels order
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/vendor/orders/${order.id}/status`,
+        headers: { cookie: vendorACookie },
+        payload: { status: OrderStatus.CANCELLED }
+      });
+
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(res.json().order.status, 'cancelled');
+
+      // Check that stock rolled back from 40 back to 50
+      const prodAfter = await findProductById(prodOrangeId);
+      const offerAfter = prodAfter?.offers.find((o) => o.shopId === shopAId);
+      assert.strictEqual(offerAfter?.availableStock, 50);
+    });
+  });
+
+  // ==========================================================================
+  // 7. Vendor Stale-Session Authorization Security Tests (Phase 2.1)
+  // ==========================================================================
+  describe('7. Vendor Stale-Session Authorization Security Tests (Phase 2.1)', () => {
+    let vendorUser: any;
+    let vendorShop: any;
+    let validCookie: string;
+
+    beforeEach(async () => {
+      // Register primary vendor
+      const regRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/vendor/register',
+        payload: {
+          email: 'stale.vendor@al-aweer.ae',
+          password: 'Password123!',
+          fullName: 'Stale Test Vendor',
+          stallName: 'Stall Alfa',
+          stallNumber: 'ST-ALFA',
+          tradeLicenseNumber: 'TL-ALFA-01',
+          phone: '+971501112233'
+        }
+      });
+      assert.strictEqual(regRes.statusCode, 201);
+      const regBody = regRes.json();
+      validCookie = regRes.headers['set-cookie'] as string;
+
+      vendorUser = await findUserById(regBody.user.id);
+      vendorShop = await findShopById(regBody.shop.id);
+      assert.ok(vendorUser);
+      assert.ok(vendorShop);
+
+      // Approve and activate shop
+      vendorShop.isApproved = true;
+      vendorShop.isActive = true;
+    });
+
+    it('permits a valid active vendor with correct database shop ownership (GET /vendor/shop & /orders)', async () => {
+      const shopRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/vendor/shop',
+        headers: { cookie: validCookie }
+      });
+      assert.strictEqual(shopRes.statusCode, 200);
+      assert.strictEqual(shopRes.json().shop.id, vendorShop.id);
+
+      const ordersRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/vendor/orders',
+        headers: { cookie: validCookie }
+      });
+      assert.strictEqual(ordersRes.statusCode, 200);
+      assert.ok(Array.isArray(ordersRes.json().orders));
+    });
+
+    it('DENIES access when database user is missing or deactivated (404 Not Found)', async () => {
+      // Deactivate vendor in database
+      vendorUser.isActive = false;
+
+      const shopRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/vendor/shop',
+        headers: { cookie: validCookie }
+      });
+      assert.strictEqual(shopRes.statusCode, 404);
+      assert.strictEqual(shopRes.json().message, 'No shop associated with this vendor account');
+
+      const prodRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/vendor/products',
+        headers: { cookie: validCookie }
+      });
+      assert.strictEqual(prodRes.statusCode, 404);
+
+      const ordersRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/vendor/orders',
+        headers: { cookie: validCookie }
+      });
+      assert.strictEqual(ordersRes.statusCode, 404);
+    });
+
+    it('DENIES access when stall/shop is suspended or inactive in database (404 Not Found)', async () => {
+      // Suspend shop in database (isActive = false)
+      vendorShop.isActive = false;
+
+      const shopRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/vendor/shop',
+        headers: { cookie: validCookie }
+      });
+      assert.strictEqual(shopRes.statusCode, 404);
+      assert.strictEqual(shopRes.json().message, 'No shop associated with this vendor account');
+
+      const patchRes = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/vendor/shop',
+        headers: { cookie: validCookie },
+        payload: { name: 'Attempted Hijacked Name' }
+      });
+      assert.strictEqual(patchRes.statusCode, 404);
+    });
+
+    it('DENIES access when shop ownership was revoked or reassigned to another user (404 Not Found)', async () => {
+      // Ownership transferred to someone else
+      vendorShop.ownerId = 'another_user_999';
+
+      const shopRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/vendor/shop',
+        headers: { cookie: validCookie }
+      });
+      assert.strictEqual(shopRes.statusCode, 404);
+      assert.strictEqual(shopRes.json().message, 'No shop associated with this vendor account');
+    });
+
+    it('prevents stale token shopId claim from overriding actual database shop ownership', async () => {
+      // Create a second stall (Shop Beta) owned by another vendor
+      const regBetaRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/vendor/register',
+        payload: {
+          email: 'beta.vendor@al-aweer.ae',
+          password: 'Password123!',
+          fullName: 'Beta Vendor',
+          stallName: 'Stall Beta',
+          stallNumber: 'ST-BETA',
+          tradeLicenseNumber: 'TL-BETA-02',
+          phone: '+971509998877'
+        }
+      });
+      const betaShopId = regBetaRes.json().shop.id;
+      const betaShop = await findShopById(betaShopId);
+      assert.ok(betaShop);
+      betaShop.isActive = true;
+
+      // Forge/simulate a stale session token: vendorUser is authenticated, but token claims betaShopId
+      const staleToken = signSessionToken(
+        {
+          userId: vendorUser.id,
+          role: UserRole.SHOP_ADMIN,
+          email: vendorUser.email,
+          shopId: betaShopId // Stale/malicious claim
+        },
+        getSecretForRole(UserRole.SHOP_ADMIN)
+      );
+
+      // Attempt GET /api/v1/vendor/shop with stale token claiming Beta Shop
+      const shopRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/vendor/shop',
+        headers: {
+          cookie: `aweer_session=${staleToken}`
+        }
+      });
+
+      assert.strictEqual(shopRes.statusCode, 200);
+      const returnedShop = shopRes.json().shop;
+      // CRITICAL ASSERTION: Must return vendorUser's actual database shop (Stall Alfa), NOT the claimed Stall Beta
+      assert.strictEqual(returnedShop.id, vendorShop.id);
+      assert.notStrictEqual(returnedShop.id, betaShopId);
+      assert.strictEqual(returnedShop.name, 'Stall Alfa');
+    });
+
+    it('prevents vendor with stale token from modifying another stall via PATCH /vendor/shop', async () => {
+      // Create Stall Gamma owned by another vendor
+      const regGammaRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/vendor/register',
+        payload: {
+          email: 'gamma.vendor@al-aweer.ae',
+          password: 'Password123!',
+          fullName: 'Gamma Vendor',
+          stallName: 'Stall Gamma',
+          stallNumber: 'ST-GAMMA',
+          tradeLicenseNumber: 'TL-GAMMA-03',
+          phone: '+971507776655'
+        }
+      });
+      const gammaShopId = regGammaRes.json().shop.id;
+      const gammaShop = await findShopById(gammaShopId);
+      assert.ok(gammaShop);
+      gammaShop.isActive = true;
+
+      // Token for vendorUser claiming gammaShopId
+      const staleToken = signSessionToken(
+        {
+          userId: vendorUser.id,
+          role: UserRole.SHOP_ADMIN,
+          email: vendorUser.email,
+          shopId: gammaShopId
+        },
+        getSecretForRole(UserRole.SHOP_ADMIN)
+      );
+
+      // PATCH /vendor/shop attempting to rename Stall Gamma
+      const patchRes = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/vendor/shop',
+        headers: {
+          cookie: `aweer_session=${staleToken}`
+        },
+        payload: {
+          name: 'Renamed by Attacker'
+        }
+      });
+
+      assert.strictEqual(patchRes.statusCode, 200);
+      // Stall Gamma in database MUST remain untouched!
+      const gammaAfter = await findShopById(gammaShopId);
+      assert.strictEqual(gammaAfter?.name, 'Stall Gamma');
+
+      // Instead, vendorUser's own shop (Stall Alfa) was updated
+      const alfaAfter = await findShopById(vendorShop.id);
+      assert.strictEqual(alfaAfter?.name, 'Renamed by Attacker');
+    });
+  });
 });
+
 

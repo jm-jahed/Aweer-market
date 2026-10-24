@@ -3,12 +3,12 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useShopAdminAuth } from '../../lib/auth-context';
+import { useAuth } from '../../lib/auth-context';
 import styles from './Register.module.css';
 
 export default function VendorRegisterPage() {
   const router = useRouter();
-  const { user, register, isLoading: authLoading } = useShopAdminAuth();
+  const { user, register, isLoading: authLoading } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');

@@ -7,6 +7,7 @@ import { authRoutes } from './routes/auth.js';
 import { productsRoutes } from './routes/products.js';
 import { adminRoutes } from './routes/admin.js';
 import { vendorRoutes } from './routes/vendor.js';
+import { ordersRoutes } from './routes/orders.js';
 import { connectDatabase, disconnectDatabase } from './plugins/db.js';
 import { securityPlugin, safeErrorHandler } from './plugins/security.js';
 
@@ -30,7 +31,8 @@ export async function buildServer() {
 
   // Security Headers
   await server.register(helmet, {
-    contentSecurityPolicy: false // Disabled for local dev/API
+    contentSecurityPolicy: false, // Disabled for local dev/API
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
   });
 
   // CORS Configuration
@@ -68,6 +70,9 @@ export async function buildServer() {
   // Vendor / Shop Admin routes
   await server.register(vendorRoutes, { prefix: '/api/v1/vendor' });
 
+  // Buyer Orders routes
+  await server.register(ordersRoutes, { prefix: '/api/v1' });
+
   server.get('/', async (_req, reply) => {
     return reply.send({
       brand: 'AweerMarket',
@@ -84,8 +89,13 @@ export async function start() {
   try {
     // Fail-closed database connection check before accepting any requests
     const connected = await connectDatabase();
-    if (!connected && process.env.NODE_ENV !== 'test') {
+    if (!connected && process.env.NODE_ENV !== 'test' && process.env.ALLOW_IN_MEMORY_DB !== 'true') {
       throw new Error('[AweerMarket API] Database connection failed. Startup aborted in fail-closed mode.');
+    }
+
+    if (process.env.ALLOW_IN_MEMORY_DB === 'true') {
+      const { seedDemoData } = await import('./seed.js');
+      await seedDemoData();
     }
 
     const server = await buildServer();

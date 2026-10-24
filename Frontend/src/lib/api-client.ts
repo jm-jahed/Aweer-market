@@ -5,7 +5,8 @@
  */
 
 import type { UserSummary, ProductItem, ProductOfferSummary } from '@aweermarket/types';
-import type { RegisterBuyerInput, LoginInput } from '@aweermarket/validation';
+import type { RegisterBuyerInput, LoginInput, CreateOrderInput } from '@aweermarket/validation';
+
 
 export class ApiClientError extends Error {
   readonly statusCode: number;
@@ -72,8 +73,15 @@ export interface LogoutResponse {
 }
 
 export interface CategoryItem {
+  id?: string;
+  name?: string;
+  slug?: string;
   key: string;
   label: string;
+  description?: string;
+  icon?: string;
+  bannerUrl?: string;
+  sortOrder?: number;
 }
 
 export interface CategoriesResponse {
@@ -103,6 +111,7 @@ export interface ShopPublicSummary {
   slug: string;
   stallNumber: string;
   phone: string;
+  tradeLicenseNumber?: string;
   isApproved: boolean;
   isActive: boolean;
   createdAt: string;
@@ -316,4 +325,79 @@ export async function getShopById(id: string): Promise<ShopStorefrontResponse> {
     method: 'GET'
   });
 }
+
+export interface OrderItemSummary {
+  productId: string;
+  name: string;
+  unit: string;
+  unitWeightKg: number;
+  quantity: number;
+  unitPriceAed: number;
+  lineTotalAed: number;
+}
+
+export interface OrderSummary {
+  id: string;
+  orderNumber: string;
+  buyerId: string;
+  shopId: string;
+  shopName: string;
+  stallNumber?: string;
+  deliveryType: string;
+  deliveryAddress?: string;
+  pickupTime?: string;
+  status: string;
+  totalAmountAed: number;
+  items: OrderItemSummary[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOrderResponse {
+  statusCode: number;
+  message: string;
+  order: OrderSummary;
+}
+
+export interface OrdersListResponse {
+  statusCode: number;
+  orders: OrderSummary[];
+}
+
+export interface OrderDetailResponse {
+  statusCode: number;
+  order: OrderSummary;
+}
+
+/**
+ * Creates a wholesale order with server-authoritative pricing and stock reservation.
+ * Endpoint: POST /api/v1/orders
+ */
+export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResponse> {
+  return await apiRequest<CreateOrderResponse>('/orders', {
+    method: 'POST',
+    body: input
+  });
+}
+
+/**
+ * Retrieves all past orders placed by the authenticated buyer.
+ * Endpoint: GET /api/v1/orders
+ */
+export async function getBuyerOrders(): Promise<OrdersListResponse> {
+  return await apiRequest<OrdersListResponse>('/orders', {
+    method: 'GET'
+  });
+}
+
+/**
+ * Retrieves full details for a single buyer order.
+ * Endpoint: GET /api/v1/orders/:id
+ */
+export async function getBuyerOrderById(id: string): Promise<OrderDetailResponse> {
+  return await apiRequest<OrderDetailResponse>(`/orders/${id}`, {
+    method: 'GET'
+  });
+}
+
 

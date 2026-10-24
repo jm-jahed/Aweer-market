@@ -147,3 +147,5 @@ export function useShopAdminAuth(): ShopAdminAuthContextValue {
   }
   return ctx;
 }
+
+export const useAuth = useShopAdminAuth;

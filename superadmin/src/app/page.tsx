@@ -1,10 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, FormEvent, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  useSuperAdminAuth
-} from '../lib/auth-context';
+import { useSuperAdminAuth } from '../lib/auth-context';
 import {
   getAdminOverview,
   getAdminShops,
@@ -13,9 +11,18 @@ import {
   setAdminUserStatus,
   getAdminProducts,
   setAdminProductModeration,
+  getAdminOrders,
+  setAdminShopStatus,
+  getAdminCategories,
+  createAdminCategory,
+  updateAdminCategory,
+  setAdminCategoryStatus,
+  deleteAdminCategory,
   PlatformMetrics,
   AdminShopItem,
-  AdminProductItem
+  AdminProductItem,
+  AdminOrderItem,
+  AdminCategoryItem
 } from '../lib/api-client';
 import type { UserSummary } from '@aweermarket/types';
 import styles from './Dashboard.module.css';
@@ -24,15 +31,55 @@ export default function SuperAdminDashboard() {
   const router = useRouter();
   const { user, isLoading: authLoading, logout } = useSuperAdminAuth();
 
-  const [activeTab, setActiveTab] = useState<'stalls' | 'users' | 'products'>('stalls');
+  // Active Navigation Tab
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+
+  // Search input state
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Live Backend Data
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
   const [shops, setShops] = useState<AdminShopItem[]>([]);
+  const [categories, setCategories] = useState<AdminCategoryItem[]>([]);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [products, setProducts] = useState<AdminProductItem[]>([]);
+  const [orders, setOrders] = useState<AdminOrderItem[]>([]);
 
   const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // Category Modal State
+  const [isCatModalOpen, setIsCatModalOpen] = useState<boolean>(false);
+  const [editingCat, setEditingCat] = useState<AdminCategoryItem | null>(null);
+  const [catName, setCatName] = useState<string>('');
+  const [catSlug, setCatSlug] = useState<string>('');
+  const [catDescription, setCatDescription] = useState<string>('');
+  const [catIcon, setCatIcon] = useState<string>('📦');
+  const [catBannerUrl, setCatBannerUrl] = useState<string>('');
+  const [catSortOrder, setCatSortOrder] = useState<number>(0);
+  const [catIsActive, setCatIsActive] = useState<boolean>(true);
+  const [catFormError, setCatFormError] = useState<string | null>(null);
+  const [isSubmittingCat, setIsSubmittingCat] = useState<boolean>(false);
+  const [deleteConfirmCat, setDeleteConfirmCat] = useState<AdminCategoryItem | null>(null);
+  const [catActionSuccess, setCatActionSuccess] = useState<string | null>(null);
+
+  // Critical Action & Edit Confirmation Popup Modal State
+  interface ConfirmationModalConfig {
+    isOpen: boolean;
+    title: string;
+    message: string;
+    detail?: string;
+    warningNotice?: string;
+    confirmLabel: string;
+    cancelLabel?: string;
+    variant: 'danger' | 'warning' | 'primary';
+    onConfirm: () => void | Promise<void>;
+  }
+  const [confirmModal, setConfirmModal] = useState<ConfirmationModalConfig | null>(null);
+  const [isExecutingConfirm, setIsExecutingConfirm] = useState<boolean>(false);
+
 
   // Auth Guard
   useEffect(() => {
@@ -44,17 +91,26 @@ export default function SuperAdminDashboard() {
   const loadAllData = useCallback(async () => {
     setIsLoadingData(true);
     setDataError(null);
+    setCategoriesError(null);
     try {
-      const [overviewRes, shopsRes, usersRes, productsRes] = await Promise.all([
+      const [overviewRes, shopsRes, categoriesRes, usersRes, productsRes, ordersRes] = await Promise.all([
         getAdminOverview(),
         getAdminShops(),
+        getAdminCategories().catch((err) => {
+          const msg = err instanceof Error ? err.message : 'Failed to fetch categories';
+          setCategoriesError(msg);
+          return { statusCode: 500, categories: [] as AdminCategoryItem[] };
+        }),
         getAdminUsers(),
-        getAdminProducts()
+        getAdminProducts(),
+        getAdminOrders()
       ]);
       setMetrics(overviewRes.metrics);
       setShops(shopsRes.shops);
+      setCategories(categoriesRes.categories || []);
       setUsers(usersRes.users);
       setProducts(productsRes.products);
+      setOrders(ordersRes.orders);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to fetch platform governance data';
       setDataError(msg);
@@ -69,39 +125,253 @@ export default function SuperAdminDashboard() {
     }
   }, [user, loadAllData]);
 
-  const handleToggleShopApproval = async (shop: AdminShopItem) => {
-    setProcessingId(shop.id);
+  const showCatSuccess = (msg: string) => {
+    setCatActionSuccess(msg);
+    setTimeout(() => setCatActionSuccess(null), 3500);
+  };
+
+  // Category Actions
+  const handleOpenAddCategory = () => {
+    setEditingCat(null);
+    setCatName('');
+    setCatSlug('');
+    setCatDescription('');
+    setCatIcon('🍎');
+    setCatBannerUrl('');
+    setCatSortOrder(categories.length + 1);
+    setCatIsActive(true);
+    setCatFormError(null);
+    setIsCatModalOpen(true);
+  };
+
+  const handleOpenEditCategory = (cat: AdminCategoryItem) => {
+    setEditingCat(cat);
+    setCatName(cat.name || cat.label || '');
+    setCatSlug(cat.slug || cat.key || '');
+    setCatDescription(cat.description || '');
+    setCatIcon(cat.icon || '📦');
+    setCatBannerUrl(cat.bannerUrl || '');
+    setCatSortOrder(cat.sortOrder ?? 0);
+    setCatIsActive(cat.isActive ?? true);
+    setCatFormError(null);
+    setIsCatModalOpen(true);
+  };
+
+  const executeCategorySave = async (trimmedName: string, trimmedSlug: string) => {
+    setIsSubmittingCat(true);
     try {
-      const res = await setAdminShopApproval(shop.id, !shop.isApproved);
-      setShops((prev) =>
-        prev.map((s) => (s.id === shop.id ? { ...s, isApproved: res.shop.isApproved } : s))
-      );
-      if (metrics) {
-        setMetrics({
-          ...metrics,
-          approvedShops: res.shop.isApproved ? metrics.approvedShops + 1 : metrics.approvedShops - 1,
-          pendingShops: res.shop.isApproved ? metrics.pendingShops - 1 : metrics.pendingShops + 1
+      if (editingCat) {
+        const res = await updateAdminCategory(editingCat.id, {
+          name: trimmedName,
+          slug: trimmedSlug,
+          description: catDescription.trim() || undefined,
+          icon: catIcon.trim() || '📦',
+          bannerUrl: catBannerUrl.trim() || undefined,
+          sortOrder: Number(catSortOrder) || 0,
+          isActive: catIsActive
         });
+        setCategories((prev) =>
+          prev.map((c) => (c.id === editingCat.id ? { ...c, ...res.category } : c))
+        );
+        showCatSuccess(`Category '${trimmedName}' updated successfully.`);
+      } else {
+        const res = await createAdminCategory({
+          name: trimmedName,
+          slug: trimmedSlug,
+          description: catDescription.trim() || undefined,
+          icon: catIcon.trim() || '📦',
+          bannerUrl: catBannerUrl.trim() || undefined,
+          sortOrder: Number(catSortOrder) || 0,
+          isActive: catIsActive
+        });
+        setCategories((prev) => [...prev, res.category]);
+        showCatSuccess(`Category '${trimmedName}' created successfully.`);
       }
+      setIsCatModalOpen(false);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to update shop approval');
+      const msg = err instanceof Error ? err.message : 'Failed to save category';
+      setCatFormError(msg);
+    } finally {
+      setIsSubmittingCat(false);
+    }
+  };
+
+  const handleSaveCategory = async (e: FormEvent) => {
+    e.preventDefault();
+    setCatFormError(null);
+
+    const trimmedName = catName.trim();
+    const trimmedSlug = catSlug.trim().toLowerCase();
+
+    if (!trimmedName) {
+      setCatFormError('Category name is required.');
+      return;
+    }
+    if (!trimmedSlug || !/^[a-z0-9_-]+$/.test(trimmedSlug)) {
+      setCatFormError('Valid slug (lowercase alphanumeric, dashes or underscores) is required.');
+      return;
+    }
+
+    if (editingCat) {
+      // Confirmation popup before saving category edits
+      setConfirmModal({
+        isOpen: true,
+        title: 'Confirm Category Update',
+        message: `Are you sure you want to save updated changes for category "${trimmedName}"?`,
+        detail: `Slug: ${trimmedSlug} | Sort Order: ${catSortOrder} | Status: ${catIsActive ? 'Active' : 'Inactive'}`,
+        confirmLabel: 'Confirm & Save Changes',
+        variant: 'primary',
+        onConfirm: async () => {
+          await executeCategorySave(trimmedName, trimmedSlug);
+        }
+      });
+      return;
+    }
+
+    await executeCategorySave(trimmedName, trimmedSlug);
+  };
+
+  const handleToggleCategoryStatus = async (cat: AdminCategoryItem) => {
+    setProcessingId(cat.id);
+    try {
+      const newStatus = !cat.isActive;
+      const res = await setAdminCategoryStatus(cat.id, newStatus);
+      setCategories((prev) =>
+        prev.map((c) => (c.id === cat.id ? { ...c, isActive: res.category.isActive } : c))
+      );
+      showCatSuccess(`Category '${cat.label || cat.name}' is now ${newStatus ? 'active' : 'inactive'}.`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to toggle category status');
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleToggleUserStatus = async (targetUser: UserSummary) => {
-    if (user && targetUser.id === user.id) {
-      alert('Security Protection: Super Admin cannot deactivate own account.');
-      return;
-    }
+  const requestToggleCategoryStatus = (cat: AdminCategoryItem) => {
+    const willBeActive = !cat.isActive;
+    setConfirmModal({
+      isOpen: true,
+      title: willBeActive ? 'Confirm Category Activation' : 'Confirm Category Deactivation',
+      message: `Are you sure you want to ${willBeActive ? 'activate' : 'deactivate'} wholesale category "${cat.name || cat.label}"?`,
+      detail: `Category Slug: ${cat.slug || cat.key}`,
+      warningNotice: willBeActive
+        ? 'This category will immediately become visible to commercial buyers across the marketplace.'
+        : 'Deactivating this category will hide it from buyer navigation, filter chips, and search suggestions.',
+      confirmLabel: willBeActive ? 'Activate Category' : 'Deactivate Category',
+      variant: willBeActive ? 'primary' : 'warning',
+      onConfirm: async () => {
+        await handleToggleCategoryStatus(cat);
+      }
+    });
+  };
 
-    setProcessingId(targetUser.id);
+  const handleConfirmDeleteCategory = async (cat: AdminCategoryItem) => {
+    setProcessingId(cat.id);
     try {
-      const res = await setAdminUserStatus(targetUser.id, !targetUser.isActive);
-      setUsers((prev) =>
-        prev.map((u) => (u.id === targetUser.id ? { ...u, isActive: res.user.isActive } : u))
-      );
+      const res = await deleteAdminCategory(cat.id);
+      if (res.deactivated) {
+        setCategories((prev) =>
+          prev.map((c) => (c.id === cat.id ? { ...c, isActive: false } : c))
+        );
+        showCatSuccess(`Category '${cat.label || cat.name}' has associated products and was safely deactivated.`);
+      } else {
+        setCategories((prev) => prev.filter((c) => c.id !== cat.id));
+        showCatSuccess(`Category '${cat.label || cat.name}' deleted.`);
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to delete category');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const requestDeleteCategory = (cat: AdminCategoryItem) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Confirm Category Deletion',
+      message: `Are you sure you want to delete category "${cat.name || cat.label}"?`,
+      detail: `API Key / Slug: ${cat.slug || cat.key}`,
+      warningNotice: 'Safety Safeguard: If active produce listings currently reference this category, it will automatically be deactivated rather than deleted to prevent orphaned product records.',
+      confirmLabel: 'Yes, Delete Category',
+      variant: 'danger',
+      onConfirm: async () => {
+        await handleConfirmDeleteCategory(cat);
+      }
+    });
+  };
+
+  // Stall & User Actions
+  const handleToggleShopApproval = async (shop: AdminShopItem) => {
+    setProcessingId(shop.id);
+    try {
+      const newStatus = !shop.isApproved;
+      const res = await setAdminShopApproval(shop.id, newStatus);
+      setShops((prev) => prev.map((s) => (s.id === shop.id ? res.shop : s)));
+      showCatSuccess(`Stall '${shop.name}' approval ${newStatus ? 'granted' : 'suspended'}.`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to update stall approval');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const requestToggleShopApproval = (shop: AdminShopItem) => {
+    const willBeApproved = !shop.isApproved;
+    setConfirmModal({
+      isOpen: true,
+      title: willBeApproved ? 'Confirm Stall Approval' : 'Confirm Stall Approval Suspension',
+      message: `Are you sure you want to ${willBeApproved ? 'approve' : 'suspend approval for'} wholesale stall "${shop.name}" (${shop.stallNumber})?`,
+      detail: `Stall Slug: /${shop.slug}`,
+      warningNotice: willBeApproved
+        ? 'Approving this stall will publish its wholesale produce offers to registered commercial buyers.'
+        : 'Suspending approval will immediately revoke marketplace visibility for all products listed by this stall.',
+      confirmLabel: willBeApproved ? 'Approve Stall' : 'Suspend Stall Approval',
+      variant: willBeApproved ? 'primary' : 'danger',
+      onConfirm: async () => {
+        await handleToggleShopApproval(shop);
+      }
+    });
+  };
+
+  const handleToggleShopStatus = async (shop: AdminShopItem) => {
+    setProcessingId(shop.id);
+    try {
+      const newStatus = !shop.isActive;
+      const res = await setAdminShopStatus(shop.id, newStatus);
+      setShops((prev) => prev.map((s) => (s.id === shop.id ? res.shop : s)));
+      showCatSuccess(`Stall '${shop.name}' is now ${newStatus ? 'active' : 'delisted'}.`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to update stall status');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const requestToggleShopStatus = (shop: AdminShopItem) => {
+    const willBeActive = !shop.isActive;
+    setConfirmModal({
+      isOpen: true,
+      title: willBeActive ? 'Confirm Stall Reactivation' : 'Confirm Stall Delisting',
+      message: `Are you sure you want to ${willBeActive ? 'reactivate' : 'delist'} wholesale stall "${shop.name}"?`,
+      detail: `Stall Slug: /${shop.slug}`,
+      warningNotice: willBeActive
+        ? 'Reactivating will restore public marketplace visibility for this stall.'
+        : 'Delisting this stall will hide all its listings from marketplace search and stall directories.',
+      confirmLabel: willBeActive ? 'Reactivate Stall' : 'Delist Stall',
+      variant: willBeActive ? 'primary' : 'warning',
+      onConfirm: async () => {
+        await handleToggleShopStatus(shop);
+      }
+    });
+  };
+
+  const handleToggleUserStatus = async (u: UserSummary) => {
+    setProcessingId(u.id);
+    try {
+      const newStatus = !u.isActive;
+      const res = await setAdminUserStatus(u.id, newStatus);
+      setUsers((prev) => prev.map((usr) => (usr.id === u.id ? res.user : usr)));
+      showCatSuccess(`User '${u.fullName}' account ${newStatus ? 'restored' : 'suspended'}.`);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to update user status');
     } finally {
@@ -109,24 +379,54 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleToggleProductModeration = async (product: AdminProductItem) => {
-    setProcessingId(product.id);
-    try {
-      // Toggle logic: If product exists in active list, deactivate it
-      await setAdminProductModeration(product.id, false);
-      setProducts((prev) => prev.filter((p) => p.id !== product.id));
-      if (metrics) {
-        setMetrics({
-          ...metrics,
-          activeProducts: Math.max(0, metrics.activeProducts - 1),
-          inactiveProducts: metrics.inactiveProducts + 1
-        });
+  const requestToggleUserStatus = (u: UserSummary) => {
+    const willBeActive = !u.isActive;
+    setConfirmModal({
+      isOpen: true,
+      title: willBeActive ? 'Confirm User Access Restoration' : 'Confirm User Suspension',
+      message: `Are you sure you want to ${willBeActive ? 'restore access for' : 'suspend access for'} user "${u.fullName}"?`,
+      detail: `Email: ${u.email} | Role: ${u.role}`,
+      warningNotice: willBeActive
+        ? 'Restoring access will allow the user to authenticate and manage their operations again.'
+        : 'Suspended users will have their active sessions invalidated and will be blocked from logging into the platform.',
+      confirmLabel: willBeActive ? 'Restore Access' : 'Suspend User',
+      variant: willBeActive ? 'primary' : 'danger',
+      onConfirm: async () => {
+        await handleToggleUserStatus(u);
       }
+    });
+  };
+
+  const handleToggleProductStatus = async (p: AdminProductItem) => {
+    setProcessingId(p.id);
+    try {
+      const newStatus = !p.isActive;
+      const res = await setAdminProductModeration(p.id, newStatus);
+      setProducts((prev) => prev.map((prod) => (prod.id === p.id ? res.product : prod)));
+      showCatSuccess(`Produce '${p.name}' is now ${newStatus ? 'listed' : 'delisted'}.`);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to delist produce');
+      alert(err instanceof Error ? err.message : 'Failed to moderate product');
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const requestToggleProductStatus = (p: AdminProductItem) => {
+    const willBeActive = !p.isActive;
+    setConfirmModal({
+      isOpen: true,
+      title: willBeActive ? 'Confirm Produce Listing' : 'Confirm Produce Delisting',
+      message: `Are you sure you want to ${willBeActive ? 'list' : 'delist'} wholesale produce "${p.name}"?`,
+      detail: `Category: ${p.category} | Origin: ${p.originCountry}`,
+      warningNotice: willBeActive
+        ? 'Listing will display this produce item in the buyer catalog.'
+        : 'Delisting will hide this produce item from buyers and prevent vendor offers from being displayed.',
+      confirmLabel: willBeActive ? 'List Produce' : 'Delist Produce',
+      variant: willBeActive ? 'primary' : 'warning',
+      onConfirm: async () => {
+        await handleToggleProductStatus(p);
+      }
+    });
   };
 
   const handleLogout = async () => {
@@ -134,331 +434,1809 @@ export default function SuperAdminDashboard() {
     router.replace('/login');
   };
 
+  // Filtered categories for search
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return categories;
+    const q = searchQuery.toLowerCase();
+    return categories.filter((c) => {
+      const name = c.name || c.label || '';
+      const slug = c.slug || c.key || '';
+      const desc = c.description || '';
+      return (
+        name.toLowerCase().includes(q) ||
+        slug.toLowerCase().includes(q) ||
+        desc.toLowerCase().includes(q)
+      );
+    });
+  }, [categories, searchQuery]);
+
+  // Dynamic Top Selling Products from live orders
+  const topSellingProducts = useMemo(() => {
+    const counts = new Map<string, { id: string; name: string; sold: number; unitPriceAed: number; imageUrl?: string }>();
+    for (const ord of orders) {
+      for (const item of ord.items || []) {
+        const existing = counts.get(item.productId) || {
+          id: item.productId,
+          name: item.name,
+          sold: 0,
+          unitPriceAed: item.unitPriceAed,
+          imageUrl: '/images/apple.jpg'
+        };
+        existing.sold += item.quantity;
+        counts.set(item.productId, existing);
+      }
+    }
+    return Array.from(counts.values()).sort((a, b) => b.sold - a.sold).slice(0, 5);
+  }, [orders]);
+
+  // Dynamic Top Vendors from live shops and orders
+  const topVendors = useMemo(() => {
+    const vendorMap = new Map<string, { id: string; name: string; stallNumber: string; productCount: number; sales: number; ordersCount: number }>();
+    for (const s of shops) {
+      vendorMap.set(s.id, {
+        id: s.id,
+        name: s.name,
+        stallNumber: s.stallNumber,
+        productCount: products.filter((p) => p.offers?.some((o) => o.vendorId === s.id)).length,
+        sales: 0,
+        ordersCount: 0
+      });
+    }
+    for (const ord of orders) {
+      const v = vendorMap.get(ord.shopId);
+      if (v) {
+        v.sales += ord.totalAmountAed;
+        v.ordersCount += 1;
+      }
+    }
+    return Array.from(vendorMap.values()).sort((a, b) => b.sales - a.sales).slice(0, 5);
+  }, [shops, orders, products]);
+
+  // Dynamic Market Stall Blocks from real registered stalls
+  const marketBlocks = useMemo(() => {
+    const blockMap = new Map<string, { area: string; vendorCount: number; productCount: number }>();
+    for (const s of shops) {
+      const match = s.stallNumber?.match(/Block\s+[A-Za-z0-9]+/i) || s.stallNumber?.match(/ST-[A-Za-z0-9]+/i);
+      const blockName = match ? match[0] : (s.stallNumber ? `Stall Area (${s.stallNumber})` : 'Central Market Stalls');
+      const existing = blockMap.get(blockName) || { area: blockName, vendorCount: 0, productCount: 0 };
+      existing.vendorCount += 1;
+      existing.productCount += products.filter((p) => p.offers?.some((o) => o.vendorId === s.id)).length;
+      blockMap.set(blockName, existing);
+    }
+    return Array.from(blockMap.values()).sort((a, b) => b.vendorCount - a.vendorCount).slice(0, 6);
+  }, [shops, products]);
+
+  // Dynamic Platform Activity feed from live events (orders, shops)
+  const recentActivity = useMemo(() => {
+    const items: Array<{ id: string; text: string; time: string; timestamp: number }> = [];
+    for (const ord of orders) {
+      items.push({
+        id: `ord-${ord.id}`,
+        text: `Wholesale Order #${ord.orderNumber || ord.id.slice(0, 8)} placed for ${ord.shopName || 'Market Stall'}`,
+        time: new Date(ord.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date(ord.createdAt).getTime()
+      });
+    }
+    for (const s of shops) {
+      items.push({
+        id: `shop-${s.id}`,
+        text: `Stall registered: ${s.name} (${s.stallNumber || 'Al Aweer'})`,
+        time: new Date(s.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date(s.createdAt).getTime()
+      });
+    }
+    return items.sort((a, b) => b.timestamp - a.timestamp).slice(0, 6);
+  }, [orders, shops]);
+
+  // Dynamic Orders Status counts
+  const ordersStatusStats = useMemo(() => {
+    const delivered = metrics?.financials?.ordersByStatus?.delivered ?? orders.filter((o) => o.status === 'delivered').length;
+    const pending = metrics?.financials?.ordersByStatus?.pending ?? orders.filter((o) => o.status === 'pending').length;
+    const processing = orders.filter((o) => o.status === 'preparing' || o.status === 'confirmed' || o.status === 'ready_for_pickup' || o.status === 'out_for_delivery').length;
+    const cancelled = metrics?.financials?.ordersByStatus?.cancelled ?? orders.filter((o) => o.status === 'cancelled').length;
+    const total = metrics?.totalOrders ?? orders.length;
+    return { delivered, pending, processing, cancelled, total };
+  }, [metrics, orders]);
+
+  // Dynamic Uploaded Media Files from real registered catalog categories
+  const uploadedMediaFiles = useMemo(() => {
+    const files: Array<{ name: string; type: string; size: string; uploaded: string }> = [];
+    for (const c of categories) {
+      if (c.bannerUrl) {
+        const filename = c.bannerUrl.split('/').pop() || 'category-banner.jpg';
+        files.push({
+          name: `🖼️ ${filename}`,
+          type: 'Image (Category Banner)',
+          size: 'Banner Asset',
+          uploaded: 'Catalog Media'
+        });
+      }
+      if (c.icon) {
+        const filename = c.icon.split('/').pop() || 'category-icon.svg';
+        files.push({
+          name: `🎨 ${filename}`,
+          type: 'Vector Icon',
+          size: 'UI Asset',
+          uploaded: 'Catalog Media'
+        });
+      }
+    }
+    return files.slice(0, 5);
+  }, [categories]);
+
   if (authLoading || (!user && !dataError)) {
     return (
-      <div className={styles.loadingBanner}>
-        Authenticating Super Admin privileged session...
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#030d0a', color: '#10b981', fontWeight: 700 }}>
+        Authenticating Super Admin Privileged Session...
       </div>
     );
   }
 
   return (
     <div className={styles.container}>
-      {/* Top Navbar */}
-      <nav className={styles.navbar}>
-        <div className={styles.brand}>
-          <h1 className={styles.brandTitle}>AweerMarket Central</h1>
-          <span className={styles.brandBadge}>Super Admin (Port 3002)</span>
-        </div>
-        <div className={styles.userNav}>
-          <div className={styles.userInfo}>
-            <p className={styles.userName}>{user?.fullName || 'Super Admin'}</p>
-            <p className={styles.userEmail}>{user?.email}</p>
+      {/* =====================================================================
+          TOP HEADER BAR (Matching Reference Image)
+         ===================================================================== */}
+      <header className={styles.topHeader}>
+        {/* Brand Logo */}
+        <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab('dashboard'); }} className={styles.headerBrand}>
+          <div className={styles.brandLogoWrap}>🌿</div>
+          <div className={styles.brandTextGroup}>
+            <span className={styles.brandTitle}>Aweer<span>market</span></span>
+            <span className={styles.brandSubtitle}>Fresh • Local • Together</span>
           </div>
-          <button onClick={handleLogout} className={styles.logoutBtn} id="super-admin-logout-btn">
-            Sign Out
-          </button>
+        </a>
+
+        {/* Global Search Bar with Ctrl + K */}
+        <div className={styles.headerSearchWrap}>
+          <span className={styles.headerSearchIcon}>🔍</span>
+          <input
+            type="text"
+            className={styles.headerSearchInput}
+            placeholder="Search vendors, products, orders, users..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <span className={styles.headerShortcutBadge}>Ctrl + K</span>
         </div>
-      </nav>
 
-      {/* Main Container */}
-      <main className={styles.mainContent}>
-        <header className={styles.pageHeader}>
-          <h2 className={styles.pageTitle}>Platform Governance Dashboard</h2>
-          <p className={styles.pageDescription}>
-            Authoritative control over Al Aweer wholesale stalls, participant accounts, and produce moderation.
-          </p>
-        </header>
+        {/* Right Section: Language, Alerts, Notifications, Profile */}
+        <div className={styles.headerActions}>
+          <button type="button" className={styles.langBtn}>
+            <span>🌐</span>
+            <span>English</span>
+            <span style={{ fontSize: '0.65rem' }}>▼</span>
+          </button>
 
-        {dataError && (
-          <div className={styles.errorBanner} role="alert">
-            <span>{dataError}</span>
-            <button onClick={loadAllData} className={styles.retryBtn}>
-              Retry
+          <button type="button" className={styles.headerIconButton} title="Alerts & Notifications">
+            <span>🔔</span>
+            <span className={styles.badgeCountRed}>12</span>
+          </button>
+
+          <button type="button" className={styles.headerIconButton} title="Messages & Inquiries">
+            <span>💬</span>
+            <span className={styles.badgeCountGreen}>3</span>
+          </button>
+
+          <div className={styles.userProfilePill}>
+            <div className={styles.userAvatar}>
+              {user?.fullName?.charAt(0) || 'A'}
+            </div>
+            <div className={styles.userMeta}>
+              <span className={styles.userMetaName}>{user?.fullName || 'Super Admin'}</span>
+              <span className={styles.userMetaRole}>Administrator</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className={styles.logoutBtn}
+              id="super-admin-logout-btn"
+              title="Sign Out of Super Admin"
+            >
+              Sign Out
             </button>
           </div>
-        )}
-
-        {/* Live Metrics Grid */}
-        <section className={styles.metricsGrid} aria-label="Platform Metrics">
-          <div className={styles.metricCard}>
-            <div className={styles.metricLabel}>Total Users</div>
-            <div className={styles.metricValue}>{metrics ? metrics.totalUsers : '—'}</div>
-            <div className={styles.metricSubtext}>
-              {metrics ? `${metrics.buyers} Buyers • ${metrics.shopAdmins} Vendors • ${metrics.superAdmins} Admins` : 'Loading...'}
-            </div>
-          </div>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricLabel}>Al Aweer Stalls</div>
-            <div className={styles.metricValue}>{metrics ? metrics.totalShops : '—'}</div>
-            <div className={styles.metricSubtext}>
-              {metrics ? `${metrics.approvedShops} Approved • ${metrics.pendingShops} Pending Approval` : 'Loading...'}
-            </div>
-          </div>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricLabel}>Produce Catalog</div>
-            <div className={styles.metricValue}>{metrics ? metrics.totalProducts : '—'}</div>
-            <div className={styles.metricSubtext}>
-              {metrics ? `${metrics.activeProducts} Live • ${metrics.inactiveProducts} Moderated` : 'Loading...'}
-            </div>
-          </div>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricLabel}>Wholesale Orders</div>
-            <div className={styles.metricValue}>{metrics ? metrics.totalOrders : '—'}</div>
-            <div className={styles.metricSubtext}>Total platform transactions</div>
-          </div>
-        </section>
-
-        {/* Tab Navigation */}
-        <div className={styles.tabsNav} role="tablist">
-          <button
-            role="tab"
-            aria-selected={activeTab === 'stalls'}
-            className={`${styles.tabBtn} ${activeTab === 'stalls' ? styles.tabBtnActive : ''}`}
-            onClick={() => setActiveTab('stalls')}
-          >
-            Stalls Governance ({shops.length})
-          </button>
-          <button
-            role="tab"
-            aria-selected={activeTab === 'users'}
-            className={`${styles.tabBtn} ${activeTab === 'users' ? styles.tabBtnActive : ''}`}
-            onClick={() => setActiveTab('users')}
-          >
-            User Accounts ({users.length})
-          </button>
-          <button
-            role="tab"
-            aria-selected={activeTab === 'products'}
-            className={`${styles.tabBtn} ${activeTab === 'products' ? styles.tabBtnActive : ''}`}
-            onClick={() => setActiveTab('products')}
-          >
-            Produce Moderation ({products.length})
-          </button>
         </div>
+      </header>
 
-        {/* Tab 1: Al Aweer Stalls */}
-        {activeTab === 'stalls' && (
-          <section className={styles.tableSection}>
-            <div className={styles.tableHeaderBar}>
+      {/* =====================================================================
+          MAIN LAYOUT: Left Sidebar + Right Content Area
+         ===================================================================== */}
+      <div className={styles.layoutBody}>
+        {/* LEFT SIDEBAR NAVIGATION */}
+        <aside className={styles.sidebar}>
+          <div>
+            {/* Super Admin Mini Profile Card */}
+            <div className={styles.sidebarCard}>
+              <div className={styles.sidebarCardAvatar}>🛡️</div>
               <div>
-                <h3 className={styles.tableTitle}>Al Aweer Market Stalls</h3>
-                <p className={styles.tableSubtitle}>
-                  Approve or revoke wholesale vendor stalls to control visibility in the marketplace.
-                </p>
+                <div className={styles.sidebarCardTitle}>Super Admin</div>
+                <div className={styles.sidebarCardSub}>Marketplace Management</div>
               </div>
             </div>
-            <div className={styles.tableWrapper}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Stall Name</th>
-                    <th>Stall Number</th>
-                    <th>Contact Phone</th>
-                    <th>Approval Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {shops.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className={styles.emptyState}>
-                        {isLoadingData ? 'Loading stalls...' : 'No stalls registered yet.'}
-                      </td>
-                    </tr>
+
+            {/* Navigation Menu */}
+            <nav className={styles.navGroup}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('dashboard')}
+                className={`${styles.navItem} ${activeTab === 'dashboard' ? styles.navItemActive : ''}`}
+              >
+                <div className={styles.navItemLeft}>
+                  <span>📊</span>
+                  <span>Dashboard</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('stalls')}
+                className={`${styles.navItem} ${activeTab === 'stalls' ? styles.navItemActive : ''}`}
+              >
+                <div className={styles.navItemLeft}>
+                  <span>🏪</span>
+                  <span>Vendors</span>
+                </div>
+                <span className={styles.navBadge}>{metrics ? metrics.totalShops : shops.length}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('products')}
+                className={`${styles.navItem} ${activeTab === 'products' ? styles.navItemActive : ''}`}
+              >
+                <div className={styles.navItemLeft}>
+                  <span>📦</span>
+                  <span>Products</span>
+                </div>
+                <span className={styles.navBadge}>{metrics ? metrics.totalProducts : products.length}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('orders')}
+                className={`${styles.navItem} ${activeTab === 'orders' ? styles.navItemActive : ''}`}
+              >
+                <div className={styles.navItemLeft}>
+                  <span>🛒</span>
+                  <span>Orders</span>
+                </div>
+                <span className={styles.navBadge}>{metrics ? metrics.totalOrders : orders.length}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('users')}
+                className={`${styles.navItem} ${activeTab === 'users' ? styles.navItemActive : ''}`}
+              >
+                <div className={styles.navItemLeft}>
+                  <span>👥</span>
+                  <span>Customers</span>
+                </div>
+                <span className={styles.navBadge}>{metrics ? metrics.buyers : users.length}</span>
+              </button>
+
+              <button
+                type="button"
+                id="tab-categories"
+                onClick={() => setActiveTab('categories')}
+                className={`${styles.navItem} ${activeTab === 'categories' ? styles.navItemActive : ''}`}
+              >
+                <div className={styles.navItemLeft}>
+                  <span>📑</span>
+                  <span>Categories</span>
+                </div>
+                <span className={styles.navBadge}>{categories.length}</span>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>⭐</span>
+                  <span>Reviews & Ratings</span>
+                </div>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>💳</span>
+                  <span>Payments</span>
+                </div>
+                <span className={styles.navBadge}>Dhs {metrics?.financials?.totalGmvAed != null ? metrics.financials.totalGmvAed.toFixed(0) : '0'}</span>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>📈</span>
+                  <span>Reports & Analytics</span>
+                </div>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>📢</span>
+                  <span>Marketing & Promotions</span>
+                </div>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>📝</span>
+                  <span>Content Management</span>
+                </div>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>📁</span>
+                  <span>Files & Media</span>
+                </div>
+                <span className={styles.navBadge}>562</span>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>⚙️</span>
+                  <span>System Settings</span>
+                </div>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>💬</span>
+                  <span>Support & Tickets</span>
+                </div>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>📜</span>
+                  <span>Logs & Activity</span>
+                </div>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>📍</span>
+                  <span>Location / Market Areas</span>
+                </div>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>✉️</span>
+                  <span>Email Templates</span>
+                </div>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>🔔</span>
+                  <span>Notification Templates</span>
+                </div>
+              </button>
+
+              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+                <div className={styles.navItemLeft}>
+                  <span>💾</span>
+                  <span>Backup & Restore</span>
+                </div>
+              </button>
+            </nav>
+          </div>
+
+          {/* Sidebar Footer */}
+          <div className={styles.sidebarFooter}>
+            <span>🌿</span>
+            <span>Aweermarket v2.0.0 [Production]</span>
+          </div>
+        </aside>
+
+        {/* RIGHT MAIN CONTENT AREA */}
+        <main className={styles.mainContent}>
+          {/* Notification Toast */}
+          {catActionSuccess && (
+            <div
+              style={{
+                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid #10b981',
+                color: '#34d399',
+                padding: '12px 18px',
+                borderRadius: '10px',
+                fontWeight: 700,
+                fontSize: '0.85rem'
+              }}
+            >
+              ✓ {catActionSuccess}
+            </div>
+          )}
+
+          {dataError && (
+            <div
+              style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid #ef4444',
+                color: '#fca5a5',
+                padding: '12px 18px',
+                borderRadius: '10px',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <span>⚠️ {dataError}</span>
+              <button
+                type="button"
+                onClick={loadAllData}
+                style={{
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '4px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 700
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* ===================================================================
+              VIEW 1: EXECUTIVE DASHBOARD (Matching Reference Image)
+             =================================================================== */}
+          {activeTab === 'dashboard' && (
+            <>
+              {/* Top Banner Row: Hero Card + Quick Actions */}
+              <div className={styles.topBannerRow}>
+                {/* Hero Banner */}
+                <div className={styles.heroBanner}>
+                  <div className={styles.heroLeft}>
+                    <div className={styles.heroBadge}>🌿 AWEERMARKET PLATFORM</div>
+                    <h1 className={styles.heroTitle}>Super Admin Dashboard</h1>
+                    <p className={styles.heroSubtitle}>
+                      Manage vendors, products, orders and grow your marketplace.
+                    </p>
+                  </div>
+                  <div className={styles.heroProduceImgWrap}>
+                    <img
+                      src="/images/hero-basket.jpg"
+                      alt="Fresh Produce Basket"
+                      className={styles.heroProduceImg}
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Actions Card */}
+                <div className={styles.quickActionsCard}>
+                  <div className={styles.quickActionsHeader}>
+                    <h3 className={styles.quickActionsTitle}>Quick Actions</h3>
+                    <span className={styles.quickActionsLiveIndicator}>
+                      <span className={styles.pulseDot} />
+                      <span>Live</span>
+                    </span>
+                  </div>
+                  <div className={styles.quickActionsList}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('stalls')}
+                      className={styles.actionPillBtn}
+                    >
+                      <span>🏪 Add Vendor</span>
+                      <span>›</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('products')}
+                      className={styles.actionPillBtn}
+                    >
+                      <span>📦 Add Product</span>
+                      <span>›</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenAddCategory}
+                      className={styles.actionPillBtn}
+                    >
+                      <span>📑 Add Category</span>
+                      <span>›</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('orders')}
+                      className={styles.actionPillBtn}
+                    >
+                      <span>🛒 Manage Orders</span>
+                      <span>›</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => alert('Platform Broadcast Feature is ready for Super Admin.')}
+                      className={styles.actionPillBtn}
+                    >
+                      <span>📢 Send Announcement</span>
+                      <span>›</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 5 KPI Cards Row */}
+              <div className={styles.kpiGrid}>
+                {/* 1. Total Vendors */}
+                <div className={styles.kpiCard}>
+                  <div className={styles.kpiTopRow}>
+                    <div className={styles.kpiAvatarWrap}>🏪</div>
+                    <span className={styles.kpiDeltaBadge}>Platform Stalls</span>
+                  </div>
+                  <div className={styles.kpiTitle}>Total Vendors</div>
+                  <div className={styles.kpiValue}>
+                    {metrics ? metrics.totalShops : shops.length}
+                  </div>
+                  <div className={styles.kpiSubtext}>
+                    Active: {metrics ? metrics.approvedShops : shops.filter((s) => s.isApproved).length} | Pending: {metrics ? metrics.pendingShops : shops.filter((s) => !s.isApproved).length}
+                  </div>
+                </div>
+
+                {/* 2. Total Products */}
+                <div className={styles.kpiCard}>
+                  <div className={styles.kpiTopRow}>
+                    <div className={styles.kpiAvatarWrap}>📦</div>
+                    <span className={styles.kpiDeltaBadge}>Catalog SKUs</span>
+                  </div>
+                  <div className={styles.kpiTitle}>Total Products</div>
+                  <div className={styles.kpiValue}>
+                    {metrics ? metrics.totalProducts : products.length}
+                  </div>
+                  <div className={styles.kpiSubtext}>
+                    Active: {metrics ? metrics.activeProducts : products.filter((p) => p.isActive).length} | Inactive: {metrics ? metrics.inactiveProducts : products.filter((p) => !p.isActive).length}
+                  </div>
+                </div>
+
+                {/* 3. Total Orders */}
+                <div className={styles.kpiCard}>
+                  <div className={styles.kpiTopRow}>
+                    <div className={styles.kpiAvatarWrap}>🛒</div>
+                    <span className={styles.kpiDeltaBadge}>All-Time Orders</span>
+                  </div>
+                  <div className={styles.kpiTitle}>Total Orders</div>
+                  <div className={styles.kpiValue}>
+                    {metrics ? metrics.totalOrders : orders.length}
+                  </div>
+                  <div className={styles.kpiSubtext}>
+                    Delivered: {ordersStatusStats.delivered} | Pending: {ordersStatusStats.pending}
+                  </div>
+                </div>
+
+                {/* 4. Total Customers */}
+                <div className={styles.kpiCard}>
+                  <div className={styles.kpiTopRow}>
+                    <div className={styles.kpiAvatarWrap}>👥</div>
+                    <span className={styles.kpiDeltaBadge}>Wholesale Buyers</span>
+                  </div>
+                  <div className={styles.kpiTitle}>Total Customers</div>
+                  <div className={styles.kpiValue}>
+                    {metrics ? metrics.buyers : users.filter((u) => u.role === 'buyer').length}
+                  </div>
+                  <div className={styles.kpiSubtext}>
+                    Active Buyers: {users.filter((u) => u.role === 'buyer' && u.isActive).length}
+                  </div>
+                </div>
+
+                {/* 5. Total Revenue */}
+                <div className={styles.kpiCard}>
+                  <div className={styles.kpiTopRow}>
+                    <div className={styles.kpiAvatarWrap}>💰</div>
+                    <span className={styles.kpiDeltaBadge}>Platform Volume</span>
+                  </div>
+                  <div className={styles.kpiTitle}>Total Revenue</div>
+                  <div className={styles.kpiValue}>
+                    {metrics?.financials?.totalGmvAed != null
+                      ? `Dhs ${metrics.financials.totalGmvAed.toFixed(0)}`
+                      : 'Dhs 0'}
+                  </div>
+                  <div className={styles.kpiSubtext}>
+                    Delivered GMV: Dhs {(metrics?.financials?.deliveredGmvAed ?? 0).toFixed(0)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: 3 Analytics Visual Cards (Sales Overview, Orders Status, Top Selling) */}
+              <div className={styles.rowThreeCards}>
+                {/* 1. Sales Overview Chart */}
+                <div className={styles.dashCard}>
+                  <div className={styles.dashCardHeader}>
+                    <h3 className={styles.dashCardTitle}>Sales Overview</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div className={styles.chartLegendRow}>
+                        <span><span className={styles.legendDot} style={{ background: '#10b981' }} /> Revenue</span>
+                        <span><span className={styles.legendDot} style={{ background: '#06b6d4' }} /> Orders</span>
+                      </div>
+                      <select className={styles.dashFilterSelect} defaultValue="7d" aria-label="Timeframe">
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {orders.length === 0 ? (
+                    <div style={{ height: 210, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#64748b', textAlign: 'center', padding: '20px' }}>
+                      <span style={{ fontSize: '1.8rem', marginBottom: 8 }}>📊</span>
+                      <p style={{ margin: 0, fontSize: '0.88rem', color: '#94a3b8' }}>No wholesale sales activity recorded yet.</p>
+                      <span style={{ fontSize: '0.74rem', color: '#475569', marginTop: 4 }}>Revenue and order volume trends will chart here as incoming orders arrive.</span>
+                    </div>
                   ) : (
-                    shops.map((shop) => (
-                      <tr key={shop.id}>
-                        <td>
-                          <strong>{shop.name}</strong>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b' }}>/{shop.slug}</div>
-                        </td>
-                        <td>{shop.stallNumber || '—'}</td>
-                        <td>{shop.phone || '—'}</td>
-                        <td>
-                          <span
-                            className={`${styles.statusPill} ${
-                              shop.isApproved ? styles.statusActive : styles.statusPending
-                            }`}
-                          >
-                            {shop.isApproved ? 'Approved' : 'Pending Approval'}
+                    /* SVG Multi-curve Chart */
+                    <div style={{ height: 210, position: 'relative', width: '100%' }}>
+                      <svg viewBox="0 0 500 200" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                        <defs>
+                          <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.35" />
+                            <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                          </linearGradient>
+                          <linearGradient id="ordersGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Grid Horizontal Lines */}
+                        <line x1="40" y1="20" x2="480" y2="20" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+                        <line x1="40" y1="60" x2="480" y2="60" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+                        <line x1="40" y1="100" x2="480" y2="100" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+                        <line x1="40" y1="140" x2="480" y2="140" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+                        <line x1="40" y1="180" x2="480" y2="180" stroke="rgba(255,255,255,0.1)" />
+
+                        {/* Y-axis Labels */}
+                        <text x="32" y="24" fill="#64748b" fontSize="10" textAnchor="end">10K</text>
+                        <text x="32" y="64" fill="#64748b" fontSize="10" textAnchor="end">8K</text>
+                        <text x="32" y="104" fill="#64748b" fontSize="10" textAnchor="end">6K</text>
+                        <text x="32" y="144" fill="#64748b" fontSize="10" textAnchor="end">4K</text>
+                        <text x="32" y="184" fill="#64748b" fontSize="10" textAnchor="end">2K</text>
+
+                        {/* Revenue Area & Curve */}
+                        <path
+                          d="M 50,150 Q 110,120 180,140 T 320,80 T 400,95 T 470,85 L 470,180 L 50,180 Z"
+                          fill="url(#revenueGrad)"
+                        />
+                        <path
+                          d="M 50,150 Q 110,120 180,140 T 320,80 T 400,95 T 470,85"
+                          fill="none"
+                          stroke="#10b981"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                        />
+
+                        {/* Orders Curve */}
+                        <path
+                          d="M 50,170 Q 120,150 180,165 T 320,120 T 400,135 T 470,125"
+                          fill="none"
+                          stroke="#06b6d4"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        />
+
+                        {/* Active Tooltip Anchor */}
+                        <circle cx="320" cy="80" r="5" fill="#10b981" stroke="#ffffff" strokeWidth="2" />
+                        <circle cx="320" cy="120" r="4" fill="#06b6d4" stroke="#ffffff" strokeWidth="2" />
+                      </svg>
+
+                      {/* Chart Tooltip Overlay */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 25,
+                          left: '56%',
+                          background: '#041610',
+                          border: '1px solid rgba(16, 185, 129, 0.4)',
+                          borderRadius: 8,
+                          padding: '6px 12px',
+                          fontSize: '0.72rem',
+                          color: '#f8fafc',
+                          boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        <div style={{ color: '#94a3b8', fontSize: '0.65rem' }}>Platform Trends</div>
+                        <div style={{ color: '#10b981', fontWeight: 700 }}>● Total GMV: Dhs {(metrics?.financials?.totalGmvAed ?? 0).toFixed(0)}</div>
+                        <div style={{ color: '#06b6d4', fontWeight: 700 }}>● Total Orders: {orders.length}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Orders Status Donut Chart */}
+                <div className={styles.dashCard}>
+                  <div className={styles.dashCardHeader}>
+                    <h3 className={styles.dashCardTitle}>Orders Status</h3>
+                  </div>
+
+                  {ordersStatusStats.total === 0 ? (
+                    <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#64748b', textAlign: 'center', padding: '10px' }}>
+                      <span style={{ fontSize: '1.6rem', marginBottom: 6 }}>🍩</span>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>No order status data available yet.</p>
+                      <span style={{ fontSize: '0.74rem', color: '#475569', marginTop: 2 }}>Breakdown will appear as orders are processed.</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                      {/* SVG Donut */}
+                      <div style={{ position: 'relative', width: 140, height: 140 }}>
+                        <svg viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+                          <circle cx="50" cy="50" r="38" fill="none" stroke="#04140e" strokeWidth="14" />
+                          {/* Delivered */}
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="38"
+                            fill="none"
+                            stroke="#10b981"
+                            strokeWidth="14"
+                            strokeDasharray={`${Math.round((ordersStatusStats.delivered / ordersStatusStats.total) * 238)} 238`}
+                            strokeDashoffset="0"
+                          />
+                          {/* Pending */}
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="38"
+                            fill="none"
+                            stroke="#f59e0b"
+                            strokeWidth="14"
+                            strokeDasharray={`${Math.round((ordersStatusStats.pending / ordersStatusStats.total) * 238)} 238`}
+                            strokeDashoffset={`-${Math.round((ordersStatusStats.delivered / ordersStatusStats.total) * 238)}`}
+                          />
+                          {/* Processing */}
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="38"
+                            fill="none"
+                            stroke="#3b82f6"
+                            strokeWidth="14"
+                            strokeDasharray={`${Math.round((ordersStatusStats.processing / ordersStatusStats.total) * 238)} 238`}
+                            strokeDashoffset={`-${Math.round(((ordersStatusStats.delivered + ordersStatusStats.pending) / ordersStatusStats.total) * 238)}`}
+                          />
+                          {/* Cancelled */}
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="38"
+                            fill="none"
+                            stroke="#ef4444"
+                            strokeWidth="14"
+                            strokeDasharray={`${Math.round((ordersStatusStats.cancelled / ordersStatusStats.total) * 238)} 238`}
+                            strokeDashoffset={`-${Math.round(((ordersStatusStats.delivered + ordersStatusStats.pending + ordersStatusStats.processing) / ordersStatusStats.total) * 238)}`}
+                          />
+                        </svg>
+                        <div
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>
+                            {ordersStatusStats.total}
                           </span>
-                        </td>
-                        <td>
-                          <button
-                            className={`${styles.actionBtn} ${
-                              shop.isApproved ? styles.actionBtnRevoke : styles.actionBtnApprove
-                            }`}
-                            disabled={processingId === shop.id}
-                            onClick={() => handleToggleShopApproval(shop)}
-                          >
-                            {processingId === shop.id
-                              ? 'Updating...'
-                              : shop.isApproved
-                              ? 'Revoke Approval'
-                              : 'Approve Stall'}
-                          </button>
+                          <span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600 }}>Total Orders</span>
+                        </div>
+                      </div>
+
+                      {/* Donut Legend */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, fontSize: '0.74rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span><span className={styles.legendDot} style={{ background: '#10b981' }} /> Delivered</span>
+                          <strong style={{ color: '#f1f5f9' }}>{ordersStatusStats.delivered} ({((ordersStatusStats.delivered / ordersStatusStats.total) * 100).toFixed(1)}%)</strong>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span><span className={styles.legendDot} style={{ background: '#f59e0b' }} /> Pending</span>
+                          <strong style={{ color: '#f1f5f9' }}>{ordersStatusStats.pending} ({((ordersStatusStats.pending / ordersStatusStats.total) * 100).toFixed(1)}%)</strong>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span><span className={styles.legendDot} style={{ background: '#3b82f6' }} /> Processing</span>
+                          <strong style={{ color: '#f1f5f9' }}>{ordersStatusStats.processing} ({((ordersStatusStats.processing / ordersStatusStats.total) * 100).toFixed(1)}%)</strong>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span><span className={styles.legendDot} style={{ background: '#ef4444' }} /> Cancelled</span>
+                          <strong style={{ color: '#f1f5f9' }}>{ordersStatusStats.cancelled} ({((ordersStatusStats.cancelled / ordersStatusStats.total) * 100).toFixed(1)}%)</strong>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Top Selling Products */}
+                <div className={styles.dashCard}>
+                  <div className={styles.dashCardHeader}>
+                    <h3 className={styles.dashCardTitle}>Top Selling Products</h3>
+                    <select className={styles.dashFilterSelect} defaultValue="7d" aria-label="Top Selling timeframe">
+                      <option value="7d">Last 7 Days</option>
+                      <option value="30d">Last 30 Days</option>
+                    </select>
+                  </div>
+
+                  {topSellingProducts.length === 0 ? (
+                    <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#64748b', textAlign: 'center', padding: '16px' }}>
+                      <span style={{ fontSize: '1.6rem', marginBottom: 6 }}>🍎</span>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>No produce sales recorded yet.</p>
+                      <span style={{ fontSize: '0.74rem', color: '#475569', marginTop: 4 }}>Top-selling products will rank here based on buyer purchases.</span>
+                    </div>
+                  ) : (
+                    <div className={styles.rankedList}>
+                      {topSellingProducts.map((p, idx) => (
+                        <div key={p.id} className={styles.rankedItem}>
+                          <span className={styles.rankedRankBadge}>{idx + 1}</span>
+                          <img src={p.imageUrl || '/images/apple.jpg'} alt={p.name} className={styles.rankedProdImg} />
+                          <div className={styles.rankedInfo}>
+                            <div className={styles.rankedName}>{p.name}</div>
+                            <div className={styles.rankedPrice}>Dhs {p.unitPriceAed?.toFixed(2) || '0.00'}</div>
+                          </div>
+                          <span className={styles.rankedCountBadge}>{p.sold} sold</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 3: 3 Table / List Cards (Recent Orders, Top Vendors, Market Areas) */}
+              <div className={styles.rowThreeTables}>
+                {/* 1. Recent Orders */}
+                <div className={styles.dashCard}>
+                  <div className={styles.dashCardHeader}>
+                    <h3 className={styles.dashCardTitle}>Recent Orders</h3>
+                    <button type="button" onClick={() => setActiveTab('orders')} className={styles.viewAllLink}>
+                      View All →
+                    </button>
+                  </div>
+
+                  <table className={styles.miniTable}>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Customer</th>
+                        <th>Items</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.length > 0 ? (
+                        orders.slice(0, 5).map((o) => (
+                          <tr key={o.id}>
+                            <td>#{o.orderNumber || o.id.slice(0, 8)}</td>
+                            <td>{o.shopName || 'Wholesale Buyer'}</td>
+                            <td>{o.items?.length || 0}</td>
+                            <td>${(o.totalAmountAed ?? 0).toFixed(2)}</td>
+                            <td>
+                              <span className={`${styles.statusPill} ${styles.statusDelivered}`}>
+                                {o.status}
+                              </span>
+                            </td>
+                            <td>{new Date(o.createdAt).toLocaleDateString()}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
+                            No recent wholesale orders placed yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* 2. Top Vendors */}
+                <div className={styles.dashCard}>
+                  <div className={styles.dashCardHeader}>
+                    <h3 className={styles.dashCardTitle}>Top Vendors</h3>
+                    <button type="button" onClick={() => setActiveTab('stalls')} className={styles.viewAllLink}>
+                      View All →
+                    </button>
+                  </div>
+
+                  <table className={styles.miniTable}>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Vendor</th>
+                        <th>Products</th>
+                        <th>Sales</th>
+                        <th>Stall Number</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topVendors.length > 0 ? (
+                        topVendors.map((v, idx) => (
+                          <tr key={v.id}>
+                            <td>{idx + 1}</td>
+                            <td>🏪 {v.name}</td>
+                            <td>{v.productCount}</td>
+                            <td>Dhs {v.sales.toFixed(0)}</td>
+                            <td>{v.stallNumber || '—'}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
+                            No vendor activity recorded yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* 3. Market Areas (Dubai) */}
+                <div className={styles.dashCard}>
+                  <div className={styles.dashCardHeader}>
+                    <h3 className={styles.dashCardTitle}>Market Areas (Dubai)</h3>
+                    <button type="button" className={styles.viewAllLink}>
+                      View All →
+                    </button>
+                  </div>
+
+                  <table className={styles.miniTable}>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Market Area / Block</th>
+                        <th>Vendors</th>
+                        <th>Products</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {marketBlocks.length > 0 ? (
+                        marketBlocks.map((b, idx) => (
+                          <tr key={b.area}>
+                            <td>{idx + 1}</td>
+                            <td>📍 {b.area}</td>
+                            <td>{b.vendorCount}</td>
+                            <td>{b.productCount}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={4} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
+                            No market blocks or stalls registered yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Row 4: 3 Cards (Latest Vendors, Platform Activity, Recent Files & Media) */}
+              <div className={styles.rowThreeTables}>
+                {/* 1. Latest Vendors */}
+                <div className={styles.dashCard}>
+                  <div className={styles.dashCardHeader}>
+                    <h3 className={styles.dashCardTitle}>Latest Vendors</h3>
+                    <button type="button" onClick={() => setActiveTab('stalls')} className={styles.viewAllLink}>
+                      View All →
+                    </button>
+                  </div>
+
+                  <table className={styles.miniTable}>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Shop Name</th>
+                        <th>Owner</th>
+                        <th>Status</th>
+                        <th>Joined</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shops.length > 0 ? (
+                        shops.slice(0, 5).map((s, idx) => {
+                          const ownerUser = users.find((u) => u.shopId === s.id);
+                          return (
+                            <tr key={s.id}>
+                              <td>#V{String(idx + 1).padStart(3, '0')}</td>
+                              <td>{s.name}</td>
+                              <td>{ownerUser?.fullName || 'Stall Owner'}</td>
+                              <td>
+                                <span className={`${styles.statusPill} ${s.isApproved ? styles.statusApproved : styles.statusPending}`}>
+                                  {s.isApproved ? 'Approved' : 'Pending'}
+                                </span>
+                              </td>
+                              <td>{new Date(s.createdAt).toLocaleDateString()}</td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={5} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
+                            No stalls registered on platform yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* 2. Platform Activity */}
+                <div className={styles.dashCard}>
+                  <div className={styles.dashCardHeader}>
+                    <h3 className={styles.dashCardTitle}>Platform Activity</h3>
+                  </div>
+
+                  <div className={styles.activityList}>
+                    {recentActivity.length > 0 ? (
+                      recentActivity.map((act) => (
+                        <div key={act.id} className={styles.activityItem}>
+                          <div className={styles.activityLeft}>
+                            <span className={styles.activityDot} />
+                            <span>{act.text}</span>
+                          </div>
+                          <span className={styles.activityTime}>{act.time}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: '28px 16px', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                        No recent platform activity logged yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Recent Files & Media */}
+                <div className={styles.dashCard}>
+                  <div className={styles.dashCardHeader}>
+                    <h3 className={styles.dashCardTitle}>Recent Files & Media</h3>
+                    <button type="button" className={styles.viewAllLink}>
+                      View All →
+                    </button>
+                  </div>
+
+                  <table className={styles.miniTable}>
+                    <thead>
+                      <tr>
+                        <th>File Name</th>
+                        <th>Type</th>
+                        <th>Size / Role</th>
+                        <th>Recorded</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {uploadedMediaFiles.length > 0 ? (
+                        uploadedMediaFiles.map((f, idx) => (
+                          <tr key={idx}>
+                            <td>{f.name}</td>
+                            <td>{f.type}</td>
+                            <td>{f.size}</td>
+                            <td>{f.uploaded}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={4} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
+                            No media documents or files uploaded yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ===================================================================
+              VIEW 2: WHOLESALE PRODUCE CATEGORIES MANAGEMENT
+             =================================================================== */}
+          {activeTab === 'categories' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Wholesale Produce Categories</h3>
+                  <p className={styles.tableSubtitle}>
+                    Configure real categories, slugs, descriptions, icons, and display ordering across the buyer marketplace.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenAddCategory}
+                  className={styles.addBtn}
+                  id="btn-add-category"
+                >
+                  <span>+</span>
+                  <span>Add Category</span>
+                </button>
+              </div>
+
+              {categoriesError && (
+                <div
+                  style={{
+                    margin: '16px 20px',
+                    padding: '12px 18px',
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid #ef4444',
+                    borderRadius: '8px',
+                    color: '#fca5a5',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '0.88rem'
+                  }}
+                >
+                  <span>⚠️ {categoriesError}</span>
+                  <button
+                    type="button"
+                    onClick={loadAllData}
+                    style={{
+                      background: '#ef4444',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '4px 12px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: 700
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Category</th>
+                      <th>Slug (API Key)</th>
+                      <th>Description</th>
+                      <th>Sort Order</th>
+                      <th>Assigned SKUs</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCategories.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className={styles.emptyState}>
+                          {isLoadingData ? 'Loading categories...' : 'No categories configured.'}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        {/* Tab 2: User Governance */}
-        {activeTab === 'users' && (
-          <section className={styles.tableSection}>
-            <div className={styles.tableHeaderBar}>
-              <div>
-                <h3 className={styles.tableTitle}>Platform Users</h3>
-                <p className={styles.tableSubtitle}>
-                  Manage user accounts across buyer, vendor admin, and super admin roles.
-                </p>
-              </div>
-            </div>
-            <div className={styles.tableWrapper}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className={styles.emptyState}>
-                        {isLoadingData ? 'Loading users...' : 'No users found.'}
-                      </td>
-                    </tr>
-                  ) : (
-                    users.map((u) => {
-                      const isSelf = user?.id === u.id;
-                      return (
-                        <tr key={u.id}>
+                    ) : (
+                      filteredCategories.map((cat) => (
+                        <tr key={cat.id}>
                           <td>
-                            <strong>{u.fullName}</strong>
-                            {isSelf && (
-                              <span style={{ marginLeft: 8, fontSize: '0.7rem', color: '#f87171' }}>
-                                (You)
-                              </span>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: '1.4rem' }}>{cat.icon || '📦'}</span>
+                              <strong>{cat.name || cat.label}</strong>
+                            </div>
                           </td>
-                          <td>{u.email}</td>
                           <td>
-                            <span style={{ textTransform: 'capitalize' }}>
-                              {u.role.replace('_', ' ')}
+                            <code style={{ background: '#03130d', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '2px 8px', borderRadius: 4, color: '#34d399' }}>
+                              {cat.slug || cat.key}
+                            </code>
+                          </td>
+                          <td style={{ maxWidth: 280, fontSize: '0.82rem', color: '#94a3b8' }}>
+                            {cat.description || '—'}
+                          </td>
+                          <td><strong>{cat.sortOrder ?? 0}</strong></td>
+                          <td>
+                            <span style={{ background: '#0a2d20', padding: '2px 8px', borderRadius: 6, fontSize: '0.78rem', color: '#34d399', fontWeight: 700 }}>
+                              {cat.productCount ?? 0} items
                             </span>
                           </td>
                           <td>
                             <span
                               className={`${styles.statusPill} ${
-                                u.isActive ? styles.statusActive : styles.statusInactive
+                                cat.isActive ? styles.statusActive : styles.statusSuspended
                               }`}
                             >
-                              {u.isActive ? 'Active' : 'Suspended'}
+                              {cat.isActive ? 'Active' : 'Inactive'}
                             </span>
                           </td>
                           <td>
-                            {isSelf ? (
-                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                Protected
-                              </span>
-                            ) : (
+                            <div className={styles.actionBtnGroup}>
                               <button
-                                className={`${styles.actionBtn} ${
-                                  u.isActive ? styles.actionBtnRevoke : styles.actionBtnApprove
-                                }`}
-                                disabled={processingId === u.id}
-                                onClick={() => handleToggleUserStatus(u)}
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
+                                onClick={() => handleOpenEditCategory(cat)}
+                                title="Edit category metadata"
                               >
-                                {processingId === u.id
-                                  ? 'Updating...'
-                                  : u.isActive
-                                  ? 'Suspend Account'
-                                  : 'Reactivate Account'}
+                                Edit
                               </button>
-                            )}
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${
+                                  cat.isActive ? styles.actionBtnRevoke : styles.actionBtnApprove
+                                }`}
+                                disabled={processingId === cat.id}
+                                onClick={() => requestToggleCategoryStatus(cat)}
+                              >
+                                {processingId === cat.id ? '...' : cat.isActive ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnRevoke}`}
+                                disabled={processingId === cat.id}
+                                onClick={() => requestDeleteCategory(cat)}
+                                title="Safely remove or deactivate category"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        {/* Tab 3: Produce Moderation */}
-        {activeTab === 'products' && (
-          <section className={styles.tableSection}>
-            <div className={styles.tableHeaderBar}>
-              <div>
-                <h3 className={styles.tableTitle}>Market Produce Catalog Moderation</h3>
-                <p className={styles.tableSubtitle}>
-                  Delist produce items violating quality, wholesale pricing standards, or safety compliance.
-                </p>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </div>
-            <div className={styles.tableWrapper}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Produce Name</th>
-                    <th>Category</th>
-                    <th>Origin Country</th>
-                    <th>Lowest AED/kg</th>
-                    <th>Active Offers</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.length === 0 ? (
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 3: STALLS GOVERNANCE
+             =================================================================== */}
+          {activeTab === 'stalls' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Al Aweer Market Stalls</h3>
+                  <p className={styles.tableSubtitle}>
+                    Approve or revoke wholesale vendor stalls to control visibility in the marketplace.
+                  </p>
+                </div>
+              </div>
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
                     <tr>
-                      <td colSpan={6} className={styles.emptyState}>
-                        {isLoadingData ? 'Loading produce catalog...' : 'No produce items found.'}
-                      </td>
+                      <th>Stall Name</th>
+                      <th>Stall Number</th>
+                      <th>Contact Phone</th>
+                      <th>Approval Status</th>
+                      <th>Marketplace Visibility</th>
+                      <th>Governance Actions</th>
                     </tr>
-                  ) : (
-                    products.map((prod) => (
-                      <tr key={prod.id}>
-                        <td><strong>{prod.name}</strong></td>
-                        <td>{prod.category}</td>
-                        <td>{prod.originCountry}</td>
-                        <td>
-                          {prod.lowestPriceAedPerKg > 0
-                            ? `AED ${prod.lowestPriceAedPerKg.toFixed(2)}/kg`
-                            : '—'}
-                        </td>
-                        <td>{prod.offers?.length || 0} stall offers</td>
-                        <td>
-                          <button
-                            className={`${styles.actionBtn} ${styles.actionBtnRevoke}`}
-                            disabled={processingId === prod.id}
-                            onClick={() => handleToggleProductModeration(prod)}
-                          >
-                            {processingId === prod.id ? 'Moderating...' : 'Delist Produce'}
-                          </button>
+                  </thead>
+                  <tbody>
+                    {shops.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className={styles.emptyState}>
+                          {isLoadingData ? 'Loading stalls...' : 'No stalls registered yet.'}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      shops.map((shop) => (
+                        <tr key={shop.id}>
+                          <td>
+                            <strong>{shop.name}</strong>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>/{shop.slug}</div>
+                          </td>
+                          <td>{shop.stallNumber || '—'}</td>
+                          <td>{shop.phone || '—'}</td>
+                          <td>
+                            <span className={`${styles.statusPill} ${shop.isApproved ? styles.statusActive : styles.statusPending}`}>
+                              {shop.isApproved ? 'Approved' : 'Pending Verification'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`${styles.statusPill} ${shop.isActive ? styles.statusActive : styles.statusSuspended}`}>
+                              {shop.isActive ? 'Active (Listed)' : 'Delisted'}
+                            </span>
+                          </td>
+                          <td>
+                            <div className={styles.actionBtnGroup}>
+                              <button
+                                className={`${styles.actionBtn} ${shop.isApproved ? styles.actionBtnRevoke : styles.actionBtnApprove}`}
+                                disabled={processingId === shop.id}
+                                onClick={() => requestToggleShopApproval(shop)}
+                              >
+                                {processingId === shop.id ? '...' : shop.isApproved ? 'Suspend Approval' : 'Approve Stall'}
+                              </button>
+                              <button
+                                className={`${styles.actionBtn} ${shop.isActive ? styles.actionBtnRevoke : styles.actionBtnApprove}`}
+                                disabled={processingId === shop.id}
+                                onClick={() => requestToggleShopStatus(shop)}
+                              >
+                                {processingId === shop.id ? '...' : shop.isActive ? 'Delist Stall' : 'Reactivate'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 4: USER ACCOUNTS
+             =================================================================== */}
+          {activeTab === 'users' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Platform User Accounts</h3>
+                  <p className={styles.tableSubtitle}>
+                    Governance over registered commercial buyers, stall vendor admins, and staff accounts.
+                  </p>
+                </div>
+              </div>
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Full Name</th>
+                      <th>Email Address</th>
+                      <th>Role</th>
+                      <th>Account Status</th>
+                      <th>Registration Date</th>
+                      <th>Safety Controls</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className={styles.emptyState}>
+                          {isLoadingData ? 'Loading users...' : 'No users found.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      users.map((u) => (
+                        <tr key={u.id}>
+                          <td><strong>{u.fullName}</strong></td>
+                          <td>{u.email}</td>
+                          <td>
+                            <span style={{ textTransform: 'uppercase', fontSize: '0.72rem', fontWeight: 700, color: '#34d399' }}>
+                              {u.role.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`${styles.statusPill} ${u.isActive ? styles.statusActive : styles.statusSuspended}`}>
+                              {u.isActive ? 'Active' : 'Suspended'}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                            {new Date(u.createdAt).toLocaleDateString()}
+                          </td>
+                          <td>
+                            <button
+                              className={`${styles.actionBtn} ${u.isActive ? styles.actionBtnRevoke : styles.actionBtnApprove}`}
+                              disabled={processingId === u.id || (user ? u.id === user.id : false)}
+                              onClick={() => requestToggleUserStatus(u)}
+                            >
+                              {processingId === u.id ? '...' : u.isActive ? 'Suspend User' : 'Restore Access'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 5: PRODUCE CATALOG MODERATION
+             =================================================================== */}
+          {activeTab === 'products' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Wholesale Produce Moderation</h3>
+                  <p className={styles.tableSubtitle}>
+                    Enforce produce quality standards and moderate listings displayed in the public marketplace.
+                  </p>
+                </div>
+              </div>
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Produce Item</th>
+                      <th>Category</th>
+                      <th>Origin</th>
+                      <th>Active Offers</th>
+                      <th>Catalog Status</th>
+                      <th>Moderation</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className={styles.emptyState}>
+                          {isLoadingData ? 'Loading produce catalog...' : 'No produce items found.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      products.map((prod) => (
+                        <tr key={prod.id}>
+                          <td><strong>{prod.name}</strong></td>
+                          <td>
+                            <span style={{ textTransform: 'capitalize', color: '#34d399' }}>
+                              {prod.category.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td>{prod.originCountry}</td>
+                          <td>{prod.offers?.length || 0} vendor offers</td>
+                          <td>
+                            <span className={`${styles.statusPill} ${prod.isActive ? styles.statusActive : styles.statusSuspended}`}>
+                              {prod.isActive ? 'Listed' : 'Delisted'}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              className={`${styles.actionBtn} ${prod.isActive ? styles.actionBtnRevoke : styles.actionBtnApprove}`}
+                              disabled={processingId === prod.id}
+                              onClick={() => requestToggleProductStatus(prod)}
+                            >
+                              {processingId === prod.id ? '...' : prod.isActive ? 'Delist Produce' : 'List Produce'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 6: WHOLESALE ORDERS
+             =================================================================== */}
+          {activeTab === 'orders' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Platform-Wide Wholesale Orders</h3>
+                  <p className={styles.tableSubtitle}>
+                    Central oversight of all wholesale transactions, single-vendor orders, and 5% marketplace commissions.
+                  </p>
+                </div>
+              </div>
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Order #</th>
+                      <th>Stall Name</th>
+                      <th>Delivery Type</th>
+                      <th>Status</th>
+                      <th>Total (Dhs)</th>
+                      <th>Commission (5%)</th>
+                      <th>Order Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className={styles.emptyState}>
+                          {isLoadingData ? 'Loading orders...' : 'No orders recorded on the platform yet.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      orders.map((ord) => (
+                        <tr key={ord.id}>
+                          <td><strong>#{ord.orderNumber}</strong></td>
+                          <td>
+                            {ord.shopName}
+                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{ord.stallNumber}</div>
+                          </td>
+                          <td><span style={{ textTransform: 'capitalize' }}>{ord.deliveryType}</span></td>
+                          <td>
+                            <span className={`${styles.statusPill} ${styles.statusActive}`}>
+                              {ord.status}
+                            </span>
+                          </td>
+                          <td><strong>Dhs {ord.totalAmountAed.toFixed(2)}</strong></td>
+                          <td style={{ color: '#34d399' }}>Dhs {ord.commissionAed.toFixed(2)}</td>
+                          <td style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                            {new Date(ord.createdAt).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* Footer */}
+          <footer className={styles.dashboardFooter}>
+            <div>Aweermarket | Super Admin Panel</div>
+            <div className={styles.footerLinks}>
+              <span>© 2025 Aweermarket. All rights reserved.</span>
+              <a href="#" className={styles.footerLink}>Privacy</a>
+              <a href="#" className={styles.footerLink}>Terms</a>
+              <a href="#" className={styles.footerLink}>Help</a>
             </div>
-          </section>
-        )}
-      </main>
+          </footer>
+        </main>
+      </div>
+
+      {/* =====================================================================
+          CATEGORY ADD/EDIT MODAL
+         ===================================================================== */}
+      {isCatModalOpen && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true">
+          <div className={styles.modalCard}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>
+                {editingCat ? `Edit Category: ${editingCat.label}` : 'Create Wholesale Produce Category'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsCatModalOpen(false)}
+                className={styles.modalCloseBtn}
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategory}>
+              <div className={styles.modalBody}>
+                {catFormError && (
+                  <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#fca5a5', padding: '8px 12px', borderRadius: 8, fontSize: '0.82rem' }}>
+                    {catFormError}
+                  </div>
+                )}
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="cat-name-input" className={styles.formLabel}>
+                    Category Display Name *
+                  </label>
+                  <input
+                    id="cat-name-input"
+                    type="text"
+                    className={styles.formInput}
+                    placeholder="e.g. Fresh Mangoes & Papayas"
+                    value={catName}
+                    onChange={(e) => {
+                      setCatName(e.target.value);
+                      if (!editingCat && !catSlug) {
+                        setCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''));
+                      }
+                    }}
+                    required
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="cat-slug-input" className={styles.formLabel}>
+                    URL Slug / API Key *
+                  </label>
+                  <input
+                    id="cat-slug-input"
+                    type="text"
+                    className={styles.formInput}
+                    placeholder="e.g. mangoes_papayas"
+                    value={catSlug}
+                    onChange={(e) => setCatSlug(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="cat-desc-input" className={styles.formLabel}>
+                    Description
+                  </label>
+                  <textarea
+                    id="cat-desc-input"
+                    className={styles.formTextarea}
+                    rows={2}
+                    placeholder="Short summary for buyer catalog banners..."
+                    value={catDescription}
+                    onChange={(e) => setCatDescription(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="cat-icon-input" className={styles.formLabel}>
+                      Icon Emoji
+                    </label>
+                    <input
+                      id="cat-icon-input"
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="e.g. 🥭"
+                      value={catIcon}
+                      onChange={(e) => setCatIcon(e.target.value)}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="cat-sort-input" className={styles.formLabel}>
+                      Display Sort Order
+                    </label>
+                    <input
+                      id="cat-sort-input"
+                      type="number"
+                      className={styles.formInput}
+                      value={catSortOrder}
+                      onChange={(e) => setCatSortOrder(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="cat-banner-input" className={styles.formLabel}>
+                    Banner / Image URL (optional)
+                  </label>
+                  <input
+                    id="cat-banner-input"
+                    type="text"
+                    className={styles.formInput}
+                    placeholder="/images/hero-basket.jpg"
+                    value={catBannerUrl}
+                    onChange={(e) => setCatBannerUrl(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                  <input
+                    id="cat-active-check"
+                    type="checkbox"
+                    checked={catIsActive}
+                    onChange={(e) => setCatIsActive(e.target.checked)}
+                    style={{ width: 16, height: 16, accentColor: '#10b981' }}
+                  />
+                  <label htmlFor="cat-active-check" className={styles.formLabel} style={{ cursor: 'pointer', margin: 0 }}>
+                    Visible in Public Buyer Catalog (Active)
+                  </label>
+                </div>
+              </div>
+
+              <div className={styles.modalFooter}>
+                <button
+                  type="button"
+                  onClick={() => setIsCatModalOpen(false)}
+                  className={styles.formCancelBtn}
+                  disabled={isSubmittingCat}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.formSubmitBtn}
+                  disabled={isSubmittingCat}
+                >
+                  {isSubmittingCat ? 'Saving...' : editingCat ? 'Update Category' : 'Create Category'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          GLOBAL CONFIRMATION POPUP MODAL (Suspend / Delete / Delist / Edit)
+         ===================================================================== */}
+      {confirmModal && confirmModal.isOpen && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true">
+          <div className={styles.confirmModalCard}>
+            <div className={styles.modalHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  className={
+                    confirmModal.variant === 'danger'
+                      ? styles.confirmIconWrapDanger
+                      : confirmModal.variant === 'warning'
+                      ? styles.confirmIconWrapWarning
+                      : styles.confirmIconWrapPrimary
+                  }
+                >
+                  {confirmModal.variant === 'danger'
+                    ? '⚠️'
+                    : confirmModal.variant === 'warning'
+                    ? '🛡️'
+                    : '✏️'}
+                </div>
+                <h3 className={styles.modalTitle}>{confirmModal.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isExecutingConfirm && setConfirmModal(null)}
+                className={styles.modalCloseBtn}
+                disabled={isExecutingConfirm}
+                aria-label="Close confirmation dialog"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: '#e2e8f0', lineHeight: 1.5 }}>
+                {confirmModal.message}
+              </p>
+
+              {confirmModal.detail && (
+                <div
+                  style={{
+                    background: '#041610',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    fontSize: '0.8rem',
+                    color: '#94a3b8',
+                    fontFamily: 'monospace'
+                  }}
+                >
+                  {confirmModal.detail}
+                </div>
+              )}
+
+              {confirmModal.warningNotice && (
+                <div
+                  style={{
+                    background:
+                      confirmModal.variant === 'danger'
+                        ? 'rgba(239, 68, 68, 0.12)'
+                        : 'rgba(245, 158, 11, 0.12)',
+                    border:
+                      confirmModal.variant === 'danger'
+                        ? '1px solid rgba(239, 68, 68, 0.35)'
+                        : '1px solid rgba(245, 158, 11, 0.35)',
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    fontSize: '0.8rem',
+                    color: confirmModal.variant === 'danger' ? '#fca5a5' : '#fbbf24',
+                    lineHeight: 1.45
+                  }}
+                >
+                  ⚠️ <strong>Notice:</strong> {confirmModal.warningNotice}
+                </div>
+              )}
+            </div>
+
+            <div className={styles.modalFooter}>
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className={styles.formCancelBtn}
+                disabled={isExecutingConfirm}
+              >
+                {confirmModal.cancelLabel || 'Cancel'}
+              </button>
+              <button
+                type="button"
+                className={
+                  confirmModal.variant === 'danger'
+                    ? styles.confirmDangerBtn
+                    : confirmModal.variant === 'warning'
+                    ? styles.confirmWarningBtn
+                    : styles.confirmPrimaryBtn
+                }
+                disabled={isExecutingConfirm}
+                onClick={async () => {
+                  setIsExecutingConfirm(true);
+                  try {
+                    await confirmModal.onConfirm();
+                  } finally {
+                    setIsExecutingConfirm(false);
+                    setConfirmModal(null);
+                  }
+                }}
+              >
+                {isExecutingConfirm ? 'Processing...' : confirmModal.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,258 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px 80px 20px;
+  color: #f8fafc;
+  min-height: calc(100vh - 100px);
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 24px;
+}
+
+.breadcrumbLink {
+  color: #10b981;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+.breadcrumbLink:hover {
+  text-decoration: underline;
+  color: #34d399;
+}
+
+.breadcrumbCurrent {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.headerCard {
+  background: linear-gradient(180deg, #061f17 0%, #03130d 100%);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 14px;
+  padding: 26px 30px;
+  margin-bottom: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.titleArea {
+  display: flex;
+  flex-direction: column;
+}
+
+.pageTitle {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.02em;
+}
+
+.pageSubtitle {
+  font-size: 0.92rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.accountLinkBtn {
+  background: #061c15;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.accountLinkBtn:hover {
+  background: #10b981;
+  color: #04130e;
+  transform: translateY(-1px);
+}
+
+.orderList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.orderCard {
+  background-color: #04130e;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.orderCard:hover {
+  border-color: #10b981;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
+}
+
+.orderCardHeader {
+  padding: 16px 20px;
+  background-color: #061f17;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.orderNumber {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.orderDate {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.statusPending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.statusConfirmed {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.statusPreparing {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.statusDispatched {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.statusDelivered {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid #10b981;
+}
+
+.statusCancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.orderBody {
+  padding: 20px;
+}
+
+.orderGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+}
+
+.label {
+  color: #64748b;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.value {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.shopName {
+  color: #34d399;
+  font-weight: 700;
+}
+
+.totalAmount {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #10b981;
+}
+
+.itemsSummary {
+  background: #020d09;
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 12px;
+}
+
+.emptyState {
+  background-color: #04130e;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 14px;
+  padding: 60px 24px;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.emptyState h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 8px;
+}
+
+.emptyState p {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin: 0 0 20px;
+}
+
+.browseBtn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #04130e;
+  font-weight: 700;
+  font-size: 0.88rem;
+  padding: 10px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+.browseBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}

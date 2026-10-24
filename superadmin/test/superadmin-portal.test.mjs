@@ -16,6 +16,13 @@ import {
   setAdminUserStatus,
   getAdminProducts,
   setAdminProductModeration,
+  getAdminOrders,
+  setAdminShopStatus,
+  getAdminCategories,
+  createAdminCategory,
+  updateAdminCategory,
+  setAdminCategoryStatus,
+  deleteAdminCategory,
   ApiClientError
 } from '../src/lib/api-client.ts';
 
@@ -270,6 +277,250 @@ describe('Step 3: Super Admin Portal API Client Tests', () => {
       assert.ok(capturedUrl.endsWith('/admin/products/prod_tomatoes_01/moderation'));
       assert.strictEqual(capturedBody.isActive, false);
       assert.strictEqual(res.product.isActive, false);
+    });
+  });
+
+  // 6. Wholesale Orders, Commissions & Stall Delisting (Step 9)
+  describe('Wholesale Orders, Commissions & Stall Delisting', () => {
+    it('fetches platform-wide orders with commission calculations via GET /admin/orders', async () => {
+      let capturedUrl = '';
+      globalThis.fetch = async (url) => {
+        capturedUrl = url;
+        return new Response(
+          JSON.stringify({
+            statusCode: 200,
+            financials: {
+              totalGmvAed: 1500,
+              totalCommissionAed: 75,
+              commissionRatePercent: 5,
+              deliveredGmvAed: 1000,
+              deliveredCommissionAed: 50,
+              ordersByStatus: { delivered: 2, pending: 1 }
+            },
+            orders: [
+              {
+                id: 'ord_adm_001',
+                orderNumber: 'AWEER-20261023-ADM1',
+                buyerId: 'usr_buyer_1',
+                shopId: 'shop_stall_42',
+                shopName: 'Al Aweer Royal Dates LLC',
+                stallNumber: 'ST-42',
+                deliveryType: 'delivery',
+                status: 'pending',
+                totalAmountAed: 500,
+                commissionAed: 25,
+                commissionRatePercent: 5,
+                items: [],
+                createdAt: '2026-10-23T01:00:00.000Z',
+                updatedAt: '2026-10-23T01:00:00.000Z'
+              }
+            ]
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const res = await getAdminOrders('pending');
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(res.orders.length, 1);
+      assert.strictEqual(res.orders[0].totalAmountAed, 500);
+      assert.strictEqual(res.orders[0].commissionAed, 25);
+      assert.strictEqual(res.financials.totalCommissionAed, 75);
+      assert.ok(capturedUrl.includes('/admin/orders?status=pending'));
+    });
+
+    it('toggles stall active status (delisting/reactivation) via PATCH /admin/shops/:id/status', async () => {
+      let capturedUrl = '';
+      let capturedBody = null;
+
+      globalThis.fetch = async (url, options) => {
+        capturedUrl = url;
+        capturedBody = JSON.parse(options.body);
+        return new Response(
+          JSON.stringify({
+            statusCode: 200,
+            message: 'Shop suspended and delisted from marketplace',
+            shop: { id: 'shop_stall_42', isActive: false }
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const res = await setAdminShopStatus('shop_stall_42', false);
+      assert.strictEqual(res.statusCode, 200);
+      assert.ok(capturedUrl.endsWith('/admin/shops/shop_stall_42/status'));
+      assert.strictEqual(capturedBody.isActive, false);
+      assert.strictEqual(res.shop.isActive, false);
+    });
+  });
+
+  // 7. Phase 1: Category Management
+  describe('Phase 1: Category Management', () => {
+    it('fetches categories list via GET /admin/categories', async () => {
+      let capturedUrl = '';
+
+      globalThis.fetch = async (url) => {
+        capturedUrl = url;
+        return new Response(
+          JSON.stringify({
+            statusCode: 200,
+            categories: [
+              {
+                id: 'cat_001',
+                name: 'Fresh Fruits',
+                slug: 'fresh_fruits',
+                icon: '🍎',
+                isActive: true,
+                sortOrder: 1,
+                productCount: 4
+              }
+            ]
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const res = await getAdminCategories();
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(res.categories.length, 1);
+      assert.strictEqual(res.categories[0].slug, 'fresh_fruits');
+      assert.strictEqual(res.categories[0].productCount, 4);
+      assert.ok(capturedUrl.endsWith('/admin/categories'));
+    });
+
+    it('creates category with validated input via POST /admin/categories', async () => {
+      let capturedUrl = '';
+      let capturedBody = null;
+
+      globalThis.fetch = async (url, options) => {
+        capturedUrl = url;
+        capturedBody = JSON.parse(options.body);
+        return new Response(
+          JSON.stringify({
+            statusCode: 201,
+            message: 'Category created successfully',
+            category: { id: 'cat_new', ...capturedBody, isActive: true }
+          }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const res = await createAdminCategory({
+        name: 'Organic Dates',
+        slug: 'organic_dates',
+        icon: '🌴',
+        description: 'Premium wholesale Emirati dates',
+        sortOrder: 8
+      });
+
+      assert.strictEqual(res.statusCode, 201);
+      assert.ok(capturedUrl.endsWith('/admin/categories'));
+      assert.strictEqual(capturedBody.slug, 'organic_dates');
+      assert.strictEqual(capturedBody.name, 'Organic Dates');
+    });
+
+    it('updates category properties via PUT /admin/categories/:id', async () => {
+      let capturedUrl = '';
+      let capturedBody = null;
+
+      globalThis.fetch = async (url, options) => {
+        capturedUrl = url;
+        capturedBody = JSON.parse(options.body);
+        return new Response(
+          JSON.stringify({
+            statusCode: 200,
+            message: 'Category updated successfully',
+            category: { id: 'cat_001', ...capturedBody }
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const res = await updateAdminCategory('cat_001', {
+        name: 'Fresh Fruits (Imported)',
+        icon: '🍇'
+      });
+
+      assert.strictEqual(res.statusCode, 200);
+      assert.ok(capturedUrl.endsWith('/admin/categories/cat_001'));
+      assert.strictEqual(capturedBody.name, 'Fresh Fruits (Imported)');
+      assert.strictEqual(capturedBody.icon, '🍇');
+    });
+
+    it('toggles category active status via PATCH /admin/categories/:id/status', async () => {
+      let capturedUrl = '';
+      let capturedBody = null;
+
+      globalThis.fetch = async (url, options) => {
+        capturedUrl = url;
+        capturedBody = JSON.parse(options.body);
+        return new Response(
+          JSON.stringify({
+            statusCode: 200,
+            message: 'Category status updated',
+            category: { id: 'cat_001', isActive: capturedBody.isActive }
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const res = await setAdminCategoryStatus('cat_001', false);
+      assert.strictEqual(res.statusCode, 200);
+      assert.ok(capturedUrl.endsWith('/admin/categories/cat_001/status'));
+      assert.strictEqual(capturedBody.isActive, false);
+      assert.strictEqual(res.category.isActive, false);
+    });
+
+    it('deletes or deactivates category via DELETE /admin/categories/:id', async () => {
+      let capturedUrl = '';
+      let capturedMethod = '';
+
+      globalThis.fetch = async (url, options) => {
+        capturedUrl = url;
+        capturedMethod = options.method;
+        return new Response(
+          JSON.stringify({
+            statusCode: 200,
+            message: 'Category deactivated safely because 3 active products reference it',
+            deactivated: true
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const res = await deleteAdminCategory('cat_001');
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(capturedMethod, 'DELETE');
+      assert.ok(capturedUrl.endsWith('/admin/categories/cat_001'));
+      assert.strictEqual(res.deactivated, true);
+    });
+
+    it('throws ApiClientError with 409 Conflict when duplicate slug is submitted', async () => {
+      globalThis.fetch = async () => {
+        return new Response(
+          JSON.stringify({
+            statusCode: 409,
+            error: 'Conflict',
+            message: 'Category with slug "fresh_fruits" already exists'
+          }),
+          { status: 409, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      await assert.rejects(
+        async () => {
+          await createAdminCategory({
+            name: 'Fresh Fruits',
+            slug: 'fresh_fruits'
+          });
+        },
+        (err) => {
+          assert.ok(err instanceof ApiClientError);
+          assert.strictEqual(err.statusCode, 409);
+          assert.ok(err.message.includes('already exists'));
+          return true;
+        }
+      );
     });
   });
 });

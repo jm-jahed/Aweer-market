@@ -15,6 +15,8 @@ import {
   getVendorProducts,
   createVendorProduct,
   updateVendorOffer,
+  getVendorOrders,
+  updateVendorOrderStatus,
   ApiClientError
 } from '../src/lib/api-client.ts';
 
@@ -336,6 +338,122 @@ describe('Step 4: Shop Admin Portal API Client Tests', () => {
       assert.strictEqual(capturedBody.priceAed, 20);
       assert.strictEqual(capturedBody.availableStock, 120);
       assert.strictEqual(res.product.lowestPriceAedPerKg, 2.0);
+    });
+  });
+
+  // 5. Order Management & Vendor Fulfillment (Step 8)
+  describe('Order Management & Vendor Fulfillment', () => {
+    const mockOrders = [
+      {
+        id: 'ord_vendor_001',
+        orderNumber: 'AWEER-20261023-V001',
+        buyerId: 'usr_buyer_999',
+        shopId: 'shop_stall_42',
+        shopName: 'Al Aweer Royal Dates LLC',
+        stallNumber: 'ST-42',
+        deliveryType: 'delivery',
+        deliveryAddress: 'Deira Fish & Vegetable Market, Stall 12',
+        status: 'pending',
+        totalAmountAed: 150,
+        items: [
+          {
+            productId: 'prod_orange_001',
+            name: 'Valencia Oranges',
+            unit: 'box',
+            unitWeightKg: 15,
+            quantity: 3,
+            unitPriceAed: 50,
+            lineTotalAed: 150
+          }
+        ],
+        createdAt: '2026-10-23T01:00:00.000Z',
+        updatedAt: '2026-10-23T01:00:00.000Z'
+      }
+    ];
+
+    it('fetches incoming stall orders via GET /vendor/orders', async () => {
+      let capturedUrl = '';
+      globalThis.fetch = async (url) => {
+        capturedUrl = url;
+        return new Response(
+          JSON.stringify({ statusCode: 200, orders: mockOrders }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const res = await getVendorOrders();
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(res.orders.length, 1);
+      assert.strictEqual(res.orders[0].orderNumber, 'AWEER-20261023-V001');
+      assert.strictEqual(res.orders[0].totalAmountAed, 150);
+      assert.ok(capturedUrl.endsWith('/vendor/orders'));
+    });
+
+    it('updates order status via PATCH /vendor/orders/:id/status (e.g. confirmed)', async () => {
+      let capturedUrl = '';
+      let capturedBody = null;
+
+      globalThis.fetch = async (url, options) => {
+        capturedUrl = url;
+        capturedBody = JSON.parse(options.body);
+        return new Response(
+          JSON.stringify({
+            statusCode: 200,
+            message: 'Order status updated successfully',
+            order: { ...mockOrders[0], status: 'confirmed', updatedAt: '2026-10-23T01:10:00.000Z' }
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const res = await updateVendorOrderStatus('ord_vendor_001', 'confirmed');
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(capturedBody.status, 'confirmed');
+      assert.strictEqual(res.order.status, 'confirmed');
+      assert.ok(capturedUrl.endsWith('/vendor/orders/ord_vendor_001/status'));
+    });
+
+    it('handles cancellation and propagates ApiClientError if rejection occurs', async () => {
+      globalThis.fetch = async () => {
+        return new Response(
+          JSON.stringify({ statusCode: 400, error: 'Bad Request', message: 'Invalid status transition' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      await assert.rejects(
+        async () => {
+          await updateVendorOrderStatus('ord_vendor_001', 'invalid_status');
+        },
+        (err) => {
+          assert.ok(err instanceof ApiClientError);
+          assert.strictEqual(err.statusCode, 400);
+          assert.strictEqual(err.message, 'Invalid status transition');
+          return true;
+        }
+      );
+    });
+  });
+
+  // 6. UAE VAT Calculations (5% Inclusive vs Exclusive)
+  describe('VAT Calculations & Invoicing Math', () => {
+    it('calculates 5% inclusive VAT correctly for a Dhs 100 total producing Dhs 4.76 VAT', () => {
+      const totalAmountAed = 100;
+      const subtotal = totalAmountAed / 1.05;
+      const vatInclusive = totalAmountAed - subtotal;
+
+      assert.strictEqual(subtotal.toFixed(2), '95.24');
+      assert.strictEqual(vatInclusive.toFixed(2), '4.76');
+      assert.strictEqual((Number(subtotal.toFixed(2)) + Number(vatInclusive.toFixed(2))).toFixed(2), '100.00');
+    });
+
+    it('calculates 5% exclusive VAT correctly for personal direct stall line items', () => {
+      const lineTotal = 100;
+      const vatExclusive = lineTotal * 0.05;
+      const grandTotal = lineTotal + vatExclusive;
+
+      assert.strictEqual(vatExclusive.toFixed(2), '5.00');
+      assert.strictEqual(grandTotal.toFixed(2), '105.00');
     });
   });
 });

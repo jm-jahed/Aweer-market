@@ -1,6 +1,11 @@
 import { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
-import { UserRole } from '@aweermarket/types';
-import { UpdateShopProfileSchema, CreateProductSchema, UpdateProductOfferSchema } from '@aweermarket/validation';
+import { UserRole, OrderStatus } from '@aweermarket/types';
+import {
+  UpdateShopProfileSchema,
+  CreateProductSchema,
+  UpdateProductOfferSchema,
+  UpdateOrderStatusSchema
+} from '@aweermarket/validation';
 import { authenticate, requireRole } from '../plugins/security.js';
 import { findShopById, findShopByOwnerId, updateShop } from '../models/shop.model.js';
 import { findUserById } from '../models/user.model.js';
@@ -10,8 +15,11 @@ import {
   createProduct,
   addOrUpdateProductOffer,
   updateProductOffer,
-  listProductsByVendor
+  listProductsByVendor,
+  rollbackOfferStock
 } from '../models/product.model.js';
+import { findOrdersByShopId, findOrderById, updateOrderStatus } from '../models/order.model.js';
+
 
 export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
   // All vendor routes require valid authentication and SHOP_ADMIN (or legacy VENDOR) role
@@ -19,23 +27,51 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', requireRole(UserRole.SHOP_ADMIN));
 
   /**
-   * Helper to resolve the authenticated vendor's shop ID securely.
+   * Resolves the authenticated vendor's authoritative shop ID strictly from database state.
+   *
+   * Security Architecture (Phase 2.1 Hardening):
+   * 1. Checks live User model: User must exist in the database and user.isActive === true.
+   * 2. Checks live Shop model: Looks up shop by dbUser.shopId or findShopByOwnerId(userId).
+   * 3. Enforces that the shop exists, shop.ownerId === request.user.userId, and shop.isActive === true.
+   * 4. Never trusts a session shopId claim as sufficient proof of authorization.
+   * 5. Does not swallow database errors; let infrastructure failures bubble up.
    */
   async function resolveVendorShopId(request: FastifyRequest): Promise<string | null> {
-    if (request.user?.shopId) {
-      return request.user.shopId;
+    const userId = request.user?.userId;
+    if (!userId) {
+      return null;
     }
-    if (request.user?.userId) {
-      const dbUser = await findUserById(request.user.userId);
-      if (dbUser?.shopId) {
-        return dbUser.shopId;
-      }
-      const shop = await findShopByOwnerId(request.user.userId);
-      if (shop) {
-        return shop.id;
-      }
+
+    // 1. Authoritative check: User must exist in database and be active
+    const dbUser = request.dbUser || await findUserById(userId);
+    if (!dbUser || !dbUser.isActive) {
+      return null;
     }
-    return null;
+
+    // 2. Identify the vendor's stall using database references
+    let shop = null;
+    if (dbUser.shopId) {
+      shop = await findShopById(dbUser.shopId);
+    }
+    if (!shop) {
+      shop = await findShopByOwnerId(userId);
+    }
+
+    if (!shop) {
+      return null;
+    }
+
+    // 3. Strict database ownership verification: shop owner MUST match the authenticated user
+    if (shop.ownerId !== userId) {
+      return null;
+    }
+
+    // 4. Stall status verification: suspended/inactive shops cannot access vendor endpoints
+    if (!shop.isActive) {
+      return null;
+    }
+
+    return shop.id;
   }
 
   /**
@@ -131,6 +167,7 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
         category: prod.category,
         originCountry: prod.originCountry,
         description: prod.description,
+        imageUrl: (prod as { imageUrl?: string }).imageUrl || '',
         lowestPriceAedPerKg: prod.lowestPriceAedPerKg,
         offer: stallOffer || null
       };
@@ -174,7 +211,7 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    const { name, category, originCountry, description, offer } = parseResult.data;
+    const { name, category, originCountry, description, imageUrl, offer } = parseResult.data;
 
     // Check if produce item already exists in catalog
     const existing = await findProductByName(name);
@@ -200,6 +237,7 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
         category,
         originCountry,
         description,
+        imageUrl,
         offers: [
           {
             shopId: shop.id,
@@ -275,5 +313,90 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
       product: updatedProduct ? updatedProduct.toPublicProductItem() : null
     });
   });
+
+  /**
+   * GET /api/v1/vendor/orders
+   * Retrieves all orders placed for the authenticated vendor's stall.
+   */
+  fastify.get('/orders', async (request: FastifyRequest, reply: FastifyReply) => {
+    const shopId = await resolveVendorShopId(request);
+    if (!shopId) {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'No shop associated with this vendor account'
+      });
+    }
+
+    const orders = await findOrdersByShopId(shopId);
+
+    return reply.status(200).send({
+      statusCode: 200,
+      orders
+    });
+  });
+
+  /**
+   * PATCH /api/v1/vendor/orders/:id/status
+   * Updates fulfillment status for an order belonging to the vendor's stall.
+   * If cancelled, automatically rolls back reserved offer stock.
+   */
+  fastify.patch('/orders/:id/status', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    const parseResult = UpdateOrderStatusSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: parseResult.error.errors[0]?.message || 'Invalid order status'
+      });
+    }
+
+    const shopId = await resolveVendorShopId(request);
+    if (!shopId) {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'No shop associated with this vendor account'
+      });
+    }
+
+    const { id: orderId } = request.params;
+    const order = await findOrderById(orderId);
+    if (!order) {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Order not found'
+      });
+    }
+
+    // Tenant check: vendor can only update orders for their own stall
+    if (order.shopId !== shopId) {
+      return reply.status(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Access denied: You cannot modify orders for another stall'
+      });
+    }
+
+    const newStatus = parseResult.data.status;
+    const previousStatus = order.status;
+
+    const updated = await updateOrderStatus(orderId, newStatus);
+
+    // If order was cancelled and was not already cancelled, restore reserved stock
+    if (newStatus === OrderStatus.CANCELLED && previousStatus !== OrderStatus.CANCELLED) {
+      for (const item of order.items) {
+        await rollbackOfferStock(item.productId, shopId, item.quantity);
+      }
+    }
+
+    return reply.status(200).send({
+      statusCode: 200,
+      message: `Order status updated to ${newStatus}`,
+      order: updated
+    });
+  });
 };
+
 

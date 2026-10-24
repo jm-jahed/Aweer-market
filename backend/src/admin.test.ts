@@ -8,7 +8,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { FastifyInstance } from 'fastify';
-import { UserRole, ProductCategory, WholesaleUnit } from '@aweermarket/types';
+import { UserRole, ProductCategory, WholesaleUnit, DeliveryType } from '@aweermarket/types';
 import { buildServer } from './server.js';
 import { hashPassword, signSessionToken } from './utils/crypto.js';
 import { getSecretForRole } from './plugins/security.js';
@@ -16,11 +16,13 @@ import {
   createSuperAdminUser,
   createBuyerUser,
   resetInMemoryUsers,
-  findUserByEmail
+  findUserByEmail,
+  findUserById,
+  setUserActiveStatus
 } from './models/user.model.js';
 import { createShop, resetInMemoryShops, findShopById } from './models/shop.model.js';
 import { createProduct, resetInMemoryProducts, findProductById } from './models/product.model.js';
-import { resetInMemoryOrders } from './models/order.model.js';
+import { resetInMemoryOrders, createOrderRecord } from './models/order.model.js';
 
 describe('AweerMarket Step 3 — Super Admin Foundation', () => {
   let server: FastifyInstance;
@@ -206,6 +208,119 @@ describe('AweerMarket Step 3 — Super Admin Foundation', () => {
       assert.strictEqual(body.metrics.buyers, 1);
       assert.strictEqual(body.metrics.superAdmins, 1);
     });
+
+    // ========================================================================
+    // Phase 3.1: SuperAdmin Live Database Account Verification
+    // ========================================================================
+    it('permits active SuperAdmin with a valid token to access an authorized admin endpoint', async () => {
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/v1/admin/shops',
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        }
+      });
+
+      assert.strictEqual(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.strictEqual(body.statusCode, 200);
+      assert.ok(Array.isArray(body.shops));
+    });
+
+    it('DENIES inactive SuperAdmin with a previously valid token (403 Forbidden)', async () => {
+      // Deactivate the super admin account in the database
+      const updated = await setUserActiveStatus(superAdminId, false);
+      assert.strictEqual(updated, true);
+
+      // Attempt to access admin routes with the previously issued token
+      const resOverview = await server.inject({
+        method: 'GET',
+        url: '/api/v1/admin/overview',
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        }
+      });
+
+      assert.strictEqual(resOverview.statusCode, 403);
+      const bodyOverview = JSON.parse(resOverview.payload);
+      assert.match(bodyOverview.message, /deactivated/i);
+
+      // Also verify another privileged route (/admin/shops)
+      const resShops = await server.inject({
+        method: 'GET',
+        url: '/api/v1/admin/shops',
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        }
+      });
+      assert.strictEqual(resShops.statusCode, 403);
+    });
+
+    it('DENIES user whose role changed from SUPER_ADMIN in the database (403 Forbidden)', async () => {
+      // Change the user's role in the database to BUYER
+      const adminUser = await findUserById(superAdminId);
+      assert.ok(adminUser);
+      (adminUser as any).role = UserRole.BUYER;
+
+      // Attempt to access admin route with original SuperAdmin token
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/v1/admin/overview',
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        }
+      });
+
+      assert.strictEqual(res.statusCode, 403);
+      const body = JSON.parse(res.payload);
+      assert.match(body.message, /insufficient permissions/i);
+    });
+
+    it('DENIES token with missing or deleted database user (401 Unauthorized)', async () => {
+      // Sign a validly cryptographically signed SuperAdmin token for a non-existent user
+      const ghostToken = signSessionToken(
+        {
+          userId: 'deleted_or_missing_user_id_999',
+          role: UserRole.SUPER_ADMIN,
+          email: 'ghost@aweermarket.ae'
+        },
+        getSecretForRole(UserRole.SUPER_ADMIN)
+      );
+
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/v1/admin/overview',
+        headers: {
+          cookie: `aweer_session=${ghostToken}`
+        }
+      });
+
+      assert.strictEqual(res.statusCode, 401);
+      const body = JSON.parse(res.payload);
+      assert.match(body.message, /not found/i);
+    });
+
+    it('DENIES non-SuperAdmin accounts across multiple privileged admin routes (403 Forbidden)', async () => {
+      const endpoints = [
+        { method: 'GET' as const, url: '/api/v1/admin/overview' },
+        { method: 'GET' as const, url: '/api/v1/admin/shops' },
+        { method: 'GET' as const, url: '/api/v1/admin/users' },
+        { method: 'GET' as const, url: '/api/v1/admin/products' },
+        { method: 'GET' as const, url: '/api/v1/admin/orders' },
+        { method: 'GET' as const, url: '/api/v1/admin/categories' }
+      ];
+
+      for (const ep of endpoints) {
+        const res = await server.inject({
+          method: ep.method,
+          url: ep.url,
+          headers: {
+            cookie: `aweer_session=${buyerToken}`
+          }
+        });
+        assert.strictEqual(res.statusCode, 403, `Expected 403 for ${ep.url}`);
+      }
+    });
   });
 
   // ==========================================================================
@@ -381,6 +496,285 @@ describe('AweerMarket Step 3 — Super Admin Foundation', () => {
       });
       const catalogBody = JSON.parse(catalogRes.payload);
       assert.strictEqual(catalogBody.products.length, 0);
+    });
+  });
+
+  // ==========================================================================
+  // 6. Super Admin Order Oversight, Commissions & Stall Delisting (Step 9)
+  // ==========================================================================
+  describe('6. Order Oversight, Commissions & Delisting Cascade', () => {
+    let testShopId: string;
+    let testProductId: string;
+
+    beforeEach(async () => {
+      const shop = await createShop({
+        name: 'Delistable Dates Stall',
+        stallNumber: 'ST-99',
+        ownerId: 'owner_99',
+        phone: '+971509999999',
+        tradeLicenseNumber: 'TL-99999'
+      });
+      testShopId = shop.id;
+
+      const prod = await createProduct({
+        name: 'Medjool Dates Box',
+        category: ProductCategory.FRESH_FRUITS,
+        originCountry: 'UAE',
+        description: 'Premium Medjool Dates',
+        offers: [
+          {
+            shopId: testShopId,
+            shopName: 'Delistable Dates Stall',
+            stallNumber: 'ST-99',
+            unit: WholesaleUnit.BOX,
+            unitWeightKg: 5,
+            priceAed: 100,
+            availableStock: 50
+          }
+        ]
+      });
+      testProductId = prod.id;
+
+      // Seed an order
+      await createOrderRecord({
+        buyerId,
+        shopId: testShopId,
+        shopName: 'Delistable Dates Stall',
+        stallNumber: 'ST-99',
+        deliveryType: DeliveryType.SCHEDULED_DELIVERY,
+        deliveryAddress: 'Bur Dubai Hotel 5',
+        items: [
+          {
+            productId: testProductId,
+            name: 'Medjool Dates Box',
+            unit: WholesaleUnit.BOX,
+            unitWeightKg: 5,
+            quantity: 2,
+            unitPriceAed: 100
+          }
+        ]
+      });
+    });
+
+    it('returns platform-wide orders with 5% marketplace commission calculation', async () => {
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/v1/admin/orders',
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        }
+      });
+
+      assert.strictEqual(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.strictEqual(body.statusCode, 200);
+      assert.strictEqual(body.orders.length, 1);
+      assert.strictEqual(body.orders[0].totalAmountAed, 200);
+      assert.strictEqual(body.orders[0].commissionAed, 10); // 5% of 200 = 10 AED
+      assert.strictEqual(body.financials.totalGmvAed, 200);
+      assert.strictEqual(body.financials.totalCommissionAed, 10);
+    });
+
+    it('enriches GET /admin/overview with GMV and commission metrics', async () => {
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/v1/admin/overview',
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        }
+      });
+
+      assert.strictEqual(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.strictEqual(body.metrics.financials.totalGmvAed, 200);
+      assert.strictEqual(body.metrics.financials.totalCommissionAed, 10);
+      assert.strictEqual(body.metrics.financials.commissionRatePercent, 5);
+    });
+
+    it('suspends stall and delists its offers from the marketplace catalog', async () => {
+      // 1. Initial catalog check: product offer is visible
+      const catalogBefore = await server.inject({
+        method: 'GET',
+        url: `/api/v1/products/${testProductId}`
+      });
+      assert.strictEqual(catalogBefore.statusCode, 200);
+      const beforeBody = JSON.parse(catalogBefore.payload);
+      assert.strictEqual(beforeBody.product.offers.length, 1);
+
+      // 2. Super Admin suspends the stall
+      const suspendRes = await server.inject({
+        method: 'PATCH',
+        url: `/api/v1/admin/shops/${testShopId}/status`,
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        },
+        payload: {
+          isActive: false
+        }
+      });
+      assert.strictEqual(suspendRes.statusCode, 200);
+
+      // 3. Delisted stall offers are immediately omitted from the catalog
+      const catalogAfter = await server.inject({
+        method: 'GET',
+        url: `/api/v1/products/${testProductId}`
+      });
+      assert.strictEqual(catalogAfter.statusCode, 200);
+      const afterBody = JSON.parse(catalogAfter.payload);
+      assert.strictEqual(afterBody.product.offers.length, 0);
+    });
+  });
+
+  // ============================================================================
+  // 8. Super Admin Category Management (CRUD & Public Sync)
+  // ============================================================================
+  describe('8. Super Admin Category Management', () => {
+    let createdCatId: string;
+
+    it('REJECTS non-super-admin access to /api/v1/admin/categories', async () => {
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/v1/admin/categories',
+        headers: {
+          cookie: `aweer_session=${buyerToken}`
+        }
+      });
+      assert.strictEqual(res.statusCode, 403);
+    });
+
+    it('allows Super Admin to list all categories via GET /api/v1/admin/categories', async () => {
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/v1/admin/categories',
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        }
+      });
+      assert.strictEqual(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.ok(Array.isArray(body.categories));
+      assert.ok(body.categories.length >= 7);
+      assert.ok(body.categories.some((c: any) => c.key === 'fresh_fruits'));
+    });
+
+    it('creates a new wholesale produce category via POST /api/v1/admin/categories', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/v1/admin/categories',
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        },
+        payload: {
+          name: 'Dates & Dry Fruits',
+          slug: 'dates_dry_fruits',
+          description: 'Premium Medjool and Arabian dates sourced directly from Al Aweer.',
+          icon: '🌴',
+          sortOrder: 8,
+          isActive: true
+        }
+      });
+      assert.strictEqual(res.statusCode, 201);
+      const body = JSON.parse(res.payload);
+      assert.strictEqual(body.category.key, 'dates_dry_fruits');
+      assert.strictEqual(body.category.label, 'Dates & Dry Fruits');
+      createdCatId = body.category.id;
+      assert.ok(createdCatId);
+    });
+
+    it('REJECTS duplicate category slug with 409 Conflict', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/v1/admin/categories',
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        },
+        payload: {
+          name: 'Duplicate Dates',
+          slug: 'dates_dry_fruits'
+        }
+      });
+      assert.strictEqual(res.statusCode, 409);
+    });
+
+    it('updates an existing category via PUT /api/v1/admin/categories/:id', async () => {
+      const res = await server.inject({
+        method: 'PUT',
+        url: `/api/v1/admin/categories/${createdCatId}`,
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        },
+        payload: {
+          name: 'Emirati Dates & Dry Fruits',
+          icon: '🥥',
+          sortOrder: 10
+        }
+      });
+      assert.strictEqual(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.strictEqual(body.category.label, 'Emirati Dates & Dry Fruits');
+      assert.strictEqual(body.category.icon, '🥥');
+      assert.strictEqual(body.category.sortOrder, 10);
+    });
+
+    it('public GET /api/v1/categories returns newly created active category', async () => {
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/v1/categories'
+      });
+      assert.strictEqual(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      const found = body.categories.find((c: any) => c.key === 'dates_dry_fruits');
+      assert.ok(found);
+      assert.strictEqual(found.label, 'Emirati Dates & Dry Fruits');
+    });
+
+    it('deactivates category via PATCH /api/v1/admin/categories/:id/status and verifies exclusion from public listing', async () => {
+      const patchRes = await server.inject({
+        method: 'PATCH',
+        url: `/api/v1/admin/categories/${createdCatId}/status`,
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        },
+        payload: {
+          isActive: false
+        }
+      });
+      assert.strictEqual(patchRes.statusCode, 200);
+      const patchBody = JSON.parse(patchRes.payload);
+      assert.strictEqual(patchBody.category.isActive, false);
+
+      // Public listing should exclude inactive category
+      const publicRes = await server.inject({
+        method: 'GET',
+        url: '/api/v1/categories'
+      });
+      assert.strictEqual(publicRes.statusCode, 200);
+      const publicBody = JSON.parse(publicRes.payload);
+      const found = publicBody.categories.find((c: any) => c.key === 'dates_dry_fruits');
+      assert.strictEqual(found, undefined);
+    });
+
+    it('deletes unused category via DELETE /api/v1/admin/categories/:id', async () => {
+      const res = await server.inject({
+        method: 'DELETE',
+        url: `/api/v1/admin/categories/${createdCatId}`,
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        }
+      });
+      assert.strictEqual(res.statusCode, 200);
+
+      // Admin listing should no longer have it
+      const adminList = await server.inject({
+        method: 'GET',
+        url: '/api/v1/admin/categories',
+        headers: {
+          cookie: `aweer_session=${superAdminToken}`
+        }
+      });
+      const body = JSON.parse(adminList.payload);
+      const found = body.categories.find((c: any) => c.id === createdCatId);
+      assert.strictEqual(found, undefined);
     });
   });
 });

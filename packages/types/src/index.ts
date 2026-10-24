@@ -52,6 +52,20 @@ export enum ProductCategory {
   ROOT_VEGETABLES = 'root_vegetables'
 }
 
+export interface CategoryPublicItem {
+  id: string;
+  name?: string;
+  slug?: string;
+  key: string;
+  label: string;
+  description: string;
+  icon: string;
+  bannerUrl?: string;
+  sortOrder: number;
+  isActive: boolean;
+  productCount?: number;
+}
+
 export enum OrderStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -96,6 +110,7 @@ export interface AuthSessionPayload {
   /** @deprecated Backward compatibility alias for shopId */
   vendorId?: string;
   isMfaVerified?: boolean;
+  tokenVersion?: number;
   issuedAt?: number;
   expiresAt?: number;
 }
@@ -160,6 +175,7 @@ export interface ProductItem {
   category: ProductCategory;
   originCountry: string;
   description: string;
+  imageUrl?: string;
   lowestPriceAedPerKg: number;
   offers: ProductOfferSummary[];
 }

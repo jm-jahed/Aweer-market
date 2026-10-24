@@ -20,6 +20,7 @@ export interface IProductDocument extends Document {
   category: ProductCategory;
   originCountry: string;
   description: string;
+  imageUrl?: string;
   lowestPriceAedPerKg: number;
   isActive: boolean;
   offers: IProductOffer[];
@@ -55,6 +56,7 @@ const ProductSchema = new Schema<IProductDocument>(
     },
     originCountry: { type: String, required: true, trim: true },
     description: { type: String, default: '', trim: true },
+    imageUrl: { type: String, default: '', trim: true },
     lowestPriceAedPerKg: { type: Number, required: true, index: true },
     isActive: { type: Boolean, default: true, index: true },
     offers: [ProductOfferSubSchema]
@@ -89,6 +91,7 @@ ProductSchema.methods.toPublicProductItem = function (): ProductItem {
     category: this.category,
     originCountry: this.originCountry,
     description: this.description || '',
+    imageUrl: this.imageUrl || '',
     lowestPriceAedPerKg: lowest,
     offers: activeOffers.map((o: IProductOffer): ProductOfferSummary => ({
       vendorId: o.shopId,
@@ -117,6 +120,7 @@ export interface ProductRecord {
   category: ProductCategory;
   originCountry: string;
   description: string;
+  imageUrl?: string;
   lowestPriceAedPerKg: number;
   isActive: boolean;
   offers: IProductOffer[];
@@ -127,6 +131,10 @@ export interface ProductRecord {
 
 const inMemoryProducts = new Map<string, ProductRecord>();
 let prodIdCounter = 1;
+
+export function getInMemoryProducts(): ProductRecord[] {
+  return Array.from(inMemoryProducts.values());
+}
 
 function createInMemoryProductRecord(data: Omit<ProductRecord, 'toPublicProductItem'>): ProductRecord {
   return {
@@ -141,6 +149,7 @@ function createInMemoryProductRecord(data: Omit<ProductRecord, 'toPublicProductI
         category: this.category,
         originCountry: this.originCountry,
         description: this.description || '',
+        imageUrl: this.imageUrl || '',
         lowestPriceAedPerKg: lowest,
         offers: activeOffers.map((o): ProductOfferSummary => ({
           vendorId: o.shopId,
@@ -169,6 +178,11 @@ export class DatabaseUnavailableError extends Error {
   }
 }
 
+export function isInMemoryProductStoreAllowed(): boolean {
+  if (process.env.NODE_ENV === 'production') return false;
+  return process.env.NODE_ENV === 'test' || process.env.ALLOW_IN_MEMORY_DB === 'true';
+}
+
 export function resetInMemoryProducts(): void {
   if (process.env.NODE_ENV !== 'test') {
     throw new DatabaseUnavailableError('In-memory product store is only permitted in test environment');
@@ -182,6 +196,7 @@ export interface CreateProductData {
   category: ProductCategory;
   originCountry: string;
   description?: string;
+  imageUrl?: string;
   isActive?: boolean;
   offers?: Array<{
     shopId: string;
@@ -218,13 +233,14 @@ export async function createProduct(data: CreateProductData): Promise<IProductDo
       category: data.category,
       originCountry: data.originCountry.trim(),
       description: data.description?.trim() || '',
+      imageUrl: data.imageUrl?.trim() || '',
       lowestPriceAedPerKg: lowest,
       isActive: data.isActive ?? true,
       offers: preparedOffers
     });
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryProductStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Product creation rejected in fail-closed mode.');
   }
 
@@ -236,6 +252,7 @@ export async function createProduct(data: CreateProductData): Promise<IProductDo
     category: data.category,
     originCountry: data.originCountry.trim(),
     description: data.description?.trim() || '',
+    imageUrl: data.imageUrl?.trim() || '',
     lowestPriceAedPerKg: lowest,
     isActive: data.isActive ?? true,
     offers: preparedOffers,
@@ -286,7 +303,7 @@ export async function findProducts(
     return { products, total };
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryProductStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -316,7 +333,7 @@ export async function findProductById(id: string): Promise<IProductDocument | Pr
     return await ProductModel.findById(id).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryProductStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -329,7 +346,7 @@ export async function setProductActiveStatus(id: string, isActive: boolean): Pro
     return res.modifiedCount > 0;
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryProductStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -346,7 +363,7 @@ export async function listAllProductsAdmin(): Promise<Array<IProductDocument | P
     return await ProductModel.find().sort({ createdAt: -1 }).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryProductStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -363,7 +380,7 @@ export async function countProducts(): Promise<{ total: number; active: number; 
     return { total, active, inactive };
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryProductStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -381,7 +398,7 @@ export async function findProductByName(name: string): Promise<IProductDocument 
     return await ProductModel.findOne({ name: new RegExp(`^${normalized}$`, 'i') }).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryProductStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -433,7 +450,7 @@ export async function addOrUpdateProductOffer(
     return product;
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryProductStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -483,11 +500,12 @@ export async function updateProductOffer(
     }
 
     product.lowestPriceAedPerKg = computeLowestPricePerKg(product.offers);
+    product.markModified('offers');
     await product.save();
     return product;
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryProductStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -517,7 +535,7 @@ export async function listProductsByVendor(shopId: string): Promise<Array<IProdu
     return await ProductModel.find({ 'offers.shopId': shopId }).sort({ updatedAt: -1 }).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryProductStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -525,4 +543,153 @@ export async function listProductsByVendor(shopId: string): Promise<Array<IProdu
     .filter((p) => p.offers.some((o) => o.shopId === shopId))
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 }
+
+export async function reserveOfferStock(
+  productId: string,
+  shopId: string,
+  quantity: number
+): Promise<{ success: boolean; error?: string }> {
+  if (quantity <= 0) return { success: false, error: 'Quantity must be positive' };
+
+  if (isDatabaseConnected()) {
+    const updated = await ProductModel.findOneAndUpdate(
+      {
+        _id: productId,
+        isActive: true,
+        offers: {
+          $elemMatch: {
+            shopId: shopId,
+            isActive: true,
+            availableStock: { $gte: quantity }
+          }
+        }
+      },
+      {
+        $inc: { 'offers.$.availableStock': -quantity }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return { success: false, error: 'Insufficient stock or produce offer unavailable' };
+    }
+
+    updated.lowestPriceAedPerKg = computeLowestPricePerKg(updated.offers);
+    await updated.save();
+    return { success: true };
+  }
+
+  if (!isInMemoryProductStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const prod = inMemoryProducts.get(productId);
+  if (!prod || !prod.isActive) {
+    return { success: false, error: 'Produce not found or currently inactive' };
+  }
+
+  const offer = prod.offers.find((o) => o.shopId === shopId && o.isActive);
+  if (!offer) {
+    return { success: false, error: 'Stall offer not found or currently inactive' };
+  }
+
+  if (offer.availableStock < quantity) {
+    return {
+      success: false,
+      error: `Insufficient stock for ${prod.name}: requested ${quantity}, but only ${offer.availableStock} in stock`
+    };
+  }
+
+  offer.availableStock -= quantity;
+  prod.lowestPriceAedPerKg = computeLowestPricePerKg(prod.offers);
+  prod.updatedAt = new Date();
+  return { success: true };
+}
+
+export async function rollbackOfferStock(
+  productId: string,
+  shopId: string,
+  quantity: number
+): Promise<void> {
+  if (quantity <= 0) return;
+
+  if (isDatabaseConnected()) {
+    const updated = await ProductModel.findOneAndUpdate(
+      {
+        _id: productId,
+        'offers.shopId': shopId
+      },
+      {
+        $inc: { 'offers.$.availableStock': quantity }
+      },
+      { new: true }
+    );
+    if (updated) {
+      updated.lowestPriceAedPerKg = computeLowestPricePerKg(updated.offers);
+      await updated.save();
+    }
+    return;
+  }
+
+  if (!isInMemoryProductStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const prod = inMemoryProducts.get(productId);
+  if (prod) {
+    const offer = prod.offers.find((o) => o.shopId === shopId);
+    if (offer) {
+      offer.availableStock += quantity;
+      prod.lowestPriceAedPerKg = computeLowestPricePerKg(prod.offers);
+      prod.updatedAt = new Date();
+    }
+  }
+}
+
+export async function setOffersActiveForShop(
+  shopId: string,
+  isActive: boolean
+): Promise<number> {
+  if (isDatabaseConnected()) {
+    const products = await ProductModel.find({ 'offers.shopId': shopId }).exec();
+    let updatedCount = 0;
+    for (const prod of products) {
+      let changed = false;
+      for (const offer of prod.offers) {
+        if (offer.shopId === shopId && offer.isActive !== isActive) {
+          offer.isActive = isActive;
+          changed = true;
+        }
+      }
+      if (changed) {
+        prod.lowestPriceAedPerKg = computeLowestPricePerKg(prod.offers);
+        await prod.save();
+        updatedCount++;
+      }
+    }
+    return updatedCount;
+  }
+
+  if (!isInMemoryProductStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  let updatedCount = 0;
+  for (const prod of inMemoryProducts.values()) {
+    let changed = false;
+    for (const offer of prod.offers) {
+      if (offer.shopId === shopId && offer.isActive !== isActive) {
+        offer.isActive = isActive;
+        changed = true;
+      }
+    }
+    if (changed) {
+      prod.lowestPriceAedPerKg = computeLowestPricePerKg(prod.offers);
+      prod.updatedAt = new Date();
+      updatedCount++;
+    }
+  }
+  return updatedCount;
+}
+
 

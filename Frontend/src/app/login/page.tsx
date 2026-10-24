@@ -80,9 +80,9 @@ export default function LoginPage() {
       const res = await loginBuyer(parseResult.data);
       setSessionUser(res.user);
       setIsSuccess(true);
-      // Redirect to home/marketplace
+      // Redirect to buyer account dashboard
       setTimeout(() => {
-        router.push('/');
+        router.push('/account');
       }, 1000);
     } catch (err: unknown) {
       if (err instanceof ApiClientError) {

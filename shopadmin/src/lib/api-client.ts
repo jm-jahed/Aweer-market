@@ -80,6 +80,13 @@ export interface VendorShopSummary {
   slug: string;
   stallNumber: string;
   phone: string;
+  tradeLicenseNumber?: string;
+  logoUrl?: string;
+  coverImageUrl?: string;
+  address?: string;
+  openingHours?: string;
+  weeklySchedule?: string;
+  marketLocation?: string;
   isApproved: boolean;
   isActive: boolean;
   createdAt: string;
@@ -151,6 +158,7 @@ export interface VendorProductItem {
   category: string;
   originCountry: string;
   description: string;
+  imageUrl?: string;
   lowestPriceAedPerKg: number;
   offer: VendorProductOffer | null;
 }
@@ -177,4 +185,81 @@ export async function updateVendorOffer(
     body: JSON.stringify(data)
   });
 }
+
+export async function toggleVendorProductPublish(
+  productId: string,
+  isActive: boolean
+): Promise<{ statusCode: number; message: string; product: ProductItem }> {
+  return await updateVendorOffer(productId, { isActive });
+}
+
+export async function adjustVendorProductStock(
+  productId: string,
+  newStock: number
+): Promise<{ statusCode: number; message: string; product: ProductItem }> {
+  return await updateVendorOffer(productId, { availableStock: newStock });
+}
+
+export interface VendorOrderItem {
+  productId: string;
+  name: string;
+  unit: string;
+  unitWeightKg: number;
+  quantity: number;
+  unitPriceAed: number;
+  lineTotalAed: number;
+}
+
+export interface VendorOrderSummary {
+  id: string;
+  orderNumber: string;
+  buyerId: string;
+  shopId: string;
+  shopName: string;
+  stallNumber?: string;
+  deliveryType: string;
+  deliveryAddress?: string;
+  pickupTime?: string;
+  status: string;
+  totalAmountAed: number;
+  items: VendorOrderItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getVendorOrders(): Promise<{ statusCode: number; orders: VendorOrderSummary[] }> {
+  return await request<{ statusCode: number; orders: VendorOrderSummary[] }>('/vendor/orders', {
+    method: 'GET'
+  });
+}
+
+export async function updateVendorOrderStatus(
+  orderId: string,
+  status: string
+): Promise<{ statusCode: number; message: string; order: VendorOrderSummary }> {
+  return await request<{ statusCode: number; message: string; order: VendorOrderSummary }>(`/vendor/orders/${orderId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status })
+  });
+}
+
+export interface CategoryItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  icon: string;
+  bannerUrl?: string;
+  sortOrder: number;
+  isActive: boolean;
+  productCount: number;
+}
+
+export async function getCategories(): Promise<{ statusCode: number; categories: CategoryItem[] }> {
+  return await request<{ statusCode: number; categories: CategoryItem[] }>('/categories', {
+    method: 'GET'
+  });
+}
+
+
 

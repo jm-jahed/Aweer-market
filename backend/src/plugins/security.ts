@@ -3,10 +3,12 @@ import { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply, Fast
 import { AuthSessionPayload, UserRole, isShopAdminRole, isSuperAdminRole } from '@aweermarket/types';
 import { verifySessionToken } from '../utils/crypto.js';
 import { parseCookie, SESSION_COOKIE_NAME } from '../utils/cookie.js';
+import { findUserById, IUserDocument, UserRecord, DatabaseUnavailableError } from '../models/user.model.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
     user?: AuthSessionPayload;
+    dbUser?: IUserDocument | UserRecord | null;
   }
 }
 
@@ -202,6 +204,31 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
       error: 'Unauthorized',
       message: 'Invalid token subject claim'
     });
+  }
+
+  // 5. Authoritative Database & Token Version Validation (Revocation Check)
+  let dbUser: IUserDocument | UserRecord | null = null;
+  try {
+    dbUser = await findUserById(verifiedPayload.userId);
+  } catch (err: unknown) {
+    if (err instanceof DatabaseUnavailableError || (err as { statusCode?: number })?.statusCode === 503) {
+      throw new DatabaseUnavailableError();
+    }
+    throw err;
+  }
+
+  if (dbUser) {
+    const tokenVersion = verifiedPayload.tokenVersion ?? 0;
+    const currentVersion = dbUser.tokenVersion ?? 0;
+    if (tokenVersion !== currentVersion) {
+      return reply.status(401).send({
+        statusCode: 401,
+        error: 'Unauthorized',
+        message: 'Session has been revoked or expired. Please log in again.'
+      });
+    }
+
+    request.dbUser = dbUser;
   }
 
   // Attach trusted, cryptographically validated user identity

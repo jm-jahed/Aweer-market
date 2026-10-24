@@ -13,6 +13,7 @@ export interface IUserDocument extends Document {
   tradeLicenseNumber?: string;
   isActive: boolean;
   isEmailVerified: boolean;
+  tokenVersion?: number;
   createdAt: Date;
   updatedAt: Date;
   toUserSummary(): UserSummary;
@@ -71,6 +72,11 @@ const UserSchema = new Schema<IUserDocument>(
     isEmailVerified: {
       type: Boolean,
       default: false
+    },
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      required: true
     }
   },
   {
@@ -113,6 +119,7 @@ export interface UserRecord {
   tradeLicenseNumber?: string;
   isActive: boolean;
   isEmailVerified: boolean;
+  tokenVersion?: number;
   createdAt: Date;
   updatedAt: Date;
   toUserSummary(): UserSummary;
@@ -125,6 +132,7 @@ let idCounter = 1;
 function createInMemoryRecord(data: Omit<UserRecord, 'toUserSummary'>): UserRecord {
   return {
     ...data,
+    tokenVersion: data.tokenVersion ?? 0,
     toUserSummary(): UserSummary {
       return {
         id: this.id,
@@ -151,6 +159,11 @@ export class DatabaseUnavailableError extends Error {
     this.name = 'DatabaseUnavailableError';
     Object.setPrototypeOf(this, new.target.prototype);
   }
+}
+
+export function isInMemoryUserStoreAllowed(): boolean {
+  if (process.env.NODE_ENV === 'production') return false;
+  return process.env.NODE_ENV === 'test' || process.env.ALLOW_IN_MEMORY_DB === 'true';
 }
 
 /**
@@ -195,7 +208,7 @@ export async function findUserByEmail(
   }
 
   // Fail closed in production and development: never silently use volatile in-memory storage
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryUserStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -220,7 +233,7 @@ export async function findUserById(id: string): Promise<IUserDocument | UserReco
   }
 
   // Fail closed in production and development
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryUserStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -250,7 +263,7 @@ export async function createBuyerUser(data: CreateBuyerData): Promise<IUserDocum
   }
 
   // Fail closed in production and development
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryUserStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. User creation rejected in fail-closed mode.');
   }
 
@@ -294,7 +307,7 @@ export async function setUserActiveStatus(userId: string, isActive: boolean): Pr
   }
 
   // Fail closed in production and development
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryUserStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -326,7 +339,7 @@ export async function createSuperAdminUser(data: CreateSuperAdminData): Promise<
     });
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryUserStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -383,7 +396,7 @@ export async function createShopAdminUser(data: CreateShopAdminData): Promise<IU
     });
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryUserStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -423,7 +436,7 @@ export async function listAllUsers(filter?: { role?: UserRole }): Promise<Array<
     return await UserModel.find(q).sort({ createdAt: -1 }).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryUserStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -445,7 +458,7 @@ export async function countUsers(): Promise<{ total: number; buyers: number; sho
     return { total, buyers, shopAdmins, superAdmins };
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryUserStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -456,4 +469,44 @@ export async function countUsers(): Promise<{ total: number; buyers: number; sho
     shopAdmins: all.filter((u) => u.role === UserRole.SHOP_ADMIN).length,
     superAdmins: all.filter((u) => u.role === UserRole.SUPER_ADMIN).length
   };
+}
+
+/**
+ * Atomically increments user's tokenVersion upon logout or credential revocation.
+ * Strictly requires active database connection in non-test runtime.
+ */
+export async function incrementUserTokenVersion(userId: string): Promise<number | null> {
+  if (isDatabaseConnected()) {
+    const updated = await UserModel.findByIdAndUpdate(
+      userId,
+      { $inc: { tokenVersion: 1 } },
+      { new: true }
+    ).exec();
+    return updated ? (updated.tokenVersion ?? 1) : null;
+  }
+
+  // Fail closed in production and development
+  if (!isInMemoryUserStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const user = inMemoryUsersById.get(userId);
+  if (user) {
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
+    return user.tokenVersion;
+  }
+  return null;
+}
+
+/**
+ * Direct in-memory user seed for testing.
+ * Gated strictly to test environment.
+ */
+export function seedInMemoryUser(record: Omit<UserRecord, 'toUserSummary'>): void {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Seeding in-memory store is only permitted in test environment');
+  }
+  const fullRecord = createInMemoryRecord(record);
+  inMemoryUsersById.set(record.id, fullRecord);
+  inMemoryUsersByEmail.set(record.email.toLowerCase().trim(), record.id);
 }

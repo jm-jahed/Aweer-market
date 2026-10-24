@@ -3,7 +3,7 @@
  * Cookie-aware fetch wrapper communicating with Fastify backend on port 4000.
  */
 
-import type { UserSummary, UserRole } from '@aweermarket/types';
+import type { UserSummary, UserRole, CategoryPublicItem } from '@aweermarket/types';
 
 const DEFAULT_API_BASE_URL = 'http://localhost:4000/api/v1';
 
@@ -87,6 +87,15 @@ export async function superAdminLogout(): Promise<{ statusCode: number; message:
   });
 }
 
+export interface OrderFinancialMetrics {
+  totalGmvAed: number;
+  totalCommissionAed: number;
+  commissionRatePercent: number;
+  deliveredGmvAed: number;
+  deliveredCommissionAed: number;
+  ordersByStatus: Record<string, number>;
+}
+
 export interface PlatformMetrics {
   totalUsers: number;
   buyers: number;
@@ -99,6 +108,7 @@ export interface PlatformMetrics {
   activeProducts: number;
   inactiveProducts: number;
   totalOrders: number;
+  financials?: OrderFinancialMetrics;
 }
 
 export async function getAdminOverview(): Promise<{ statusCode: number; metrics: PlatformMetrics }> {
@@ -132,6 +142,13 @@ export async function setAdminShopApproval(shopId: string, isApproved: boolean):
   });
 }
 
+export async function setAdminShopStatus(shopId: string, isActive: boolean): Promise<{ statusCode: number; message: string; shop: AdminShopItem }> {
+  return await request<{ statusCode: number; message: string; shop: AdminShopItem }>(`/admin/shops/${shopId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive })
+  });
+}
+
 export async function getAdminUsers(role?: UserRole): Promise<{ statusCode: number; users: UserSummary[] }> {
   const query = role ? `?role=${role}` : '';
   return await request<{ statusCode: number; users: UserSummary[] }>(`/admin/users${query}`, {
@@ -152,6 +169,7 @@ export interface AdminProductItem {
   category: string;
   originCountry: string;
   lowestPriceAedPerKg: number;
+  isActive?: boolean;
   offers: Array<{
     vendorId: string;
     shopName: string;
@@ -173,5 +191,121 @@ export async function setAdminProductModeration(productId: string, isActive: boo
   return await request<{ statusCode: number; message: string; product: AdminProductItem }>(`/admin/products/${productId}/moderation`, {
     method: 'PATCH',
     body: JSON.stringify({ isActive })
+  });
+}
+
+export interface AdminOrderItem {
+  id: string;
+  orderNumber: string;
+  buyerId: string;
+  shopId: string;
+  shopName: string;
+  stallNumber: string;
+  deliveryType: string;
+  deliveryAddress?: string;
+  pickupTime?: string;
+  status: string;
+  totalAmountAed: number;
+  commissionAed: number;
+  commissionRatePercent: number;
+  items: Array<{
+    productId: string;
+    name: string;
+    unit: string;
+    unitWeightKg: number;
+    quantity: number;
+    unitPriceAed: number;
+    lineTotalAed: number;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getAdminOrders(status?: string, shopId?: string): Promise<{
+  statusCode: number;
+  financials: OrderFinancialMetrics;
+  orders: AdminOrderItem[];
+}> {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (shopId) params.set('shopId', shopId);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return await request<{
+    statusCode: number;
+    financials: OrderFinancialMetrics;
+    orders: AdminOrderItem[];
+  }>(`/admin/orders${query}`, {
+    method: 'GET'
+  });
+}
+
+export type AdminCategoryItem = CategoryPublicItem;
+
+export interface CreateCategoryPayload {
+  name: string;
+  slug: string;
+  description?: string;
+  icon?: string;
+  bannerUrl?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateCategoryPayload {
+  name?: string;
+  slug?: string;
+  description?: string;
+  icon?: string;
+  bannerUrl?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export async function getAdminCategories(): Promise<{ statusCode: number; categories: AdminCategoryItem[] }> {
+  return await request<{ statusCode: number; categories: AdminCategoryItem[] }>('/admin/categories', {
+    method: 'GET'
+  });
+}
+
+export async function createAdminCategory(payload: CreateCategoryPayload): Promise<{
+  statusCode: number;
+  message: string;
+  category: AdminCategoryItem;
+}> {
+  return await request<{ statusCode: number; message: string; category: AdminCategoryItem }>('/admin/categories', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateAdminCategory(id: string, payload: UpdateCategoryPayload): Promise<{
+  statusCode: number;
+  message: string;
+  category: AdminCategoryItem;
+}> {
+  return await request<{ statusCode: number; message: string; category: AdminCategoryItem }>(`/admin/categories/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function setAdminCategoryStatus(id: string, isActive: boolean): Promise<{
+  statusCode: number;
+  message: string;
+  category: AdminCategoryItem;
+}> {
+  return await request<{ statusCode: number; message: string; category: AdminCategoryItem }>(`/admin/categories/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive })
+  });
+}
+
+export async function deleteAdminCategory(id: string): Promise<{
+  statusCode: number;
+  message: string;
+  deactivated: boolean;
+}> {
+  return await request<{ statusCode: number; message: string; deactivated: boolean }>(`/admin/categories/${id}`, {
+    method: 'DELETE'
   });
 }

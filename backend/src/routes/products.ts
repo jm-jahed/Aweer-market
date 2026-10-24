@@ -2,16 +2,7 @@ import { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { ProductCategory } from '@aweermarket/types';
 import { findProducts, findProductById, listProductsByVendor } from '../models/product.model.js';
 import { findShopById, listAllShops } from '../models/shop.model.js';
-
-const categoryLabels: Record<ProductCategory, string> = {
-  [ProductCategory.FRESH_FRUITS]: 'Fresh Fruits',
-  [ProductCategory.FRESH_VEGETABLES]: 'Fresh Vegetables',
-  [ProductCategory.EXOTIC_PRODUCE]: 'Exotic Produce',
-  [ProductCategory.LEAFY_GREENS]: 'Leafy Greens',
-  [ProductCategory.CITRUS]: 'Citrus',
-  [ProductCategory.BERRIES]: 'Berries',
-  [ProductCategory.ROOT_VEGETABLES]: 'Root Vegetables'
-};
+import { listAllCategories } from '../models/category.model.js';
 
 export const productsRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -19,10 +10,7 @@ export const productsRoutes: FastifyPluginAsync = async (fastify) => {
    * Returns supported wholesale produce categories and descriptive labels.
    */
   fastify.get('/categories', async (_request: FastifyRequest, reply: FastifyReply) => {
-    const categories = Object.values(ProductCategory).map((cat) => ({
-      key: cat,
-      label: categoryLabels[cat] || cat
-    }));
+    const categories = await listAllCategories({ isActive: true });
 
     return reply.status(200).send({
       statusCode: 200,
@@ -45,12 +33,17 @@ export const productsRoutes: FastifyPluginAsync = async (fastify) => {
 
     let categoryFilter: ProductCategory | undefined;
     if (query.category) {
-      const validCategories = Object.values(ProductCategory) as string[];
-      if (!validCategories.includes(query.category)) {
+      const activeCats = await listAllCategories({ isActive: true });
+      const validCategoryKeys = Array.from(new Set([
+        ...Object.values(ProductCategory) as string[],
+        ...activeCats.map((c) => c.key)
+      ]));
+
+      if (!validCategoryKeys.includes(query.category)) {
         return reply.status(400).send({
           statusCode: 400,
           error: 'Bad Request',
-          message: `Invalid produce category '${query.category}'. Must be one of: ${validCategories.join(', ')}`
+          message: `Invalid produce category '${query.category}'. Must be one of: ${validCategoryKeys.join(', ')}`
         });
       }
       categoryFilter = query.category as ProductCategory;

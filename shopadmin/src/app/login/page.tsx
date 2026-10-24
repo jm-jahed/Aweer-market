@@ -3,10 +3,10 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useShopAdminAuth } from '../../lib/auth-context';
+import { useShopAdminAuth, useAuth } from '../../lib/auth-context';
 import styles from './Login.module.css';
 
-export default function ShopAdminLoginPage() {
+export default function LoginPage() {
   const router = useRouter();
   const { user, login, isLoading: authLoading } = useShopAdminAuth();
 

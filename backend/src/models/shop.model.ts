@@ -8,6 +8,12 @@ export interface IShopDocument extends Document {
   ownerId: string;
   tradeLicenseNumber: string;
   phone: string;
+  logoUrl?: string;
+  coverImageUrl?: string;
+  address?: string;
+  openingHours?: string;
+  weeklySchedule?: string;
+  marketLocation?: string;
   isApproved: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -21,6 +27,12 @@ export interface ShopPublicSummary {
   slug: string;
   stallNumber: string;
   phone: string;
+  logoUrl?: string;
+  coverImageUrl?: string;
+  address?: string;
+  openingHours?: string;
+  weeklySchedule?: string;
+  marketLocation?: string;
   isApproved: boolean;
   isActive: boolean;
   createdAt: string;
@@ -61,6 +73,12 @@ const ShopSchema = new Schema<IShopDocument>(
       required: [true, 'Contact phone is required'],
       trim: true
     },
+    logoUrl: { type: String, trim: true, default: '' },
+    coverImageUrl: { type: String, trim: true, default: '' },
+    address: { type: String, trim: true, default: '' },
+    openingHours: { type: String, trim: true, default: '' },
+    weeklySchedule: { type: String, trim: true, default: '' },
+    marketLocation: { type: String, trim: true, default: '' },
     isApproved: {
       type: Boolean,
       default: false,
@@ -84,6 +102,12 @@ ShopSchema.methods.toPublicSummary = function (): ShopPublicSummary {
     slug: this.slug,
     stallNumber: this.stallNumber,
     phone: this.phone,
+    logoUrl: this.logoUrl || '',
+    coverImageUrl: this.coverImageUrl || '',
+    address: this.address || '',
+    openingHours: this.openingHours || '',
+    weeklySchedule: this.weeklySchedule || '',
+    marketLocation: this.marketLocation || '',
     isApproved: this.isApproved,
     isActive: this.isActive,
     createdAt: this.createdAt ? this.createdAt.toISOString() : new Date().toISOString()
@@ -105,6 +129,12 @@ export interface ShopRecord {
   ownerId: string;
   tradeLicenseNumber: string;
   phone: string;
+  logoUrl?: string;
+  coverImageUrl?: string;
+  address?: string;
+  openingHours?: string;
+  weeklySchedule?: string;
+  marketLocation?: string;
   isApproved: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -126,6 +156,12 @@ function createInMemoryShopRecord(data: Omit<ShopRecord, 'toPublicSummary'>): Sh
         slug: this.slug,
         stallNumber: this.stallNumber,
         phone: this.phone,
+        logoUrl: this.logoUrl || '',
+        coverImageUrl: this.coverImageUrl || '',
+        address: this.address || '',
+        openingHours: this.openingHours || '',
+        weeklySchedule: this.weeklySchedule || '',
+        marketLocation: this.marketLocation || '',
         isApproved: this.isApproved,
         isActive: this.isActive,
         createdAt: this.createdAt.toISOString()
@@ -143,6 +179,11 @@ export class DatabaseUnavailableError extends Error {
     this.name = 'DatabaseUnavailableError';
     Object.setPrototypeOf(this, new.target.prototype);
   }
+}
+
+export function isInMemoryShopStoreAllowed(): boolean {
+  if (process.env.NODE_ENV === 'production') return false;
+  return process.env.NODE_ENV === 'test' || process.env.ALLOW_IN_MEMORY_DB === 'true';
 }
 
 export function resetInMemoryShops(): void {
@@ -181,7 +222,7 @@ export async function createShop(data: CreateShopData): Promise<IShopDocument | 
     });
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryShopStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Shop creation rejected in fail-closed mode.');
   }
 
@@ -217,7 +258,7 @@ export async function findShopById(id: string): Promise<IShopDocument | ShopReco
     return await ShopModel.findById(id).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryShopStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -230,7 +271,7 @@ export async function findShopBySlug(slug: string): Promise<IShopDocument | Shop
     return await ShopModel.findOne({ slug: normalizedSlug }).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryShopStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -244,7 +285,7 @@ export async function setShopApproval(id: string, isApproved: boolean): Promise<
     return res.modifiedCount > 0;
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryShopStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -256,12 +297,30 @@ export async function setShopApproval(id: string, isApproved: boolean): Promise<
   return false;
 }
 
+export async function setShopActiveStatus(id: string, isActive: boolean): Promise<boolean> {
+  if (isDatabaseConnected()) {
+    const res = await ShopModel.updateOne({ _id: id }, { $set: { isActive } });
+    return res.modifiedCount > 0;
+  }
+
+  if (!isInMemoryShopStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const shop = inMemoryShopsById.get(id);
+  if (shop) {
+    shop.isActive = isActive;
+    return true;
+  }
+  return false;
+}
+
 export async function findShopByOwnerId(ownerId: string): Promise<IShopDocument | ShopRecord | null> {
   if (isDatabaseConnected()) {
     return await ShopModel.findOne({ ownerId }).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryShopStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -273,6 +332,12 @@ export interface UpdateShopData {
   name?: string;
   phone?: string;
   stallNumber?: string;
+  logoUrl?: string;
+  coverImageUrl?: string;
+  address?: string;
+  openingHours?: string;
+  weeklySchedule?: string;
+  marketLocation?: string;
 }
 
 export async function updateShop(id: string, updates: UpdateShopData): Promise<IShopDocument | ShopRecord | null> {
@@ -281,11 +346,17 @@ export async function updateShop(id: string, updates: UpdateShopData): Promise<I
     if (updates.name !== undefined) safeUpdates.name = updates.name.trim();
     if (updates.phone !== undefined) safeUpdates.phone = updates.phone.trim();
     if (updates.stallNumber !== undefined) safeUpdates.stallNumber = updates.stallNumber.trim();
+    if (updates.logoUrl !== undefined) safeUpdates.logoUrl = updates.logoUrl.trim();
+    if (updates.coverImageUrl !== undefined) safeUpdates.coverImageUrl = updates.coverImageUrl.trim();
+    if (updates.address !== undefined) safeUpdates.address = updates.address.trim();
+    if (updates.openingHours !== undefined) safeUpdates.openingHours = updates.openingHours.trim();
+    if (updates.weeklySchedule !== undefined) safeUpdates.weeklySchedule = updates.weeklySchedule.trim();
+    if (updates.marketLocation !== undefined) safeUpdates.marketLocation = updates.marketLocation.trim();
 
     return await ShopModel.findByIdAndUpdate(id, { $set: safeUpdates }, { new: true }).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryShopStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -295,6 +366,12 @@ export async function updateShop(id: string, updates: UpdateShopData): Promise<I
   if (updates.name !== undefined) shop.name = updates.name.trim();
   if (updates.phone !== undefined) shop.phone = updates.phone.trim();
   if (updates.stallNumber !== undefined) shop.stallNumber = updates.stallNumber.trim();
+  if (updates.logoUrl !== undefined) shop.logoUrl = updates.logoUrl.trim();
+  if (updates.coverImageUrl !== undefined) shop.coverImageUrl = updates.coverImageUrl.trim();
+  if (updates.address !== undefined) shop.address = updates.address.trim();
+  if (updates.openingHours !== undefined) shop.openingHours = updates.openingHours.trim();
+  if (updates.weeklySchedule !== undefined) shop.weeklySchedule = updates.weeklySchedule.trim();
+  if (updates.marketLocation !== undefined) shop.marketLocation = updates.marketLocation.trim();
   shop.updatedAt = new Date();
 
   return shop;
@@ -307,7 +384,7 @@ export async function listAllShops(filter?: { isApproved?: boolean }): Promise<A
     return await ShopModel.find(q).sort({ createdAt: -1 }).exec();
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryShopStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
@@ -328,7 +405,7 @@ export async function countShops(): Promise<{ total: number; approved: number; p
     return { total, approved, pending };
   }
 
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isInMemoryShopStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
