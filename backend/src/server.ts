@@ -4,6 +4,9 @@ import helmet from '@fastify/helmet';
 import dotenv from 'dotenv';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
+import { productsRoutes } from './routes/products.js';
+import { adminRoutes } from './routes/admin.js';
+import { vendorRoutes } from './routes/vendor.js';
 import { connectDatabase, disconnectDatabase } from './plugins/db.js';
 import { securityPlugin, safeErrorHandler } from './plugins/security.js';
 
@@ -55,6 +58,15 @@ export async function buildServer() {
 
   // Authentication routes
   await server.register(authRoutes, { prefix: '/api/v1/auth' });
+
+  // Public Catalog & Product routes
+  await server.register(productsRoutes, { prefix: '/api/v1' });
+
+  // Super Admin Governance routes
+  await server.register(adminRoutes, { prefix: '/api/v1/admin' });
+
+  // Vendor / Shop Admin routes
+  await server.register(vendorRoutes, { prefix: '/api/v1/vendor' });
 
   server.get('/', async (_req, reply) => {
     return reply.send({

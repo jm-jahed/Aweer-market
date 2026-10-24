@@ -1,0 +1,180 @@
+/**
+ * AweerMarket Shop Admin API Client
+ * Cookie-aware fetch wrapper communicating with Fastify backend on port 4000.
+ */
+
+import type { UserSummary, ProductItem } from '@aweermarket/types';
+import type {
+  RegisterVendorInput,
+  UpdateShopProfileInput,
+  CreateProductInput,
+  UpdateProductOfferInput
+} from '@aweermarket/validation';
+
+const DEFAULT_API_BASE_URL = 'http://localhost:4000/api/v1';
+
+export function getApiBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!envUrl || envUrl.trim().length === 0) {
+    return DEFAULT_API_BASE_URL;
+  }
+  const cleanUrl = envUrl.trim().replace(/\/+$/, '');
+  return cleanUrl.endsWith('/api/v1') ? cleanUrl : `${cleanUrl}/api/v1`;
+}
+
+export class ApiClientError extends Error {
+  readonly statusCode: number;
+  readonly code?: string;
+
+  constructor(message: string, statusCode: number, code?: string) {
+    super(message);
+    this.name = 'ApiClientError';
+    this.statusCode = statusCode;
+    this.code = code;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {})
+  };
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include'
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'Network connection failure';
+    throw new ApiClientError(`Unable to connect to central API (${errorMsg})`, 0, 'NETWORK_ERROR');
+  }
+
+  let data: Record<string, unknown> = {};
+  const text = await response.text();
+  if (text && text.trim().length > 0) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { rawResponse: text };
+    }
+  }
+
+  if (!response.ok) {
+    const message = (data.message as string) || (data.error as string) || `Request failed with status ${response.status}`;
+    throw new ApiClientError(message, response.status, data.code as string | undefined);
+  }
+
+  return data as unknown as T;
+}
+
+export interface VendorShopSummary {
+  id: string;
+  name: string;
+  slug: string;
+  stallNumber: string;
+  phone: string;
+  isApproved: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface AuthVendorResponse {
+  statusCode: number;
+  message?: string;
+  token?: string;
+  user: UserSummary;
+  shop: VendorShopSummary | null;
+}
+
+export async function vendorRegister(data: RegisterVendorInput): Promise<AuthVendorResponse> {
+  return await request<AuthVendorResponse>('/auth/vendor/register', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function vendorLogin(email: string, password: string): Promise<AuthVendorResponse> {
+  return await request<AuthVendorResponse>('/auth/vendor/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password })
+  });
+}
+
+export async function getVendorMe(): Promise<{ statusCode: number; user: UserSummary; shop: VendorShopSummary | null }> {
+  return await request<{ statusCode: number; user: UserSummary; shop: VendorShopSummary | null }>('/auth/vendor/me', {
+    method: 'GET'
+  });
+}
+
+export async function vendorLogout(): Promise<{ statusCode: number; message: string }> {
+  return await request<{ statusCode: number; message: string }>('/auth/logout', {
+    method: 'POST'
+  });
+}
+
+export async function getVendorShop(): Promise<{ statusCode: number; shop: VendorShopSummary }> {
+  return await request<{ statusCode: number; shop: VendorShopSummary }>('/vendor/shop', {
+    method: 'GET'
+  });
+}
+
+export async function updateVendorShop(data: UpdateShopProfileInput): Promise<{ statusCode: number; message: string; shop: VendorShopSummary }> {
+  return await request<{ statusCode: number; message: string; shop: VendorShopSummary }>('/vendor/shop', {
+    method: 'PATCH',
+    body: JSON.stringify(data)
+  });
+}
+
+export interface VendorProductOffer {
+  shopId: string;
+  shopName: string;
+  stallNumber?: string;
+  unit: string;
+  unitWeightKg: number;
+  priceAed: number;
+  equivalentPricePerKg: number;
+  minOrderQuantity: number;
+  availableStock: number;
+  isActive: boolean;
+}
+
+export interface VendorProductItem {
+  id: string;
+  name: string;
+  category: string;
+  originCountry: string;
+  description: string;
+  lowestPriceAedPerKg: number;
+  offer: VendorProductOffer | null;
+}
+
+export async function getVendorProducts(): Promise<{ statusCode: number; products: VendorProductItem[] }> {
+  return await request<{ statusCode: number; products: VendorProductItem[] }>('/vendor/products', {
+    method: 'GET'
+  });
+}
+
+export async function createVendorProduct(data: CreateProductInput): Promise<{ statusCode: number; message: string; product: ProductItem }> {
+  return await request<{ statusCode: number; message: string; product: ProductItem }>('/vendor/products', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function updateVendorOffer(
+  productId: string,
+  data: UpdateProductOfferInput
+): Promise<{ statusCode: number; message: string; product: ProductItem }> {
+  return await request<{ statusCode: number; message: string; product: ProductItem }>(`/vendor/products/${productId}/offer`, {
+    method: 'PATCH',
+    body: JSON.stringify(data)
+  });
+}
+

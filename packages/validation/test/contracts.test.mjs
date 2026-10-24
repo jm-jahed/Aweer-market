@@ -2,12 +2,15 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { 
   RegisterBuyerSchema, 
+  RegisterVendorSchema,
+  UpdateShopProfileSchema,
   LoginSchema, 
   ShopAdminLoginSchema, 
   SuperAdminLoginSchema, 
-  MfaTokenSchema 
+  MfaTokenSchema,
+  CreateOrderSchema
 } from '../dist/index.js';
-import { UserRole, isShopAdminRole, isSuperAdminRole } from '../../types/dist/index.js';
+import { UserRole, isShopAdminRole, isSuperAdminRole, DeliveryType } from '../../types/dist/index.js';
 
 describe('Validation Contracts — Security & Integrity', () => {
   it('RegisterBuyerSchema accepts valid buyer input and normalizes email', () => {
@@ -161,5 +164,99 @@ describe('Validation Contracts — Security & Integrity', () => {
     assert.strictEqual(isSuperAdminRole(UserRole.SUPER_ADMIN), true);
     assert.strictEqual(isSuperAdminRole(UserRole.ADMIN), false);
     assert.strictEqual(isSuperAdminRole(UserRole.SHOP_ADMIN), false);
+  });
+
+  it('CreateOrderSchema enforces server price authority and rejects client unitPriceAed', () => {
+    // 1. Valid order without client prices
+    const validOrder = {
+      shopId: 'shop_aweer_101',
+      deliveryType: DeliveryType.SCHEDULED_DELIVERY,
+      deliveryAddress: 'Business Bay, Tower 1, Dubai',
+      items: [
+        { productId: 'prod_orange_123', quantity: 5 },
+        { productId: 'prod_banana_456', quantity: 10 }
+      ]
+    };
+    const parsed = CreateOrderSchema.parse(validOrder);
+    assert.strictEqual(parsed.shopId, 'shop_aweer_101');
+    assert.strictEqual(parsed.items.length, 2);
+    assert.strictEqual(parsed.items[0].quantity, 5);
+
+    // 2. CRITICAL: Rejects client-submitted unitPriceAed (Price Tampering Prevention)
+    const tamperedPriceOrder = {
+      shopId: 'shop_aweer_101',
+      deliveryType: DeliveryType.SHOP_PICKUP,
+      items: [
+        { productId: 'prod_orange_123', quantity: 5, unitPriceAed: 0.01 }
+      ]
+    };
+    assert.throws(() => {
+      CreateOrderSchema.parse(tamperedPriceOrder);
+    }, /unrecognized_keys/i);
+
+    // 3. Rejects order missing both shopId and vendorId
+    assert.throws(() => {
+      CreateOrderSchema.parse({
+        deliveryType: DeliveryType.SHOP_PICKUP,
+        items: [{ productId: 'prod_1', quantity: 1 }]
+      });
+    }, /Either shopId or vendorId is required/i);
+
+    // 4. Backward-compatible vendorId acceptance
+    const legacyOrder = {
+      vendorId: 'shop_aweer_101',
+      deliveryType: DeliveryType.SHOP_PICKUP,
+      items: [{ productId: 'prod_1', quantity: 2 }]
+    };
+    const parsedLegacy = CreateOrderSchema.parse(legacyOrder);
+    assert.strictEqual(parsedLegacy.vendorId, 'shop_aweer_101');
+  });
+
+  it('RegisterVendorSchema accepts valid vendor registration and rejects client role overrides', () => {
+    const valid = {
+      email: 'vendor@al-aweer.ae',
+      password: 'StallMasterPass123',
+      fullName: 'Tariq Al Hashemi',
+      stallName: 'Al Aweer Fresh Dates',
+      stallNumber: 'ST-42',
+      tradeLicenseNumber: 'TL-DXB-98765',
+      phone: '+971509876543'
+    };
+
+    const parsed = RegisterVendorSchema.parse(valid);
+    assert.strictEqual(parsed.stallName, 'Al Aweer Fresh Dates');
+    assert.strictEqual(parsed.stallNumber, 'ST-42');
+
+    // Attempt privilege escalation or self-approval
+    assert.throws(() => {
+      RegisterVendorSchema.parse({
+        ...valid,
+        role: 'super_admin'
+      });
+    }, /unrecognized_keys/i);
+
+    assert.throws(() => {
+      RegisterVendorSchema.parse({
+        ...valid,
+        isApproved: true
+      });
+    }, /unrecognized_keys/i);
+  });
+
+  it('UpdateShopProfileSchema allows contact updates but rejects isApproved tampering', () => {
+    const valid = {
+      name: 'Updated Stall Name',
+      phone: '+971501112233'
+    };
+    const parsed = UpdateShopProfileSchema.parse(valid);
+    assert.strictEqual(parsed.name, 'Updated Stall Name');
+
+    // Attempt self-approval via update
+    assert.throws(() => {
+      UpdateShopProfileSchema.parse({
+        name: 'New Name',
+        isApproved: true
+      });
+    }, /unrecognized_keys/i);
   });
 });

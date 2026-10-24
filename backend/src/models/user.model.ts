@@ -305,3 +305,155 @@ export async function setUserActiveStatus(userId: string, isActive: boolean): Pr
   }
   return false;
 }
+
+export interface CreateSuperAdminData {
+  email: string;
+  passwordHash: string;
+  fullName: string;
+}
+
+export async function createSuperAdminUser(data: CreateSuperAdminData): Promise<IUserDocument | UserRecord> {
+  const normalizedEmail = data.email.toLowerCase().trim();
+
+  if (isDatabaseConnected()) {
+    return await UserModel.create({
+      email: normalizedEmail,
+      passwordHash: data.passwordHash,
+      fullName: data.fullName.trim(),
+      role: UserRole.SUPER_ADMIN,
+      isActive: true,
+      isEmailVerified: true
+    });
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  if (inMemoryUsersByEmail.has(normalizedEmail)) {
+    const duplicateError = new Error(`E11000 duplicate key error: { email: "${normalizedEmail}" }`);
+    (duplicateError as unknown as { code: number }).code = 11000;
+    throw duplicateError;
+  }
+
+  const newId = `superadmin_usr_${idCounter++}_${Date.now()}`;
+  const now = new Date();
+  const record = createInMemoryRecord({
+    id: newId,
+    email: normalizedEmail,
+    passwordHash: data.passwordHash,
+    fullName: data.fullName.trim(),
+    role: UserRole.SUPER_ADMIN,
+    isActive: true,
+    isEmailVerified: true,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  inMemoryUsersById.set(newId, record);
+  inMemoryUsersByEmail.set(normalizedEmail, newId);
+  return record;
+}
+
+export interface CreateShopAdminData {
+  email: string;
+  passwordHash: string;
+  fullName: string;
+  shopId: string;
+  businessName?: string;
+  phone?: string;
+  tradeLicenseNumber?: string;
+}
+
+export async function createShopAdminUser(data: CreateShopAdminData): Promise<IUserDocument | UserRecord> {
+  const normalizedEmail = data.email.toLowerCase().trim();
+
+  if (isDatabaseConnected()) {
+    return await UserModel.create({
+      email: normalizedEmail,
+      passwordHash: data.passwordHash,
+      fullName: data.fullName.trim(),
+      role: UserRole.SHOP_ADMIN,
+      shopId: data.shopId,
+      businessName: data.businessName?.trim(),
+      phone: data.phone?.trim(),
+      tradeLicenseNumber: data.tradeLicenseNumber?.trim(),
+      isActive: true,
+      isEmailVerified: false
+    });
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  if (inMemoryUsersByEmail.has(normalizedEmail)) {
+    const duplicateError = new Error(`E11000 duplicate key error: { email: "${normalizedEmail}" }`);
+    (duplicateError as unknown as { code: number }).code = 11000;
+    throw duplicateError;
+  }
+
+  const newId = `vendor_usr_${idCounter++}_${Date.now()}`;
+  const now = new Date();
+  const record = createInMemoryRecord({
+    id: newId,
+    email: normalizedEmail,
+    passwordHash: data.passwordHash,
+    fullName: data.fullName.trim(),
+    role: UserRole.SHOP_ADMIN,
+    shopId: data.shopId,
+    businessName: data.businessName?.trim(),
+    phone: data.phone?.trim(),
+    tradeLicenseNumber: data.tradeLicenseNumber?.trim(),
+    isActive: true,
+    isEmailVerified: false,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  inMemoryUsersById.set(newId, record);
+  inMemoryUsersByEmail.set(normalizedEmail, newId);
+  return record;
+}
+
+export async function listAllUsers(filter?: { role?: UserRole }): Promise<Array<IUserDocument | UserRecord>> {
+  if (isDatabaseConnected()) {
+    const q: Record<string, unknown> = {};
+    if (filter?.role) q.role = filter.role;
+    return await UserModel.find(q).sort({ createdAt: -1 }).exec();
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  let list = Array.from(inMemoryUsersById.values());
+  if (filter?.role) {
+    list = list.filter((u) => u.role === filter.role);
+  }
+  return list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export async function countUsers(): Promise<{ total: number; buyers: number; shopAdmins: number; superAdmins: number }> {
+  if (isDatabaseConnected()) {
+    const [total, buyers, shopAdmins, superAdmins] = await Promise.all([
+      UserModel.countDocuments(),
+      UserModel.countDocuments({ role: UserRole.BUYER }),
+      UserModel.countDocuments({ role: UserRole.SHOP_ADMIN }),
+      UserModel.countDocuments({ role: UserRole.SUPER_ADMIN })
+    ]);
+    return { total, buyers, shopAdmins, superAdmins };
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const all = Array.from(inMemoryUsersById.values());
+  return {
+    total: all.length,
+    buyers: all.filter((u) => u.role === UserRole.BUYER).length,
+    shopAdmins: all.filter((u) => u.role === UserRole.SHOP_ADMIN).length,
+    superAdmins: all.filter((u) => u.role === UserRole.SUPER_ADMIN).length
+  };
+}

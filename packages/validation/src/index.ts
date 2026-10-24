@@ -96,6 +96,31 @@ export const RegisterBuyerSchema = z.object({
   tradeLicenseNumber: z.string().trim().optional()
 }).strict();
 
+/**
+ * Al Aweer Wholesale Vendor Registration Schema.
+ * Registers both the Shop Admin user and their initial market stall.
+ * Strictly forbids client-submitted role, isApproved, or permissions.
+ */
+export const RegisterVendorSchema = z.object({
+  email: EmailSchema,
+  password: PasswordSchema,
+  fullName: z.string({ required_error: 'Full name is required' }).trim().min(2, 'Full name must be at least 2 characters'),
+  stallName: z.string({ required_error: 'Stall name is required' }).trim().min(2, 'Stall name must be at least 2 characters'),
+  stallNumber: z.string({ required_error: 'Al Aweer stall number is required' }).trim().min(1, 'Stall number is required'),
+  tradeLicenseNumber: z.string({ required_error: 'Trade license number is required' }).trim().min(2, 'Trade license must be at least 2 characters'),
+  phone: z.string({ required_error: 'Contact phone is required' }).trim().min(7, 'Phone number must be at least 7 digits')
+}).strict();
+
+/**
+ * Shop Admin Stall Profile Update Schema.
+ * Vendors can update their shop contact details, but CANNOT self-approve (isApproved forbidden).
+ */
+export const UpdateShopProfileSchema = z.object({
+  name: z.string().trim().min(2, 'Stall name must be at least 2 characters').optional(),
+  stallNumber: z.string().trim().min(1, 'Stall number cannot be empty').optional(),
+  phone: z.string().trim().min(7, 'Phone number must be at least 7 digits').optional()
+}).strict();
+
 // ============================================================================
 // Product & Inventory Schemas
 // ============================================================================
@@ -115,6 +140,19 @@ export const CreateProductSchema = z.object({
   description: z.string().default(''),
   offer: ProductOfferSchema
 });
+
+export const VendorAddOfferSchema = z.object({
+  productId: z.string({ required_error: 'Product ID is required' }).min(1),
+  offer: ProductOfferSchema
+}).strict();
+
+export const UpdateProductOfferSchema = z.object({
+  priceAed: z.number().positive('Price must be positive').optional(),
+  unitWeightKg: z.number().positive('Unit weight must be positive').optional(),
+  minOrderQuantity: z.number().int().positive('MOQ must be at least 1').optional(),
+  availableStock: z.number().int().nonnegative('Stock cannot be negative').optional(),
+  isActive: z.boolean().optional()
+}).strict();
 
 // ============================================================================
 // Order Schemas
@@ -147,5 +185,9 @@ export type ShopAdminLoginInput = z.infer<typeof ShopAdminLoginSchema>;
 export type SuperAdminLoginInput = z.infer<typeof SuperAdminLoginSchema>;
 export type SuperAdminMfaVerifyInput = z.infer<typeof SuperAdminMfaVerifySchema>;
 export type RegisterBuyerInput = z.infer<typeof RegisterBuyerSchema>;
+export type RegisterVendorInput = z.infer<typeof RegisterVendorSchema>;
+export type UpdateShopProfileInput = z.infer<typeof UpdateShopProfileSchema>;
 export type CreateProductInput = z.infer<typeof CreateProductSchema>;
+export type VendorAddOfferInput = z.infer<typeof VendorAddOfferSchema>;
+export type UpdateProductOfferInput = z.infer<typeof UpdateProductOfferSchema>;
 export type CreateOrderInput = z.infer<typeof CreateOrderSchema>;

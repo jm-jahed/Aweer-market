@@ -4,7 +4,7 @@
  * Strictly communicates session state via HTTP-only cookies without storing tokens in browser storage.
  */
 
-import type { UserSummary } from '@aweermarket/types';
+import type { UserSummary, ProductItem, ProductOfferSummary } from '@aweermarket/types';
 import type { RegisterBuyerInput, LoginInput } from '@aweermarket/validation';
 
 export class ApiClientError extends Error {
@@ -69,6 +69,63 @@ export interface AuthMeResponse {
 export interface LogoutResponse {
   statusCode: number;
   message: string;
+}
+
+export interface CategoryItem {
+  key: string;
+  label: string;
+}
+
+export interface CategoriesResponse {
+  statusCode: number;
+  categories: CategoryItem[];
+}
+
+export interface ProductsResponse {
+  statusCode: number;
+  products: ProductItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface ProductDetailResponse {
+  statusCode: number;
+  product: ProductItem;
+}
+
+export interface ShopPublicSummary {
+  id: string;
+  name: string;
+  slug: string;
+  stallNumber: string;
+  phone: string;
+  isApproved: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ShopsResponse {
+  statusCode: number;
+  shops: ShopPublicSummary[];
+}
+
+export interface ShopStorefrontProduct {
+  id: string;
+  name: string;
+  category: string;
+  originCountry: string;
+  description: string;
+  offers: ProductOfferSummary[];
+}
+
+export interface ShopStorefrontResponse {
+  statusCode: number;
+  shop: ShopPublicSummary;
+  products: ShopStorefrontProduct[];
 }
 
 /**
@@ -195,3 +252,68 @@ export async function logoutUser(): Promise<LogoutResponse> {
     method: 'POST'
   });
 }
+
+/**
+ * Retrieves all wholesale categories.
+ * Endpoint: GET /api/v1/categories
+ */
+export async function getCategories(): Promise<CategoriesResponse> {
+  return await apiRequest<CategoriesResponse>('/categories', {
+    method: 'GET'
+  });
+}
+
+/**
+ * Queries the public wholesale produce catalog.
+ * Endpoint: GET /api/v1/products
+ */
+export async function getProducts(params: {
+  category?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+} = {}): Promise<ProductsResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.category) searchParams.set('category', params.category);
+  if (params.search) searchParams.set('search', params.search);
+  if (params.page) searchParams.set('page', String(params.page));
+  if (params.limit) searchParams.set('limit', String(params.limit));
+
+  const queryStr = searchParams.toString();
+  const endpoint = queryStr ? `/products?${queryStr}` : '/products';
+
+  return await apiRequest<ProductsResponse>(endpoint, {
+    method: 'GET'
+  });
+}
+
+/**
+ * Retrieves full details and multi-stall offers for a single produce item.
+ * Endpoint: GET /api/v1/products/:id
+ */
+export async function getProductById(id: string): Promise<ProductDetailResponse> {
+  return await apiRequest<ProductDetailResponse>(`/products/${id}`, {
+    method: 'GET'
+  });
+}
+
+/**
+ * Retrieves all approved public wholesale stalls.
+ * Endpoint: GET /api/v1/shops
+ */
+export async function getShops(): Promise<ShopsResponse> {
+  return await apiRequest<ShopsResponse>('/shops', {
+    method: 'GET'
+  });
+}
+
+/**
+ * Retrieves an approved stall's public storefront with its active offers.
+ * Endpoint: GET /api/v1/shops/:id
+ */
+export async function getShopById(id: string): Promise<ShopStorefrontResponse> {
+  return await apiRequest<ShopStorefrontResponse>(`/shops/${id}`, {
+    method: 'GET'
+  });
+}
+

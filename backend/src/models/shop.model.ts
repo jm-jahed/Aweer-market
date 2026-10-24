@@ -1,0 +1,341 @@
+import mongoose, { Schema, Document, Model } from 'mongoose';
+import { isDatabaseConnected } from '../plugins/db.js';
+
+export interface IShopDocument extends Document {
+  name: string;
+  slug: string;
+  stallNumber: string;
+  ownerId: string;
+  tradeLicenseNumber: string;
+  phone: string;
+  isApproved: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  toPublicSummary(): ShopPublicSummary;
+}
+
+export interface ShopPublicSummary {
+  id: string;
+  name: string;
+  slug: string;
+  stallNumber: string;
+  phone: string;
+  isApproved: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+const ShopSchema = new Schema<IShopDocument>(
+  {
+    name: {
+      type: String,
+      required: [true, 'Shop name is required'],
+      trim: true
+    },
+    slug: {
+      type: String,
+      required: [true, 'Shop slug is required'],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      index: true
+    },
+    stallNumber: {
+      type: String,
+      required: [true, 'Al Aweer stall number is required'],
+      trim: true
+    },
+    ownerId: {
+      type: String,
+      required: [true, 'Owner ID is required'],
+      index: true
+    },
+    tradeLicenseNumber: {
+      type: String,
+      required: [true, 'Trade license number is required'],
+      trim: true
+    },
+    phone: {
+      type: String,
+      required: [true, 'Contact phone is required'],
+      trim: true
+    },
+    isApproved: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true
+    }
+  },
+  {
+    timestamps: true
+  }
+);
+
+ShopSchema.methods.toPublicSummary = function (): ShopPublicSummary {
+  return {
+    id: this._id.toString(),
+    name: this.name,
+    slug: this.slug,
+    stallNumber: this.stallNumber,
+    phone: this.phone,
+    isApproved: this.isApproved,
+    isActive: this.isActive,
+    createdAt: this.createdAt ? this.createdAt.toISOString() : new Date().toISOString()
+  };
+};
+
+export const ShopModel: Model<IShopDocument> =
+  mongoose.models.Shop || mongoose.model<IShopDocument>('Shop', ShopSchema);
+
+// ============================================================================
+// Dual-Mode In-Memory Repository for Test Environments
+// ============================================================================
+
+export interface ShopRecord {
+  id: string;
+  name: string;
+  slug: string;
+  stallNumber: string;
+  ownerId: string;
+  tradeLicenseNumber: string;
+  phone: string;
+  isApproved: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  toPublicSummary(): ShopPublicSummary;
+}
+
+const inMemoryShopsById = new Map<string, ShopRecord>();
+const inMemoryShopsBySlug = new Map<string, string>(); // slug -> id
+let shopIdCounter = 1;
+
+function createInMemoryShopRecord(data: Omit<ShopRecord, 'toPublicSummary'>): ShopRecord {
+  return {
+    ...data,
+    toPublicSummary(): ShopPublicSummary {
+      return {
+        id: this.id,
+        name: this.name,
+        slug: this.slug,
+        stallNumber: this.stallNumber,
+        phone: this.phone,
+        isApproved: this.isApproved,
+        isActive: this.isActive,
+        createdAt: this.createdAt.toISOString()
+      };
+    }
+  };
+}
+
+export class DatabaseUnavailableError extends Error {
+  readonly statusCode: number = 503;
+  readonly code: string = 'DATABASE_UNAVAILABLE';
+
+  constructor(message = 'Database service is unavailable') {
+    super(message);
+    this.name = 'DatabaseUnavailableError';
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+export function resetInMemoryShops(): void {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('In-memory shop store is only permitted in test environment');
+  }
+  inMemoryShopsById.clear();
+  inMemoryShopsBySlug.clear();
+  shopIdCounter = 1;
+}
+
+export interface CreateShopData {
+  name: string;
+  slug?: string;
+  stallNumber: string;
+  ownerId: string;
+  tradeLicenseNumber: string;
+  phone: string;
+  isApproved?: boolean;
+  isActive?: boolean;
+}
+
+export async function createShop(data: CreateShopData): Promise<IShopDocument | ShopRecord> {
+  const slug = (data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')).trim();
+
+  if (isDatabaseConnected()) {
+    return await ShopModel.create({
+      name: data.name.trim(),
+      slug,
+      stallNumber: data.stallNumber.trim(),
+      ownerId: data.ownerId,
+      tradeLicenseNumber: data.tradeLicenseNumber.trim(),
+      phone: data.phone.trim(),
+      isApproved: data.isApproved ?? false,
+      isActive: data.isActive ?? true
+    });
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Shop creation rejected in fail-closed mode.');
+  }
+
+  if (inMemoryShopsBySlug.has(slug)) {
+    const duplicateError = new Error(`E11000 duplicate key error collection: shops index: slug_1 dup key: { slug: "${slug}" }`);
+    (duplicateError as unknown as { code: number }).code = 11000;
+    throw duplicateError;
+  }
+
+  const id = `shop_${shopIdCounter++}_${Date.now()}`;
+  const now = new Date();
+  const record = createInMemoryShopRecord({
+    id,
+    name: data.name.trim(),
+    slug,
+    stallNumber: data.stallNumber.trim(),
+    ownerId: data.ownerId,
+    tradeLicenseNumber: data.tradeLicenseNumber.trim(),
+    phone: data.phone.trim(),
+    isApproved: data.isApproved ?? false,
+    isActive: data.isActive ?? true,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  inMemoryShopsById.set(id, record);
+  inMemoryShopsBySlug.set(slug, id);
+  return record;
+}
+
+export async function findShopById(id: string): Promise<IShopDocument | ShopRecord | null> {
+  if (isDatabaseConnected()) {
+    return await ShopModel.findById(id).exec();
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  return inMemoryShopsById.get(id) || null;
+}
+
+export async function findShopBySlug(slug: string): Promise<IShopDocument | ShopRecord | null> {
+  const normalizedSlug = slug.toLowerCase().trim();
+  if (isDatabaseConnected()) {
+    return await ShopModel.findOne({ slug: normalizedSlug }).exec();
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const id = inMemoryShopsBySlug.get(normalizedSlug);
+  return id ? inMemoryShopsById.get(id) || null : null;
+}
+
+export async function setShopApproval(id: string, isApproved: boolean): Promise<boolean> {
+  if (isDatabaseConnected()) {
+    const res = await ShopModel.updateOne({ _id: id }, { $set: { isApproved } });
+    return res.modifiedCount > 0;
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const shop = inMemoryShopsById.get(id);
+  if (shop) {
+    shop.isApproved = isApproved;
+    return true;
+  }
+  return false;
+}
+
+export async function findShopByOwnerId(ownerId: string): Promise<IShopDocument | ShopRecord | null> {
+  if (isDatabaseConnected()) {
+    return await ShopModel.findOne({ ownerId }).exec();
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const all = Array.from(inMemoryShopsById.values());
+  return all.find((s) => s.ownerId === ownerId) || null;
+}
+
+export interface UpdateShopData {
+  name?: string;
+  phone?: string;
+  stallNumber?: string;
+}
+
+export async function updateShop(id: string, updates: UpdateShopData): Promise<IShopDocument | ShopRecord | null> {
+  if (isDatabaseConnected()) {
+    const safeUpdates: Record<string, unknown> = {};
+    if (updates.name !== undefined) safeUpdates.name = updates.name.trim();
+    if (updates.phone !== undefined) safeUpdates.phone = updates.phone.trim();
+    if (updates.stallNumber !== undefined) safeUpdates.stallNumber = updates.stallNumber.trim();
+
+    return await ShopModel.findByIdAndUpdate(id, { $set: safeUpdates }, { new: true }).exec();
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const shop = inMemoryShopsById.get(id);
+  if (!shop) return null;
+
+  if (updates.name !== undefined) shop.name = updates.name.trim();
+  if (updates.phone !== undefined) shop.phone = updates.phone.trim();
+  if (updates.stallNumber !== undefined) shop.stallNumber = updates.stallNumber.trim();
+  shop.updatedAt = new Date();
+
+  return shop;
+}
+
+export async function listAllShops(filter?: { isApproved?: boolean }): Promise<Array<IShopDocument | ShopRecord>> {
+  if (isDatabaseConnected()) {
+    const q: Record<string, unknown> = {};
+    if (filter?.isApproved !== undefined) q.isApproved = filter.isApproved;
+    return await ShopModel.find(q).sort({ createdAt: -1 }).exec();
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  let list = Array.from(inMemoryShopsById.values());
+  if (filter?.isApproved !== undefined) {
+    list = list.filter((s) => s.isApproved === filter.isApproved);
+  }
+  return list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export async function countShops(): Promise<{ total: number; approved: number; pending: number }> {
+  if (isDatabaseConnected()) {
+    const [total, approved, pending] = await Promise.all([
+      ShopModel.countDocuments(),
+      ShopModel.countDocuments({ isApproved: true }),
+      ShopModel.countDocuments({ isApproved: false })
+    ]);
+    return { total, approved, pending };
+  }
+
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const all = Array.from(inMemoryShopsById.values());
+  return {
+    total: all.length,
+    approved: all.filter((s) => s.isApproved).length,
+    pending: all.filter((s) => !s.isApproved).length
+  };
+}

@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
+import { ShopAdminAuthProvider } from '../lib/auth-context';
 
 export const metadata: Metadata = {
-  title: 'AweerMarket — Operations Admin Portal',
-  description: 'Market Operations Portal for Al Aweer wholesale vendor and listing management.'
+  title: 'AweerMarket — Shop Admin Portal (Al Aweer Vendors)',
+  description: 'Wholesale Stall Management for Al Aweer Central Fruit & Vegetable Market vendors.'
 };
 
 export default function RootLayout({
@@ -12,8 +13,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, fontFamily: 'system-ui, -apple-system, sans-serif', backgroundColor: '#f1f5f9', color: '#0f172a' }}>
-        {children}
+      <body style={{ margin: 0, fontFamily: 'system-ui, -apple-system, sans-serif', backgroundColor: '#f8fafc', color: '#0f172a' }}>
+        <ShopAdminAuthProvider>
+          {children}
+        </ShopAdminAuthProvider>
       </body>
     </html>
   );
