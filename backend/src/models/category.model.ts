@@ -217,10 +217,44 @@ export function initDefaultInMemoryCategories(): void {
 // Auto-seed in-memory storage for test isolation
 initDefaultInMemoryCategories();
 
-export function resetInMemoryCategories(): void {
+export function clearInMemoryCategories(): void {
   inMemoryCategoriesById.clear();
   inMemoryCategoriesBySlug.clear();
   catIdCounter = 1;
+}
+
+export function resetInMemoryCategories(): void {
+  clearInMemoryCategories();
+  initDefaultInMemoryCategories();
+}
+
+/**
+ * Explicit, idempotent initialization of default Al Aweer wholesale categories.
+ * Safe against race conditions and concurrent initialization:
+ * - In database mode: uses atomic updateOne with $setOnInsert and upsert per slug,
+ *   catching duplicate key (11000) errors gracefully.
+ * - In in-memory mode: initializes default in-memory categories if the repository is empty.
+ */
+export async function ensureDefaultCategories(): Promise<void> {
+  if (isDatabaseConnected()) {
+    for (const def of DEFAULT_CATEGORIES) {
+      try {
+        await CategoryModel.updateOne(
+          { slug: def.slug },
+          { $setOnInsert: def },
+          { upsert: true }
+        );
+      } catch (err: unknown) {
+        // Idempotent race-condition safety: ignore E11000 duplicate key errors
+        if ((err as { code?: number })?.code !== 11000) {
+          throw err;
+        }
+      }
+    }
+    return;
+  }
+
+  // In-memory flow
   initDefaultInMemoryCategories();
 }
 
@@ -251,20 +285,6 @@ export async function listAllCategories(filter?: { isActive?: boolean }): Promis
 
     const categories = await CategoryModel.find(query).sort({ sortOrder: 1, name: 1 });
 
-    // Seed defaults into database if newly connected and empty
-    if (categories.length === 0 && !filter) {
-      for (const def of DEFAULT_CATEGORIES) {
-        await CategoryModel.create(def);
-      }
-      const seeded = await CategoryModel.find().sort({ sortOrder: 1, name: 1 });
-      const items: CategoryPublicItem[] = [];
-      for (const c of seeded) {
-        const count = await countProductsForCategory(c.slug);
-        items.push(c.toPublicItem(count));
-      }
-      return items;
-    }
-
     const items: CategoryPublicItem[] = [];
     for (const c of categories) {
       const count = await countProductsForCategory(c.slug);
@@ -274,7 +294,6 @@ export async function listAllCategories(filter?: { isActive?: boolean }): Promis
   }
 
   // In-memory flow
-  initDefaultInMemoryCategories();
   const list = Array.from(inMemoryCategoriesById.values());
   const filtered = filter && typeof filter.isActive === 'boolean'
     ? list.filter((c) => c.isActive === filter.isActive)

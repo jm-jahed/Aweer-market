@@ -10,6 +10,7 @@ import { vendorRoutes } from './routes/vendor.js';
 import { ordersRoutes } from './routes/orders.js';
 import { connectDatabase, disconnectDatabase } from './plugins/db.js';
 import { securityPlugin, safeErrorHandler } from './plugins/security.js';
+import { ensureDefaultCategories } from './models/category.model.js';
 
 dotenv.config();
 
@@ -91,6 +92,10 @@ export async function start() {
     const connected = await connectDatabase();
     if (!connected && process.env.NODE_ENV !== 'test' && process.env.ALLOW_IN_MEMORY_DB !== 'true') {
       throw new Error('[AweerMarket API] Database connection failed. Startup aborted in fail-closed mode.');
+    }
+
+    if (connected) {
+      await ensureDefaultCategories();
     }
 
     if (process.env.ALLOW_IN_MEMORY_DB === 'true') {
