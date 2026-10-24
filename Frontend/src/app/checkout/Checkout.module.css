@@ -385,3 +385,177 @@
   color: #0f172a;
   margin: 10px 0 20px 0;
 }
+
+/* =====================================================================
+   MOBILE RESPONSIVENESS (<= 640px)
+   ===================================================================== */
+@media (max-width: 640px) {
+  .container {
+    padding: 16px 12px 60px 12px;
+  }
+
+  .pageTitle {
+    font-size: 1.45rem;
+  }
+
+  .pageSub {
+    font-size: 0.88rem;
+    margin-bottom: 18px;
+  }
+
+  .authBanner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .authBannerText {
+    font-size: 0.88rem;
+  }
+
+  .authBtns {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .loginBtn,
+  .registerBtn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 10px;
+    font-size: 0.82rem;
+  }
+
+  .shopBanner {
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 14px;
+  }
+
+  .shopBannerTitle {
+    font-size: 0.88rem;
+  }
+
+  .clearCartBtn {
+    padding: 5px 10px;
+    font-size: 0.75rem;
+  }
+
+  .itemsCard,
+  .deliverySection,
+  .summaryCard {
+    padding: 16px 14px;
+  }
+
+  .cardTitle {
+    font-size: 1.05rem;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+  }
+
+  /* 2-row Responsive Item Layout: Info on top, Qty & Price on bottom */
+  .itemRow {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    gap: 10px !important;
+    align-items: center !important;
+    padding: 12px 0 !important;
+  }
+
+  .itemInfo {
+    grid-column: 1 / -1 !important;
+  }
+
+  .itemName {
+    font-size: 0.95rem;
+  }
+
+  .itemPackaging {
+    font-size: 0.78rem;
+  }
+
+  .removeBtn {
+    font-size: 0.75rem;
+    margin-top: 2px;
+  }
+
+  .qtyGroup {
+    margin: 0 !important;
+    gap: 6px;
+  }
+
+  .qtyBtn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.95rem;
+  }
+
+  .qtyValue {
+    font-size: 0.88rem;
+    min-width: 20px;
+  }
+
+  .priceCol {
+    min-width: unset !important;
+    text-align: right !important;
+  }
+
+  .lineTotal {
+    font-size: 0.95rem;
+  }
+
+  .unitRate {
+    font-size: 0.7rem;
+  }
+
+  .radioLabel {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .radioTitle {
+    font-size: 0.88rem;
+  }
+
+  .radioDesc {
+    font-size: 0.78rem;
+  }
+
+  .formLabel {
+    font-size: 0.82rem;
+  }
+
+  .formInput {
+    padding: 8px 12px;
+    font-size: 0.88rem;
+  }
+
+  .summaryRow {
+    font-size: 0.88rem;
+    margin-bottom: 10px;
+  }
+
+  .summaryTotalRow {
+    font-size: 0.98rem;
+    padding-top: 10px;
+    margin-top: 10px;
+  }
+
+  .summaryTotalAed {
+    font-size: 1.35rem;
+  }
+
+  .checkoutBtn {
+    padding: 12px;
+    font-size: 0.95rem;
+    margin-top: 16px;
+  }
+
+  .successCard {
+    padding: 24px 16px;
+    margin: 20px auto;
+  }
+}

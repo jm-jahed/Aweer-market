@@ -850,10 +850,35 @@
 }
 
 @media (max-width: 640px) {
+  .container {
+    padding: 16px 12px 60px 12px;
+  }
+
+  .heroBanner {
+    border-radius: 14px;
+    min-height: unset;
+  }
+
   .heroLeft {
     flex-direction: column;
     text-align: center;
-    gap: 16px;
+    gap: 14px;
+    padding: 20px 14px;
+  }
+
+  .avatarLogo {
+    width: 74px;
+    height: 74px;
+    min-width: 74px;
+    padding: 6px;
+  }
+
+  .avatarIcon {
+    font-size: 1.6rem;
+  }
+
+  .shopTitle {
+    font-size: 1.35rem;
   }
 
   .vendorTitleRow {
@@ -862,22 +887,126 @@
 
   .featureBadgesRow {
     justify-content: center;
+    gap: 10px;
   }
 
   .actionRow {
     justify-content: center;
+    gap: 10px;
+  }
+
+  .followBtn,
+  .messageBtn {
+    padding: 6px 14px;
+    font-size: 0.8rem;
+  }
+
+  .tabsBar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 8px;
+    padding-bottom: 4px;
+  }
+
+  .tabBtn {
+    white-space: nowrap;
+    padding: 8px 14px;
+    font-size: 0.82rem;
   }
 
   .productsToolbar {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
+  }
+
+  .categoryPillsScroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  .pillBtn {
+    white-space: nowrap;
+    padding: 6px 12px;
+    font-size: 0.78rem;
   }
 
   .searchBox {
     width: 100%;
   }
 
+  /* Clean 2-column mobile catalog grid */
   .grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .imageWrapper {
+    height: 125px;
+  }
+
+  .cardBody {
+    padding: 10px;
+  }
+
+  .prodName {
+    font-size: 0.92rem;
+  }
+
+  .prodDesc {
+    font-size: 0.76rem;
+    line-height: 1.35;
+    margin-bottom: 8px;
+  }
+
+  .offerCard {
+    padding: 8px;
+  }
+
+  .packagingText {
+    font-size: 0.8rem;
+  }
+
+  .moqText {
+    font-size: 0.7rem;
+  }
+
+  .offerPriceAed {
+    font-size: 0.95rem;
+  }
+
+  .eqAedKg {
+    font-size: 0.7rem;
+  }
+
+  .stockFooter {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .addToCartBtn {
+    width: 100%;
+    justify-content: center;
+    min-height: 32px;
+  }
+
+  .tabPanelCard {
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+
+  .infoGrid {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 }

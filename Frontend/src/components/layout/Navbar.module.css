@@ -562,33 +562,67 @@
     color: #ffffff;
   }
 
-  .notifBtn {
-    background: transparent;
-    border: none;
-    position: relative;
-    font-size: 1.25rem;
-    cursor: pointer;
-    color: #ffffff;
+  .mobileHeaderActions {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 8px;
   }
 
-  .notifBadge {
-    position: absolute;
-    top: -3px;
-    right: -5px;
-    background-color: #ef4444;
-    color: #ffffff;
-    font-size: 0.65rem;
-    font-weight: 800;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
+  .mobileCartBtn {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+    background: linear-gradient(135deg, #166534 0%, #15803d 100%);
+    border: 1px solid #22c55e;
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.92rem;
+    padding: 5px 10px;
+    border-radius: 9999px;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+    transition: all 0.2s ease;
+  }
+
+  .mobileCartBtn:hover {
+    background: linear-gradient(135deg, #15803d 0%, #16a34a 100%);
+  }
+
+  .mobileAuthBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #86efac;
+    text-decoration: none;
+    font-size: 0.95rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+  }
+
+  .mobileUserBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+
+  .mobileUserAvatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #22c55e;
+    color: #052e16;
+    font-weight: 800;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #052e16;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   }
 
   .brandLink {

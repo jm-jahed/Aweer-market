@@ -118,12 +118,23 @@ export function Navbar() {
           <div className={styles.mobileHeaderRow}>
             <div className={styles.mobileLocation}>
               <span>📍</span>
-              <span>Dubai Fruits & Vegetables Market ▾</span>
+              <span>Dubai Wholesale Market</span>
             </div>
-            <button className={styles.notifBtn} aria-label="Notifications" type="button">
-              <span>🔔</span>
-              <span className={styles.notifBadge}>3</span>
-            </button>
+            <div className={styles.mobileHeaderActions}>
+              {user ? (
+                <Link href="/account" className={styles.mobileUserBtn} title={user.fullName} aria-label="Buyer Account">
+                  <span className={styles.mobileUserAvatar}>{user.fullName.charAt(0).toUpperCase()}</span>
+                </Link>
+              ) : (
+                <Link href="/login" className={styles.mobileAuthBtn} aria-label="Login or Sign Up" title="Sign In">
+                  <span>👤</span>
+                </Link>
+              )}
+              <Link href="/cart" className={styles.mobileCartBtn} id="mobile-nav-cart-btn" aria-label={`Wholesale Cart (${totalItemsCount} items)`}>
+                <span>🛒</span>
+                {totalItemsCount > 0 && <span className={styles.cartBadge}>{totalItemsCount}</span>}
+              </Link>
+            </div>
           </div>
         </div>
 

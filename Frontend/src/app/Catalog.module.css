@@ -1078,13 +1078,22 @@
     color: #0f172a;
   }
 
-  /* 4 Circular Category Chips (Image 2) */
+  /* All Categories Touch-Scrollable Horizontal Carousel */
   .categoriesBar {
-    display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 8px !important;
-    padding: 0 0 16px !important;
-    justify-items: center !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding: 6px 2px 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .categoriesBar::-webkit-scrollbar {
+    display: none !important;
   }
 
   .categoryCircleBtn {
@@ -1096,36 +1105,51 @@
     border: none !important;
     cursor: pointer !important;
     padding: 0 !important;
+    flex-shrink: 0 !important;
+    min-width: 76px !important;
   }
 
   .categoryCircleAvatar {
-    width: 56px !important;
-    height: 56px !important;
+    width: 54px !important;
+    height: 54px !important;
     border-radius: 50% !important;
     background: #092113 !important;
     border: 1px solid rgba(34, 197, 94, 0.3) !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 1.55rem !important;
+    font-size: 1.5rem !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+    transition: transform 0.2s ease, border-color 0.2s ease !important;
+  }
+
+  .categoryCircleBtn:hover .categoryCircleAvatar {
+    transform: scale(1.05) !important;
+    border-color: #22c55e !important;
   }
 
   .categoryCircleTitle {
     font-size: 0.72rem !important;
     font-weight: 600 !important;
     color: #cbd5e1 !important;
+    white-space: nowrap !important;
   }
 
   .desktopOnlyCategory {
-    display: none !important;
+    display: flex !important;
   }
 
-  /* 3 White Product Cards in Grid (Image 2) */
+  /* 2-Column Responsive Touch Product Cards Grid */
   .productsGrid {
     display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 8px !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  @media (max-width: 360px) {
+    .productsGrid {
+      gap: 8px !important;
+    }
   }
 
   .productCard {
@@ -1133,77 +1157,162 @@
     border-radius: 16px !important;
     border: 1px solid rgba(226, 232, 240, 0.8) !important;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
-    padding: 8px 6px 10px !important;
+    padding: 10px 10px 12px !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: flex-start !important;
+    align-items: stretch !important;
     cursor: pointer !important;
+    min-height: 270px !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+  }
+
+  .productCard:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
   }
 
   .cardImageContainer {
-    background: transparent !important;
-    padding: 0 !important;
-    min-height: auto !important;
+    background: #f8fafc !important;
+    border-radius: 12px !important;
+    padding: 8px !important;
+    min-height: 110px !important;
     width: 100% !important;
+    box-sizing: border-box !important;
     display: flex !important;
+    align-items: center !important;
     justify-content: center !important;
+    position: relative !important;
   }
 
   .productImg {
-    width: 76px !important;
-    height: 76px !important;
+    width: 86px !important;
+    height: 86px !important;
     object-fit: contain !important;
   }
 
   .heartBtn {
-    display: none !important;
+    display: flex !important;
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 26px !important;
+    height: 26px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0.85rem !important;
+    color: #94a3b8 !important;
+    cursor: pointer !important;
   }
 
   .cardBody {
-    padding: 4px 2px 0 !important;
+    padding: 8px 2px 0 !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 2px !important;
+    gap: 4px !important;
+    flex: 1 !important;
     width: 100% !important;
     text-align: left !important;
+    box-sizing: border-box !important;
   }
 
   .productName {
-    font-size: 0.82rem !important;
+    font-size: 0.86rem !important;
     font-weight: 700 !important;
     color: #0f172a !important;
-    line-height: 1.15 !important;
+    line-height: 1.25 !important;
     margin: 0 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
   }
 
   .productPrice {
-    font-size: 0.74rem !important;
-    font-weight: 600 !important;
-    color: #334155 !important;
+    font-size: 0.96rem !important;
+    font-weight: 800 !important;
+    color: #15803d !important;
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 3px !important;
   }
 
   .priceUnit {
-    font-size: 0.68rem !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
     color: #64748b !important;
   }
 
   .cardBadge {
-    background: #16a34a !important;
-    color: #ffffff !important;
-    font-size: 0.6rem !important;
+    background: #dcfce7 !important;
+    color: #15803d !important;
+    font-size: 0.62rem !important;
     font-weight: 700 !important;
-    padding: 2px 7px !important;
+    padding: 2px 8px !important;
     border-radius: 9999px !important;
-    margin-top: 4px !important;
     width: fit-content !important;
   }
 
+  /* Vendor Info Preserved and Readable on Mobile */
   .vendorInfo {
-    display: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    margin-top: auto !important;
+    padding-top: 6px !important;
+    border-top: 1px solid #f1f5f9 !important;
+    width: 100% !important;
   }
 
+  .vendorName,
+  .vendorLink {
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+    max-width: 100% !important;
+  }
+
+  .vendorRatingLocation {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    font-size: 0.65rem !important;
+    color: #64748b !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Add to Cart Button Restored on Mobile */
   .addToCartBtn {
-    display: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    background: linear-gradient(135deg, #15803d 0%, #16a34a 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 8px 10px !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    width: 100% !important;
+    margin-top: 6px !important;
+    min-height: 34px !important;
+    box-shadow: 0 2px 6px rgba(21, 128, 61, 0.25) !important;
+    transition: background 0.15s ease, transform 0.1s ease !important;
+  }
+
+  .addToCartBtn:hover {
+    background: linear-gradient(135deg, #166534 0%, #15803d 100%) !important;
+    transform: translateY(-1px) !important;
   }
 
   .bottomBannerSection {

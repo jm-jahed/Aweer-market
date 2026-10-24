@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCart, CartItem } from '@/lib/cart-context';
+import { useAuth } from '@/lib/auth-context';
 import {
   getProducts,
   getCategories,
@@ -25,6 +26,7 @@ function MarketplaceContent() {
   const [mobileSearch, setMobileSearch] = useState(searchQuery);
 
   const { addToCart, conflict, resolveConflict, totalItemsCount } = useCart();
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState<boolean>(true);
@@ -770,14 +772,16 @@ function MarketplaceContent() {
           <span className={styles.mobileNavIcon}>📋</span>
           <span>Orders</span>
         </Link>
-        <Link href="/checkout" className={styles.mobileNavItem}>
+        <Link href="/cart" className={styles.mobileNavItem} id="home-bottom-cart-link">
           <span className={styles.mobileNavIcon}>🛒</span>
-          <span className={styles.mobileNavBadge}>{totalItemsCount || 3}</span>
+          {totalItemsCount > 0 && (
+            <span className={styles.mobileNavBadge}>{totalItemsCount}</span>
+          )}
           <span>Cart</span>
         </Link>
-        <Link href="/login" className={styles.mobileNavItem}>
+        <Link href={user ? '/account' : '/login'} className={styles.mobileNavItem} id="home-bottom-profile-link">
           <span className={styles.mobileNavIcon}>👤</span>
-          <span>Profile</span>
+          <span>{user ? 'Account' : 'Profile'}</span>
         </Link>
       </nav>
 

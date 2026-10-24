@@ -1,131 +1,655 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@600;700&display=swap');
+
+/* =====================================================================
+   AweerMarket — Platform Super Admin: AweerMarket Central Login Design
+   Matches Desktop and Mobile screenshots for Super Admin Portal.
+   ===================================================================== */
+
 .container {
   min-height: 100vh;
+  background-color: #021a12;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Background Atmosphere */
+.container::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 20% 25%, rgba(34, 197, 94, 0.09) 0%, transparent 50%),
+              radial-gradient(circle at 80% 35%, rgba(34, 197, 94, 0.08) 0%, transparent 45%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* =====================================================================
+   MAIN TWO-COLUMN WORKSPACE (Desktop)
+   ===================================================================== */
+.mainWorkspace {
+  flex: 1;
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+/* Left Section: Platform Title, Governance Features & Hero Produce */
+.leftSection {
+  flex: 1.1;
+  padding: 40px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+/* Brand Header (Top Left) */
+.brandHeader {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at 50% 20%, #1e1124 0%, #090d16 80%);
-  padding: 24px;
-}
-
-.card {
-  width: 100%;
-  max-width: 440px;
-  background-color: #0f172a;
-  border: 1px solid #334155;
-  border-top: 4px solid #ef4444;
-  border-radius: 12px;
-  padding: 36px 32px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-}
-
-.header {
-  text-align: center;
+  gap: 12px;
+  text-decoration: none;
   margin-bottom: 28px;
 }
 
-.badge {
-  display: inline-block;
-  padding: 4px 12px;
-  background-color: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  color: #f87171;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  border-radius: 9999px;
-  margin-bottom: 12px;
+.leafIcon {
+  width: 44px;
+  height: 44px;
+  filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.4));
 }
 
-.title {
-  margin: 0 0 8px 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #f8fafc;
+.brandTitles {
+  display: flex;
+  flex-direction: column;
+}
+
+.brandLogoText {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
   letter-spacing: -0.02em;
 }
 
-.subtitle {
-  margin: 0;
-  font-size: 0.875rem;
+.brandLogoSub {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #22c55e;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+/* Super Admin Intro Section */
+.introSection {
+  margin-bottom: 24px;
+}
+
+.adminBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #22c55e;
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.mainHeadline {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 10px 0;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.centralAccent {
+  color: #22c55e;
+  margin-left: 8px;
+}
+
+.subHeadline {
+  font-size: 1.05rem;
+  color: #cbd5e1;
+  margin: 0 0 28px 0;
+  max-width: 480px;
+  line-height: 1.45;
+}
+
+/* 4 Quick-Action Feature Badges (Desktop) */
+.quickActionsRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+
+.quickActionPill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(3, 27, 18, 0.7);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.quickActionIcon {
+  color: #22c55e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hero Produce Photography with Chalkboard Sign */
+.heroVisualArea {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  height: 290px;
+  margin-top: auto;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+}
+
+.heroProduceImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center bottom;
+  filter: contrast(1.08) brightness(0.95);
+}
+
+/* Chalkboard Sign Overlay */
+.chalkboardSign {
+  position: absolute;
+  bottom: 20px;
+  right: 28px;
+  background: #111a14;
+  border: 3px solid #854d0e;
+  border-radius: 8px;
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.7);
+  transform: rotate(3deg);
+}
+
+.chalkTextTop {
+  font-family: 'Caveat', 'Dancing Script', cursive;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.chalkTextBottom {
+  font-family: 'Caveat', 'Dancing Script', cursive;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* =====================================================================
+   RIGHT SECTION: LANGUAGE & LOGIN FORM CARD (Desktop)
+   ===================================================================== */
+.rightSection {
+  flex: 0.9;
+  min-width: 440px;
+  max-width: 540px;
+  padding: 40px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Top Right Language Selector */
+.topRightLang {
+  position: absolute;
+  top: 36px;
+  right: 48px;
+}
+
+.langPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(3, 27, 18, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 7px 16px;
+  border-radius: 9999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.langPill:hover {
+  background: rgba(3, 27, 18, 0.95);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+/* Super Admin Login Card */
+.card {
+  width: 100%;
+  max-width: 450px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(3, 27, 18, 0.88) 0%, rgba(2, 18, 12, 0.95) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 20px;
+  padding: 34px 28px;
+  box-shadow: 0 25px 50px -10px rgba(0, 0, 0, 0.75), 0 0 35px rgba(34, 197, 94, 0.1);
+  backdrop-filter: blur(14px);
+}
+
+/* Card Header (Logo & Platform Titles) */
+.cardHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.cardLogo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.cardBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #22c55e;
+  font-size: 0.86rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.cardTitle {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.02em;
+}
+
+.cardSubtitle {
+  font-size: 0.88rem;
   color: #94a3b8;
+  margin: 0;
+}
+
+/* Error Alert */
+.errorBanner {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  margin-bottom: 18px;
   line-height: 1.4;
 }
 
+/* Form */
 .form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
-.fieldGroup {
+.inputGroup {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
 }
 
-.label {
-  font-size: 0.825rem;
-  font-weight: 600;
-  color: #cbd5e1;
+.inputIcon {
+  position: absolute;
+  left: 14px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 
 .input {
   width: 100%;
   box-sizing: border-box;
-  padding: 11px 14px;
-  background-color: #1e293b;
-  border: 1px solid #475569;
-  border-radius: 8px;
-  color: #f8fafc;
+  background: rgba(2, 20, 14, 0.85);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 10px;
+  padding: 13px 44px 13px 42px;
   font-size: 0.95rem;
+  color: #ffffff;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.input::placeholder {
+  color: #64748b;
+  font-size: 0.92rem;
 }
 
 .input:focus {
-  border-color: #ef4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+  background: rgba(2, 24, 17, 0.95);
 }
 
-.errorBanner {
-  background-color: rgba(239, 68, 68, 0.12);
-  border: 1px solid #dc2626;
-  color: #fca5a5;
-  padding: 12px 14px;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  line-height: 1.4;
-}
-
-.submitBtn {
-  background-color: #ef4444;
-  color: #ffffff;
+.togglePassBtn {
+  position: absolute;
+  right: 14px;
+  background: transparent;
   border: none;
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-size: 0.95rem;
-  font-weight: 600;
+  color: #64748b;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.togglePassBtn:hover {
+  color: #94a3b8;
+}
+
+/* Options Row */
+.optionsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.86rem;
+  margin-top: 2px;
+}
+
+.rememberLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  border-radius: 4px;
+  background: rgba(2, 20, 14, 0.8);
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  transition: all 0.15s ease;
+}
+
+.checkbox:checked {
+  background: #22c55e;
+  border-color: #22c55e;
+}
+
+.checkbox:checked::before {
+  content: "";
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid #022013;
+  border-bottom: 2px solid #022013;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+.forgotLink {
+  color: #22c55e;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+.forgotLink:hover {
+  color: #4ade80;
+  text-decoration: underline;
+}
+
+/* Submit Button */
+.loginBtn {
   margin-top: 6px;
+  width: 100%;
+  background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
+  color: #022013;
+  border: none;
+  border-radius: 10px;
+  padding: 13px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 18px rgba(34, 197, 94, 0.4);
 }
 
-.submitBtn:hover:not(:disabled) {
-  background-color: #dc2626;
+.loginBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #16a34a 0%, #059669 100%);
+  box-shadow: 0 6px 22px rgba(34, 197, 94, 0.55);
+  transform: translateY(-1px);
 }
 
-.submitBtn:disabled {
+.loginBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.footerNote {
-  margin-top: 24px;
-  padding-top: 18px;
-  border-top: 1px solid #1e293b;
-  text-align: center;
-  font-size: 0.775rem;
-  color: #64748b;
-  line-height: 1.5;
+/* Security Badge Under Button */
+.secureBadgeRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  color: #86efac;
+  font-weight: 600;
+  margin-top: 20px;
+}
+
+/* =====================================================================
+   MOBILE LAYOUT (<= 900px) — Pixel-perfect to Mobile Screenshot
+   ===================================================================== */
+@media (max-width: 900px) {
+  .mainWorkspace {
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 260px 16px;
+    min-height: 100vh;
+  }
+
+  .leftSection {
+    flex: unset;
+    width: 100%;
+    max-width: 440px;
+    padding: 0;
+    text-align: center;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .brandHeader {
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  .introSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 0;
+  }
+
+  .adminBadgeRow {
+    justify-content: center;
+    margin-bottom: 8px;
+    font-size: 0.88rem;
+  }
+
+  .mainHeadline {
+    font-size: 1.85rem;
+    margin-bottom: 8px;
+  }
+
+  .subHeadline {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    margin: 0 auto;
+    max-width: 340px;
+  }
+
+  /* Hide Desktop visual & action rows on the left */
+  .quickActionsRow {
+    display: none;
+  }
+
+  .heroVisualArea {
+    display: none;
+  }
+
+  .rightSection {
+    flex: unset;
+    width: 100%;
+    max-width: 440px;
+    min-width: unset;
+    padding: 0;
+  }
+
+  .topRightLang {
+    display: none;
+  }
+
+  .card {
+    padding: 24px 20px;
+    border-radius: 20px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(34, 197, 94, 0.12);
+  }
+
+  /* Hide the card's internal header on mobile since it's already shown outside */
+  .cardHeader {
+    display: none;
+  }
+
+  /* 4 Quick Actions Row Displayed BELOW the Card on Mobile */
+  .mobileQuickActions {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    width: 100%;
+    max-width: 440px;
+    margin-top: 24px;
+    z-index: 10;
+  }
+
+  .mobileActionItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+  }
+
+  .mobileActionIcon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.28);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #22c55e;
+  }
+
+  .mobileActionLabel {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    line-height: 1.2;
+  }
+
+  /* Mobile Bottom Produce Backdrop */
+  .mobileProduceBackdrop {
+    display: block !important;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 240px;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .mobileProduceImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: bottom center;
+    mask-image: linear-gradient(to top, black 40%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, black 40%, transparent 100%);
+  }
+}
+
+/* Defaults for elements hidden on desktop */
+.mobileQuickActions,
+.mobileProduceBackdrop {
+  display: none;
+}
+
+@media (max-width: 400px) {
+  .card {
+    padding: 20px 14px;
+  }
+
+  .mainHeadline {
+    font-size: 1.55rem;
+  }
+
+  .brandLogoText {
+    font-size: 1.4rem;
+  }
+
+  .leafIcon {
+    width: 36px;
+    height: 36px;
+  }
 }

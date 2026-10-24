@@ -56,6 +56,42 @@ export default function ShopAdminDashboard() {
     | 'settings';
 
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  const handleNavSelect = useCallback((tab: NavTab) => {
+    setActiveTab(tab);
+    setIsMobileDrawerOpen(false);
+  }, []);
+
+  // Handle drawer Escape key dismissal and body scroll lock
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileDrawerOpen) {
+        setIsMobileDrawerOpen(false);
+      }
+    };
+    if (isMobileDrawerOpen) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMobileDrawerOpen]);
+
+  // Automatically close mobile drawer when window is resized to desktop viewport
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 1024 && isMobileDrawerOpen) {
+        setIsMobileDrawerOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isMobileDrawerOpen]);
 
   // Search input query
   const [searchQuery, setSearchQuery] = useState('');
@@ -712,12 +748,37 @@ export default function ShopAdminDashboard() {
           TOP HEADER BAR (Matching Super Admin Dark Botanical Executive Theme)
          ===================================================================== */}
       <header className={styles.topHeader}>
-        {/* Brand Logo */}
-        <div onClick={() => setActiveTab('dashboard')} className={styles.headerBrand}>
-          <div className={styles.brandLogoWrap}>🌿</div>
-          <div className={styles.brandTextGroup}>
-            <span className={styles.brandTitle}>Aweer<span>market</span></span>
-            <span className={styles.brandSubtitle}>Stall Operations • Port 3001</span>
+        <div className={styles.headerLeftGroup}>
+          {/* Hamburger Menu Toggle (Mobile & Tablet) */}
+          <button
+            type="button"
+            className={styles.hamburgerBtn}
+            onClick={() => setIsMobileDrawerOpen((prev) => !prev)}
+            aria-label={isMobileDrawerOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={isMobileDrawerOpen}
+            id="vendor-mobile-menu-btn"
+          >
+            <span className={styles.hamburgerIcon}>{isMobileDrawerOpen ? '✕' : '☰'}</span>
+          </button>
+
+          {/* Brand Logo */}
+          <div
+            onClick={() => handleNavSelect('dashboard')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                handleNavSelect('dashboard');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            className={styles.headerBrand}
+            aria-label="Aweermarket Stall Operations Home"
+          >
+            <div className={styles.brandLogoWrap}>🌿</div>
+            <div className={styles.brandTextGroup}>
+              <span className={styles.brandTitle}>Aweer<span>market</span></span>
+              <span className={styles.brandSubtitle}>Stall Operations • Al Aweer</span>
+            </div>
           </div>
         </div>
 
@@ -746,7 +807,7 @@ export default function ShopAdminDashboard() {
             type="button"
             className={styles.headerIconButton}
             title="Pending Orders"
-            onClick={() => setActiveTab('orders')}
+            onClick={() => handleNavSelect('orders')}
           >
             <span>🔔</span>
             {pendingOrdersCount > 0 && (
@@ -758,7 +819,7 @@ export default function ShopAdminDashboard() {
             type="button"
             className={styles.headerIconButton}
             title="Active Listed Produce"
-            onClick={() => setActiveTab('products')}
+            onClick={() => handleNavSelect('products')}
           >
             <span>📦</span>
             <span className={styles.badgeCountGreen}>{products.length}</span>
@@ -784,12 +845,40 @@ export default function ShopAdminDashboard() {
         </div>
       </header>
 
+      {/* Mobile Drawer Backdrop */}
+      {isMobileDrawerOpen && (
+        <div
+          className={styles.drawerBackdrop}
+          onClick={() => setIsMobileDrawerOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* =====================================================================
           MAIN LAYOUT: Left Sidebar + Right Content Area
          ===================================================================== */}
       <div className={styles.layoutBody}>
-        {/* LEFT SIDEBAR NAVIGATION: Exact 13 Items Specified by User */}
-        <aside className={styles.sidebar}>
+        {/* LEFT SIDEBAR NAVIGATION: Exact 12 Items Matching Specification */}
+        <aside
+          className={`${styles.sidebar} ${isMobileDrawerOpen ? styles.sidebarOpen : ''}`}
+          aria-label="Vendor Portal Navigation"
+        >
+          {/* Mobile Drawer Top Header with Close Button */}
+          <div className={styles.mobileDrawerHeader}>
+            <div className={styles.mobileDrawerBrand}>
+              <span>🌿</span>
+              <span>Al Aweer Vendor</span>
+            </div>
+            <button
+              type="button"
+              className={styles.mobileDrawerCloseBtn}
+              onClick={() => setIsMobileDrawerOpen(false)}
+              aria-label="Close navigation menu"
+            >
+              ✕
+            </button>
+          </div>
+
           <div>
             {/* Stall Profile Mini Card */}
             <div className={styles.sidebarCard}>
@@ -809,7 +898,7 @@ export default function ShopAdminDashboard() {
               {/* 1. Dashboard */}
               <button
                 type="button"
-                onClick={() => setActiveTab('dashboard')}
+                onClick={() => handleNavSelect('dashboard')}
                 className={`${styles.navItem} ${activeTab === 'dashboard' ? styles.navItemActive : ''}`}
                 id="tab-dashboard-btn"
               >
@@ -822,7 +911,7 @@ export default function ShopAdminDashboard() {
               {/* 2. Products */}
               <button
                 type="button"
-                onClick={() => setActiveTab('products')}
+                onClick={() => handleNavSelect('products')}
                 className={`${styles.navItem} ${activeTab === 'products' ? styles.navItemActive : ''}`}
                 id="tab-products-btn"
               >
@@ -836,7 +925,7 @@ export default function ShopAdminDashboard() {
               {/* 3. Orders */}
               <button
                 type="button"
-                onClick={() => setActiveTab('orders')}
+                onClick={() => handleNavSelect('orders')}
                 className={`${styles.navItem} ${activeTab === 'orders' ? styles.navItemActive : ''}`}
                 id="tab-orders-btn"
               >
@@ -854,7 +943,7 @@ export default function ShopAdminDashboard() {
               {/* 4. Invoice (AweerMarket + Personal Sales) */}
               <button
                 type="button"
-                onClick={() => setActiveTab('invoice')}
+                onClick={() => handleNavSelect('invoice')}
                 className={`${styles.navItem} ${activeTab === 'invoice' ? styles.navItemActive : ''}`}
                 id="tab-invoice-btn"
               >
@@ -867,7 +956,7 @@ export default function ShopAdminDashboard() {
               {/* 5. Inventory & Stock */}
               <button
                 type="button"
-                onClick={() => setActiveTab('inventory')}
+                onClick={() => handleNavSelect('inventory')}
                 className={`${styles.navItem} ${activeTab === 'inventory' ? styles.navItemActive : ''}`}
                 id="tab-inventory-btn"
               >
@@ -885,7 +974,7 @@ export default function ShopAdminDashboard() {
               {/* 6. Sales & Reports */}
               <button
                 type="button"
-                onClick={() => setActiveTab('sales')}
+                onClick={() => handleNavSelect('sales')}
                 className={`${styles.navItem} ${activeTab === 'sales' ? styles.navItemActive : ''}`}
                 id="tab-sales-btn"
               >
@@ -898,7 +987,7 @@ export default function ShopAdminDashboard() {
               {/* 7. Payouts (Marketplace Sales − Configured Commission = Net) */}
               <button
                 type="button"
-                onClick={() => setActiveTab('payouts')}
+                onClick={() => handleNavSelect('payouts')}
                 className={`${styles.navItem} ${activeTab === 'payouts' ? styles.navItemActive : ''}`}
                 id="tab-payouts-btn"
               >
@@ -911,7 +1000,7 @@ export default function ShopAdminDashboard() {
               {/* 8. Shop Profile */}
               <button
                 type="button"
-                onClick={() => setActiveTab('profile')}
+                onClick={() => handleNavSelect('profile')}
                 className={`${styles.navItem} ${activeTab === 'profile' ? styles.navItemActive : ''}`}
                 id="tab-profile-btn"
               >
@@ -924,7 +1013,7 @@ export default function ShopAdminDashboard() {
               {/* 9. Customers */}
               <button
                 type="button"
-                onClick={() => setActiveTab('customers')}
+                onClick={() => handleNavSelect('customers')}
                 className={`${styles.navItem} ${activeTab === 'customers' ? styles.navItemActive : ''}`}
                 id="tab-customers-btn"
               >
@@ -938,7 +1027,7 @@ export default function ShopAdminDashboard() {
               {/* 10. Reviews & Ratings */}
               <button
                 type="button"
-                onClick={() => setActiveTab('reviews')}
+                onClick={() => handleNavSelect('reviews')}
                 className={`${styles.navItem} ${activeTab === 'reviews' ? styles.navItemActive : ''}`}
                 id="tab-reviews-btn"
               >
@@ -952,7 +1041,7 @@ export default function ShopAdminDashboard() {
               {/* 11. Notifications */}
               <button
                 type="button"
-                onClick={() => setActiveTab('notifications')}
+                onClick={() => handleNavSelect('notifications')}
                 className={`${styles.navItem} ${activeTab === 'notifications' ? styles.navItemActive : ''}`}
                 id="tab-notifications-btn"
               >
@@ -966,7 +1055,7 @@ export default function ShopAdminDashboard() {
               {/* 12. Settings */}
               <button
                 type="button"
-                onClick={() => setActiveTab('settings')}
+                onClick={() => handleNavSelect('settings')}
                 className={`${styles.navItem} ${activeTab === 'settings' ? styles.navItemActive : ''}`}
                 id="tab-settings-btn"
               >
@@ -1864,28 +1953,30 @@ export default function ShopAdminDashboard() {
                         </div>
                       </div>
 
-                      <table className={styles.invoiceTable}>
-                        <thead>
-                          <tr>
-                            <th>Item Description</th>
-                            <th>Packaging &amp; Unit</th>
-                            <th>Quantity</th>
-                            <th>Rate (Dhs)</th>
-                            <th>Amount (Dhs)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedOrderForInvoice.items.map((item, idx) => (
-                            <tr key={idx}>
-                              <td><strong>{item.name}</strong></td>
-                              <td>{item.unitWeightKg} kg / {item.unit}</td>
-                              <td>{item.quantity}</td>
-                              <td>Dhs {item.unitPriceAed.toFixed(2)}</td>
-                              <td>Dhs {item.lineTotalAed.toFixed(2)}</td>
+                      <div className={styles.tableWrapper}>
+                        <table className={styles.invoiceTable}>
+                          <thead>
+                            <tr>
+                              <th>Item Description</th>
+                              <th>Packaging &amp; Unit</th>
+                              <th>Quantity</th>
+                              <th>Rate (Dhs)</th>
+                              <th>Amount (Dhs)</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {selectedOrderForInvoice.items.map((item, idx) => (
+                              <tr key={idx}>
+                                <td><strong>{item.name}</strong></td>
+                                <td>{item.unitWeightKg} kg / {item.unit}</td>
+                                <td>{item.quantity}</td>
+                                <td>Dhs {item.unitPriceAed.toFixed(2)}</td>
+                                <td>Dhs {item.lineTotalAed.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
 
                       <div className={styles.invoiceTotalRow}>
                         <div>Subtotal: <strong>Dhs {(selectedOrderForInvoice.totalAmountAed / 1.05).toFixed(2)}</strong></div>
@@ -1977,28 +2068,30 @@ export default function ShopAdminDashboard() {
                         </div>
                       </div>
 
-                      <table className={styles.invoiceTable}>
-                        <thead>
-                          <tr>
-                            <th>Produce Description</th>
-                            <th>Unit Packaging</th>
-                            <th>Quantity</th>
-                            <th>Rate (Dhs)</th>
-                            <th>Amount (Dhs)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedPersonalInvoice.items.map((item, idx) => (
-                            <tr key={idx}>
-                              <td><strong>{item.name}</strong></td>
-                              <td>{item.unitWeightKg} kg / {item.unit}</td>
-                              <td>{item.quantity}</td>
-                              <td>Dhs {item.unitPriceAed.toFixed(2)}</td>
-                              <td>Dhs {item.lineTotalAed.toFixed(2)}</td>
+                      <div className={styles.tableWrapper}>
+                        <table className={styles.invoiceTable}>
+                          <thead>
+                            <tr>
+                              <th>Produce Description</th>
+                              <th>Unit Packaging</th>
+                              <th>Quantity</th>
+                              <th>Rate (Dhs)</th>
+                              <th>Amount (Dhs)</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {selectedPersonalInvoice.items.map((item, idx) => (
+                              <tr key={idx}>
+                                <td><strong>{item.name}</strong></td>
+                                <td>{item.unitWeightKg} kg / {item.unit}</td>
+                                <td>{item.quantity}</td>
+                                <td>Dhs {item.unitPriceAed.toFixed(2)}</td>
+                                <td>Dhs {item.lineTotalAed.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
 
                       <div className={styles.invoiceTotalRow}>
                         <div>Subtotal: <strong>Dhs {selectedPersonalInvoice.subtotalAed.toFixed(2)}</strong></div>

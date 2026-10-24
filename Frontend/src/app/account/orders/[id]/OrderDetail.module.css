@@ -187,3 +187,102 @@
 .backBtn:hover {
   background: #e2e8f0;
 }
+
+/* =====================================================================
+   MOBILE RESPONSIVENESS (<= 640px)
+   ===================================================================== */
+@media (max-width: 640px) {
+  .container {
+    padding: 16px 12px 60px 12px;
+  }
+
+  .breadcrumbs {
+    font-size: 0.78rem;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .orderHeaderCard {
+    padding: 16px 14px;
+    border-radius: 10px;
+  }
+
+  .topRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .orderNumber {
+    font-size: 1.25rem;
+  }
+
+  .statusBadge {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+  }
+
+  .orderSub {
+    font-size: 0.82rem;
+  }
+
+  .infoGrid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .infoBox {
+    padding: 14px;
+  }
+
+  .itemsSection {
+    padding: 16px 14px;
+    border-radius: 10px;
+  }
+
+  .sectionTitle {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+  }
+
+  /* Table remains accessible and scrolls smoothly on narrow viewports */
+  .itemsTable {
+    min-width: 520px;
+  }
+
+  .itemsTable th {
+    padding: 8px 10px;
+    font-size: 0.75rem;
+  }
+
+  .itemsTable td {
+    padding: 10px;
+    font-size: 0.85rem;
+  }
+
+  .totalSummary {
+    width: 100%;
+    box-sizing: border-box;
+    align-items: stretch;
+    padding: 12px 14px;
+  }
+
+  .summaryRow,
+  .finalTotal {
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.88rem;
+  }
+
+  .finalTotal {
+    font-size: 1.1rem;
+  }
+
+  .backBtn {
+    display: block;
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+  }
+}
