@@ -5,7 +5,14 @@ import { Navbar } from '@/components/layout/Navbar';
 
 export const metadata: Metadata = {
   title: 'AweerMarket — Dubai Al Aweer Wholesale Fruits & Vegetables Marketplace',
-  description: 'Public Marketplace and Buyer Portal for wholesale produce in Dubai Al Aweer market.'
+  description: 'Public Marketplace and Buyer Portal for wholesale produce in Dubai Al Aweer market.',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' }
+    ],
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg'
+  }
 };
 
 export default function RootLayout({
@@ -16,6 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
