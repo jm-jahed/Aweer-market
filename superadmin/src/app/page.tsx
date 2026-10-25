@@ -637,7 +637,30 @@ export default function SuperAdminDashboard() {
             className={styles.headerBrand}
             aria-label="Aweermarket Central Super Admin Home"
           >
-            <div className={styles.brandLogoWrap}>🌿</div>
+            <div className={styles.brandLogoWrap}>
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 40 40"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path d="M8 28C6 20 12 10 24 6C24 18 16 26 8 28Z" fill="url(#superLeaf1)" />
+                <path d="M16 34C14 26 22 16 34 10C34 24 24 32 16 34Z" fill="url(#superLeaf2)" />
+                <path d="M6 34C14 28 20 22 30 14" stroke="#bbf7d0" strokeWidth="2" strokeLinecap="round" />
+                <defs>
+                  <linearGradient id="superLeaf1" x1="6" y1="6" x2="24" y2="28" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#4ade80" />
+                    <stop offset="1" stopColor="#15803d" />
+                  </linearGradient>
+                  <linearGradient id="superLeaf2" x1="14" y1="10" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#86efac" />
+                    <stop offset="1" stopColor="#22c55e" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
             <div className={styles.brandTextGroup}>
               <span className={styles.brandTitle}>Aweer<span>market</span></span>
               <span className={styles.brandSubtitle}>Central Administration</span>
@@ -2343,6 +2366,80 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* =====================================================================
+          MOBILE BOTTOM NAVIGATION (Fixed at bottom for super admin quick actions)
+         ===================================================================== */}
+      <nav className={styles.mobileBottomNav} aria-label="SuperAdmin Quick Navigation">
+        <button
+          type="button"
+          onClick={() => handleNavSelect('dashboard')}
+          className={`${styles.mobileNavItem} ${activeTab === 'dashboard' ? styles.mobileNavItemActive : ''}`}
+        >
+          <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="9"></rect>
+            <rect x="14" y="3" width="7" height="5"></rect>
+            <rect x="14" y="12" width="7" height="9"></rect>
+            <rect x="3" y="16" width="7" height="5"></rect>
+          </svg>
+          <span>Dashboard</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleNavSelect('shops')}
+          className={`${styles.mobileNavItem} ${activeTab === 'shops' ? styles.mobileNavItemActive : ''}`}
+        >
+          <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          <span>Shops</span>
+          {shops.length > 0 && <span className={styles.mobileNavCountBadge}>{shops.length}</span>}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleNavSelect('orders')}
+          className={`${styles.mobileNavItem} ${activeTab === 'orders' ? styles.mobileNavItemActive : ''}`}
+        >
+          <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+          <span>Orders</span>
+          {orders.length > 0 && <span className={styles.mobileNavCountBadge}>{orders.length}</span>}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleNavSelect('categories')}
+          className={`${styles.mobileNavItem} ${activeTab === 'categories' ? styles.mobileNavItemActive : ''}`}
+        >
+          <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>Categories</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsMobileDrawerOpen(true)}
+          className={`${styles.mobileNavItem} ${isMobileDrawerOpen ? styles.mobileNavItemActive : ''}`}
+          aria-label="Open complete menu"
+        >
+          <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+          <span>Menu</span>
+        </button>
+      </nav>
     </div>
   );
 }
