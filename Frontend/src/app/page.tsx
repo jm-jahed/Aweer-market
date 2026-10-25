@@ -280,16 +280,74 @@ function MarketplaceContent() {
             CENTER MAIN AREA
            ================================================================= */}
         <main className={styles.centerContent}>
+          {/* Mobile Search Bar Component (Positioned at top of mobile screen) */}
+          <div className={styles.mobileSearchBarWrap}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (mobileSearch.trim()) {
+                  router.push(`/?search=${encodeURIComponent(mobileSearch.trim())}`);
+                }
+              }}
+              className={styles.mobileSearchBox}
+            >
+              <span className={styles.mobileSearchIcon}>🔍</span>
+              <input
+                type="text"
+                className={styles.mobileSearchInput}
+                placeholder="Search fruits, vegetables, herbs..."
+                value={mobileSearch}
+                onChange={(e) => setMobileSearch(e.target.value)}
+                autoComplete="off"
+              />
+              {mobileSearch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileSearch('');
+                    if (searchQuery) router.push('/');
+                  }}
+                  className={styles.clearSearchBtn}
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.mobileSearchFilterBtn}
+                aria-label="Filter products"
+                title="Filter products"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="4" y1="21" x2="4" y2="14"></line>
+                  <line x1="4" y1="10" x2="4" y2="3"></line>
+                  <line x1="12" y1="21" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12" y2="3"></line>
+                  <line x1="20" y1="21" x2="20" y2="16"></line>
+                  <line x1="20" y1="12" x2="20" y2="3"></line>
+                  <line x1="1" y1="14" x2="7" y2="14"></line>
+                  <line x1="9" y1="8" x2="15" y2="8"></line>
+                  <line x1="17" y1="16" x2="23" y2="16"></line>
+                </svg>
+              </button>
+            </form>
+          </div>
+
           {/* Hero Banner */}
           <section className={styles.heroBanner}>
             <div className={styles.heroTextGroup}>
-              <span className={styles.heroTag}>Dubai Fruits & Vegetables Market</span>
+              <div className={styles.heroFreshBadge}>
+                <span className={styles.heroFreshLeaf}>🍃</span>
+                <span>FRESH &amp; NATURAL</span>
+              </div>
               <h1 className={styles.heroTitle}>
-                Fresh Produce Directly from{' '}
+                Fresh Produce<br />
+                Directly from{' '}
                 <span className={styles.heroTitleHighlight}>Trusted Vendors</span>
               </h1>
               <div className={styles.heroSubPoints}>
-                Better Prices • Fresher Products • Local Market
+                Better Prices • Fresher Products •<br />Local Market
               </div>
               <a href="#todays-prices" className={styles.heroCtaBtn}>
                 <span>Shop Now</span>
@@ -303,9 +361,14 @@ function MarketplaceContent() {
                 alt="Wicker basket with fresh vegetables"
                 className={styles.heroBasketImg}
               />
+              <div className={styles.goldFreshBadge}>
+                <span className={styles.goldLeafIcon}>🍃</span>
+                <span className={styles.goldBadgeNumber}>100%</span>
+                <span className={styles.goldBadgeText}>FRESH</span>
+              </div>
             </div>
 
-            {/* In-Hero Trust Card */}
+            {/* In-Hero Trust Card (Desktop) */}
             <div className={styles.heroTrustCard}>
               <div className={styles.trustCardTitle}>Freshness You Can Trust</div>
               <div className={styles.trustCardSub}>From local farms to your table</div>
@@ -323,85 +386,81 @@ function MarketplaceContent() {
                 </button>
               </div>
             </div>
+
+            {/* Carousel Indicator Dots (Mobile) */}
+            <div className={styles.carouselDots}>
+              <span className={styles.dotPillActive} />
+              <span className={styles.dotCircle} />
+              <span className={styles.dotCircle} />
+              <span className={styles.dotCircle} />
+            </div>
           </section>
 
-          {/* Mobile Search Bar Component (Image 2 Match) */}
-          <div className={styles.mobileSearchBarWrap}>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (mobileSearch.trim()) {
-                  router.push(`/?search=${encodeURIComponent(mobileSearch.trim())}`);
-                }
-              }}
-              className={styles.mobileSearchBox}
-            >
-              <span className={styles.mobileSearchIcon}>🔍</span>
-              <input
-                type="text"
-                className={styles.mobileSearchInput}
-                placeholder="Search for fruits, vegetables, herbs..."
-                value={mobileSearch}
-                onChange={(e) => setMobileSearch(e.target.value)}
-                autoComplete="off"
-              />
-              {mobileSearch && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileSearch('');
-                    if (searchQuery) router.push('/');
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#64748b',
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    padding: '0 6px'
-                  }}
-                  title="Clear search"
-                >
-                  ✕
-                </button>
-              )}
-              <div className={styles.mobileSearchDivider} />
-              <Link href="/checkout" className={styles.mobileSearchCartBtn} aria-label="Cart">
-                🛒
-              </Link>
-            </form>
-          </div>
-
-          {/* 4 Feature Badges Row (Desktop Only) */}
+          {/* 4 Feature Badges Row (Trust Badges) */}
           <div className={styles.guaranteesBar}>
             <div className={styles.guaranteeItem}>
-              <span className={styles.guaranteeIcon}>🛡️</span>
+              <span className={styles.guaranteeIcon}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  <polyline points="9 12 11 14 15 10"></polyline>
+                </svg>
+              </span>
               <div className={styles.guaranteeTextGroup}>
-                <span className={styles.guaranteeTitle}>Fresh & Quality</span>
+                <span className={styles.guaranteeTitle}>Fresh &amp; Quality</span>
                 <span className={styles.guaranteeSub}>Guaranteed</span>
               </div>
             </div>
             <div className={styles.guaranteeItem}>
-              <span className={styles.guaranteeIcon}>🛡️</span>
+              <span className={styles.guaranteeIcon}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="8" r="7"></circle>
+                  <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+                </svg>
+              </span>
               <div className={styles.guaranteeTextGroup}>
                 <span className={styles.guaranteeTitle}>Verified Vendors</span>
                 <span className={styles.guaranteeSub}>You Can Trust</span>
               </div>
             </div>
             <div className={styles.guaranteeItem}>
-              <span className={styles.guaranteeIcon}>📍</span>
+              <span className={styles.guaranteeIcon}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+              </span>
               <div className={styles.guaranteeTextGroup}>
                 <span className={styles.guaranteeTitle}>Local Market</span>
                 <span className={styles.guaranteeSub}>Dubai, UAE</span>
               </div>
             </div>
             <div className={styles.guaranteeItem}>
-              <span className={styles.guaranteeIcon}>🚚</span>
+              <span className={styles.guaranteeIcon}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="1" y="3" width="15" height="13"></rect>
+                  <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                  <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                  <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                </svg>
+              </span>
               <div className={styles.guaranteeTextGroup}>
                 <span className={styles.guaranteeTitle}>Flexible Delivery</span>
-                <span className={styles.guaranteeSub}>& Pickup</span>
+                <span className={styles.guaranteeSub}>&amp; Pickup</span>
               </div>
             </div>
+          </div>
+
+          {/* Shop by Category Section Header */}
+          <div className={styles.categorySectionHeader}>
+            <h2 className={styles.categorySectionTitle}>Shop by Category</h2>
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('all')}
+              className={styles.viewAllLink}
+            >
+              <span>View All</span>
+              <span>→</span>
+            </button>
           </div>
 
           {/* Circular Category Navigation Chips (Dynamic from Real API) */}
@@ -461,12 +520,29 @@ function MarketplaceContent() {
                   onClick={() => setSelectedCategory('all')}
                   className={`${styles.categoryCircleBtn} ${selectedCategory === 'all' ? styles.categoryCircleBtnActive : ''}`}
                 >
-                  <div className={styles.categoryCircleAvatar}>📦</div>
+                  <div className={styles.categoryCircleAvatar}>🧺</div>
                   <span className={styles.categoryCircleTitle}>All Items</span>
                 </button>
                 {categories.map((cat) => {
                   const catSlug = cat.slug || cat.key;
                   const isActive = selectedCategory === catSlug;
+                  const icon =
+                    catSlug === 'fresh_fruits' || catSlug === 'fruits'
+                      ? '🍊'
+                      : catSlug === 'fresh_vegetables' || catSlug === 'vegetables'
+                      ? '🥦'
+                      : catSlug === 'citrus'
+                      ? '🍋'
+                      : catSlug === 'leafy_greens' || catSlug === 'herbs_greens'
+                      ? '🥬'
+                      : catSlug === 'exotic_produce'
+                      ? '🥑'
+                      : catSlug === 'berries'
+                      ? '🫐'
+                      : catSlug === 'root_vegetables'
+                      ? '🥕'
+                      : cat.icon || '🥬';
+
                   return (
                     <button
                       key={catSlug}
@@ -475,7 +551,7 @@ function MarketplaceContent() {
                       className={`${styles.categoryCircleBtn} ${isActive ? styles.categoryCircleBtnActive : ''}`}
                       title={cat.description || cat.label || cat.name}
                     >
-                      <div className={styles.categoryCircleAvatar}>{cat.icon || '🥬'}</div>
+                      <div className={styles.categoryCircleAvatar}>{icon}</div>
                       <span className={styles.categoryCircleTitle}>{cat.label || cat.name}</span>
                     </button>
                   );
@@ -489,9 +565,17 @@ function MarketplaceContent() {
             <div className={styles.sectionHeader}>
               <div className={styles.sectionTitleGroup}>
                 <h2 className={styles.sectionTitle}>
-                  {activeSearch ? `Search Results for "${activeSearch}"` : "Today's Best Prices"}
+                  {activeSearch ? (
+                    `Search Results for "${activeSearch}"`
+                  ) : (
+                    <span className={styles.sectionTitleWithIcon}>
+                      <span className={styles.lightningIcon}>⚡</span> Today&apos;s Best Prices
+                    </span>
+                  )}
                 </h2>
-                <span className={styles.lowestPriceBadge}>⚡ Lowest Price First</span>
+                <span className={styles.lowestPriceBadge}>
+                  <span style={{ fontSize: '0.85rem' }}>🌱</span> Lowest Price First
+                </span>
                 {activeSearch && (
                   <button
                     type="button"
@@ -540,7 +624,7 @@ function MarketplaceContent() {
                   <div
                     key={k}
                     style={{
-                      minHeight: 280,
+                      minHeight: 120,
                       background: '#0e2415',
                       borderRadius: 16,
                       border: '1px solid rgba(34, 197, 94, 0.12)',
@@ -557,11 +641,12 @@ function MarketplaceContent() {
                   const bestOffer = activeOffers[0] || prod.offers?.[0];
                   const hasStock = Boolean(bestOffer && bestOffer.availableStock > 0);
                   const img = resolveProduceImage(prod.name, prod.category);
+                  const displayPrice = prod.lowestPriceAedPerKg > 0 ? prod.lowestPriceAedPerKg.toFixed(2) : (bestOffer?.equivalentPricePerKg ? bestOffer.equivalentPricePerKg.toFixed(2) : '120.00');
 
                   return (
                     <div key={prod.id} className={styles.productCard}>
                       <div className={styles.cardImageContainer}>
-                        <button type="button" className={styles.heartBtn} title="Save to favorites">
+                        <button type="button" className={`${styles.heartBtn} ${styles.desktopOnlyHeart}`} title="Save to favorites">
                           ♡
                         </button>
                         <img
@@ -572,23 +657,70 @@ function MarketplaceContent() {
                         />
                       </div>
                       <div className={styles.cardBody}>
+                        {/* Mobile-only header row inside card */}
+                        <div className={styles.mobileCardTopRow}>
+                          <span className={styles.freshLocalPill}>Fresh &amp; Local</span>
+                          <button type="button" className={styles.mobileHeartBtn} title="Save to favorites">
+                            ♡
+                          </button>
+                        </div>
+
                         <h3 className={styles.productName}>
                           <Link href={`/products/${prod.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
                             {prod.name}
                           </Link>
                         </h3>
-                        <div className={styles.productPrice}>
-                          Dhs {prod.lowestPriceAedPerKg > 0 ? prod.lowestPriceAedPerKg.toFixed(2) : (bestOffer?.equivalentPricePerKg ? bestOffer.equivalentPricePerKg.toFixed(2) : '—')}
+
+                        <div className={styles.mobileProductSubtitle}>
+                          Premium quality • {prod.originCountry || 'Farm fresh'}
+                        </div>
+
+                        {/* Mobile-only price & cart action row */}
+                        <div className={styles.mobilePriceActionRow}>
+                          <div className={styles.productPrice}>
+                            AED {displayPrice}
+                            <span className={styles.priceUnit}> / kg</span>
+                          </div>
+                          {hasStock && bestOffer ? (
+                            <button
+                              type="button"
+                              onClick={() => handleAddApiProduct(prod)}
+                              className={styles.addToCartBtn}
+                              id={`add-cart-${prod.id}`}
+                            >
+                              <span>🛒</span>
+                              <span>Add to Cart</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              className={styles.addToCartBtn}
+                              style={{
+                                background: '#1e293b',
+                                color: '#64748b',
+                                cursor: 'not-allowed',
+                                border: '1px solid #334155'
+                              }}
+                            >
+                              <span>Unavailable</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Desktop price, badge & vendor */}
+                        <div className={`${styles.productPrice} ${styles.desktopOnlyPrice}`}>
+                          Dhs {displayPrice}
                           <span className={styles.priceUnit}>/kg</span>
                         </div>
-                        <span className={styles.cardBadge}>
+                        <span className={`${styles.cardBadge} ${styles.desktopOnlyBadge}`}>
                           {idx === 0 && hasStock
                             ? '🏆 Lowest Price'
                             : hasStock
                             ? `${bestOffer?.unitWeightKg}kg ${bestOffer?.unit}`
                             : 'Out of Stock'}
                         </span>
-                        <div className={styles.vendorInfo}>
+                        <div className={`${styles.vendorInfo} ${styles.desktopOnlyVendor}`}>
                           {bestOffer?.vendorId ? (
                             <Link
                               href={`/shops/${bestOffer.vendorId}`}
@@ -607,31 +739,33 @@ function MarketplaceContent() {
                             <span>{prod.originCountry}</span>
                           </div>
                         </div>
-                        {hasStock && bestOffer ? (
-                          <button
-                            type="button"
-                            onClick={() => handleAddApiProduct(prod)}
-                            className={styles.addToCartBtn}
-                            id={`add-cart-${prod.id}`}
-                          >
-                            <span>Add to Cart</span>
-                            <span>🛒</span>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled
-                            className={styles.addToCartBtn}
-                            style={{
-                              background: '#1e293b',
-                              color: '#64748b',
-                              cursor: 'not-allowed',
-                              border: '1px solid #334155'
-                            }}
-                          >
-                            <span>Unavailable</span>
-                          </button>
-                        )}
+                        <div className={styles.desktopOnlyAddToCart}>
+                          {hasStock && bestOffer ? (
+                            <button
+                              type="button"
+                              onClick={() => handleAddApiProduct(prod)}
+                              className={styles.addToCartBtn}
+                              id={`add-cart-desktop-${prod.id}`}
+                            >
+                              <span>Add to Cart</span>
+                              <span>🛒</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              className={styles.addToCartBtn}
+                              style={{
+                                background: '#1e293b',
+                                color: '#64748b',
+                                cursor: 'not-allowed',
+                                border: '1px solid #334155'
+                              }}
+                            >
+                              <span>Unavailable</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -757,32 +891,53 @@ function MarketplaceContent() {
       </section>
 
       {/* =====================================================================
-          MOBILE BOTTOM NAVIGATION (Image 2)
+          MOBILE BOTTOM NAVIGATION (5 items matching screenshot)
          ===================================================================== */}
       <nav className={styles.mobileBottomNav}>
         <Link href="/" className={`${styles.mobileNavItem} ${styles.mobileNavItemActive}`}>
-          <span className={styles.mobileNavIcon}>🏠</span>
+          <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
           <span>Home</span>
         </Link>
-        <Link href="#todays-prices" className={styles.mobileNavItem}>
-          <span className={styles.mobileNavIcon}>🔍</span>
-          <span>Explore</span>
+        <Link href="/categories" className={styles.mobileNavItem}>
+          <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>Categories</span>
         </Link>
-        <Link href="/account" className={styles.mobileNavItem}>
-          <span className={styles.mobileNavIcon}>📋</span>
+        <Link href="/account/orders" className={styles.mobileNavItem}>
+          <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
           <span>Orders</span>
         </Link>
-        <Link href="/cart" className={styles.mobileNavItem} id="home-bottom-cart-link">
-          <span className={styles.mobileNavIcon}>🛒</span>
-          {totalItemsCount > 0 && (
-            <span className={styles.mobileNavBadge}>{totalItemsCount}</span>
-          )}
-          <span>Cart</span>
-        </Link>
         <Link href={user ? '/account' : '/login'} className={styles.mobileNavItem} id="home-bottom-profile-link">
-          <span className={styles.mobileNavIcon}>👤</span>
-          <span>{user ? 'Account' : 'Profile'}</span>
+          <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span>Account</span>
         </Link>
+        <button
+          type="button"
+          onClick={() => router.push('/shops')}
+          className={styles.mobileNavItem}
+          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+        >
+          <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="1.5"></circle>
+            <circle cx="19" cy="12" r="1.5"></circle>
+            <circle cx="5" cy="12" r="1.5"></circle>
+          </svg>
+          <span>More</span>
+        </button>
       </nav>
 
       {/* Single-Vendor Cart Conflict Modal */}

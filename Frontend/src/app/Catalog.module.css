@@ -922,25 +922,98 @@
 }
 
 /* ==========================================================================
-   MOBILE BOTTOM NAVIGATION (Image 2)
+   MOBILE & SHARED ELEMENT HELPERS
    ========================================================================== */
 .mobileBottomNav {
   display: none;
 }
 
-/* Mobile Search Bar Component (Image 2) */
 .mobileSearchBarWrap {
   display: none;
 }
 
+.heroFreshBadge {
+  display: none;
+}
+
+.goldFreshBadge {
+  display: none;
+}
+
+.carouselDots {
+  display: none;
+}
+
+.categorySectionHeader {
+  display: none;
+}
+
+.mobileCardTopRow {
+  display: none;
+}
+
+.freshLocalPill {
+  display: none;
+}
+
+.mobileHeartBtn {
+  display: none;
+}
+
+.mobileProductSubtitle {
+  display: none;
+}
+
+.mobilePriceActionRow {
+  display: none;
+}
+
+.sectionTitleWithIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lightningIcon {
+  color: #eab308;
+  font-size: 1.2rem;
+}
+
+.clearSearchBtn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0 6px;
+}
+
+.mobileSearchFilterBtn {
+  background: transparent;
+  border: none;
+  color: #86efac;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.mobileNavSvg {
+  stroke: currentColor;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVE BREAKPOINT (<= 768px)
+   ========================================================================== */
 @media (max-width: 768px) {
   .pageWrapper {
-    padding: 6px 14px 85px;
+    padding: 10px 14px 90px !important;
   }
 
   .mainGrid {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
   }
 
   .sidebar {
@@ -951,28 +1024,95 @@
     display: none !important;
   }
 
-  /* Compact Hero Banner (Image 2) */
+  /* 1. Mobile Search Bar At Top */
+  .mobileSearchBarWrap {
+    display: block !important;
+    margin: 0 0 12px 0 !important;
+    position: relative !important;
+    width: 100% !important;
+  }
+
+  .mobileSearchBox {
+    display: flex !important;
+    align-items: center !important;
+    background: #06180e !important;
+    border: 1.5px solid rgba(34, 197, 94, 0.4) !important;
+    border-radius: 9999px !important;
+    padding: 8px 16px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+  }
+
+  .mobileSearchIcon {
+    color: #86efac !important;
+    font-size: 0.95rem !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .mobileSearchInput {
+    flex: 1 !important;
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+    font-size: 0.85rem !important;
+    color: #ffffff !important;
+    font-family: inherit !important;
+    padding: 4px 0 !important;
+    font-weight: 500 !important;
+  }
+
+  .mobileSearchInput::placeholder {
+    color: #64748b !important;
+    opacity: 0.9 !important;
+  }
+
+  /* 2. Hero Banner */
   .heroBanner {
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
     justify-content: space-between !important;
-    background: linear-gradient(135deg, #072111 0%, #0d381c 100%) !important;
-    border: 1px solid rgba(34, 197, 94, 0.22) !important;
+    background: linear-gradient(135deg, #051d11 0%, #03150c 100%) !important;
+    border: 1px solid rgba(34, 197, 94, 0.25) !important;
     border-radius: 20px !important;
-    padding: 16px 14px !important;
+    padding: 16px 14px 28px !important;
     gap: 10px !important;
+    position: relative !important;
+    margin-bottom: 12px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
   }
 
   .heroTag {
     display: none !important;
   }
 
+  .heroFreshBadge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    background: rgba(34, 197, 94, 0.12) !important;
+    border: 1px solid rgba(34, 197, 94, 0.3) !important;
+    color: #86efac !important;
+    border-radius: 9999px !important;
+    padding: 3px 8px !important;
+    font-size: 0.62rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.04em !important;
+    margin-bottom: 8px !important;
+  }
+
+  .heroFreshLeaf {
+    font-size: 0.72rem !important;
+  }
+
   .heroTextGroup {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
   }
 
   .heroTitle {
@@ -983,392 +1123,473 @@
     color: #ffffff !important;
   }
 
+  .heroTitleHighlight {
+    color: #22c55e !important;
+  }
+
   .heroSubPoints {
-    font-size: 0.65rem !important;
-    color: #86efac !important;
+    font-size: 0.68rem !important;
+    color: #94a3b8 !important;
     margin-bottom: 12px !important;
-    line-height: 1.3 !important;
+    line-height: 1.35 !important;
   }
 
   .heroCtaBtn {
     background: #22c55e !important;
     color: #052e16 !important;
-    font-size: 0.72rem !important;
+    font-size: 0.76rem !important;
     font-weight: 800 !important;
-    padding: 6px 14px !important;
+    padding: 7px 16px !important;
     border-radius: 9999px !important;
     text-decoration: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35) !important;
   }
 
   .heroBasketImageWrap {
-    width: 120px !important;
-    height: 100px !important;
+    width: 130px !important;
+    height: 110px !important;
     flex-shrink: 0 !important;
+    position: relative !important;
   }
 
   .heroBasketImg {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
-    border-radius: 14px !important;
+    border-radius: 16px !important;
+  }
+
+  .goldFreshBadge {
+    display: flex !important;
+    position: absolute !important;
+    bottom: -6px !important;
+    right: -4px !important;
+    width: 50px !important;
+    height: 50px !important;
+    border-radius: 50% !important;
+    background: #07190f !important;
+    border: 2px solid #eab308 !important;
+    box-shadow: 0 0 12px rgba(234, 179, 8, 0.45) !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #eab308 !important;
+    z-index: 2 !important;
+  }
+
+  .goldLeafIcon {
+    font-size: 0.62rem !important;
+    line-height: 1 !important;
+  }
+
+  .goldBadgeNumber {
+    font-size: 0.68rem !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+  }
+
+  .goldBadgeText {
+    font-size: 0.48rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.05em !important;
+    line-height: 1 !important;
   }
 
   .heroTrustCard {
     display: none !important;
   }
 
-  .guaranteesBar {
-    display: none !important;
-  }
-
-  /* Mobile Search Bar Under Hero (Image 2) */
-  .mobileSearchBarWrap {
-    display: block !important;
-    margin: 10px 0 14px !important;
-    position: relative !important;
-  }
-
-  .mobileSearchBox {
-    display: flex;
-    align-items: center;
-    background: #ffffff;
-    border-radius: 9999px;
-    padding: 6px 14px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-  }
-
-  .mobileSearchIcon {
-    color: #64748b;
-    font-size: 0.95rem;
-    margin-right: 8px;
-  }
-
-  .mobileSearchInput {
-    flex: 1;
-    border: none;
-    outline: none;
-    background: transparent;
-    font-size: 0.82rem;
-    color: #0f172a;
-    font-family: inherit;
-    padding: 5px 0;
-  }
-
-  .mobileSearchInput::placeholder {
-    color: #64748b;
-    opacity: 0.85;
-  }
-
-  .mobileSearchDivider {
-    width: 1px;
-    height: 20px;
-    background-color: #cbd5e1;
-    margin: 0 10px;
-  }
-
-  .mobileSearchCartBtn {
-    background: transparent;
-    border: none;
-    font-size: 1.15rem;
-    cursor: pointer;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #0f172a;
-  }
-
-  /* All Categories Touch-Scrollable Horizontal Carousel */
-  .categoriesBar {
+  .carouselDots {
     display: flex !important;
-    flex-direction: row !important;
+    position: absolute !important;
+    bottom: 8px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
     align-items: center !important;
-    gap: 12px !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    scrollbar-width: none !important;
-    padding: 6px 2px 14px !important;
+    gap: 6px !important;
+  }
+
+  .dotPillActive {
+    width: 20px !important;
+    height: 5px !important;
+    border-radius: 3px !important;
+    background: #22c55e !important;
+  }
+
+  .dotCircle {
+    width: 5px !important;
+    height: 5px !important;
+    border-radius: 50% !important;
+    background: #334155 !important;
+  }
+
+  /* 3. 4 Trust Badges Row */
+  .guaranteesBar {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8px !important;
+    margin: 12px 0 18px 0 !important;
     width: 100% !important;
     box-sizing: border-box !important;
   }
 
-  .categoriesBar::-webkit-scrollbar {
-    display: none !important;
-  }
-
-  .categoryCircleBtn {
+  .guaranteeItem {
+    background: #06190e !important;
+    border: 1px solid rgba(34, 197, 94, 0.18) !important;
+    border-radius: 12px !important;
+    padding: 10px 4px !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    gap: 6px !important;
-    background: transparent !important;
-    border: none !important;
-    cursor: pointer !important;
-    padding: 0 !important;
-    flex-shrink: 0 !important;
-    min-width: 76px !important;
+    text-align: center !important;
+    gap: 4px !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
   }
 
-  .categoryCircleAvatar {
-    width: 54px !important;
-    height: 54px !important;
-    border-radius: 50% !important;
-    background: #092113 !important;
-    border: 1px solid rgba(34, 197, 94, 0.3) !important;
+  .guaranteeIcon {
+    color: #eab308 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 1.5rem !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
-    transition: transform 0.2s ease, border-color 0.2s ease !important;
+    line-height: 1 !important;
   }
 
-  .categoryCircleBtn:hover .categoryCircleAvatar {
-    transform: scale(1.05) !important;
-    border-color: #22c55e !important;
+  .guaranteeTextGroup {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 1px !important;
   }
 
-  .categoryCircleTitle {
-    font-size: 0.72rem !important;
-    font-weight: 600 !important;
-    color: #cbd5e1 !important;
+  .guaranteeTitle {
+    font-size: 0.65rem !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    line-height: 1.2 !important;
     white-space: nowrap !important;
   }
 
-  .desktopOnlyCategory {
+  .guaranteeSub {
+    font-size: 0.58rem !important;
+    color: #86efac !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+  }
+
+  /* 4. Shop by Category Section */
+  .categorySectionHeader {
     display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 10px !important;
+    width: 100% !important;
   }
 
-  /* 2-Column Responsive Touch Product Cards Grid */
-  .productsGrid {
+  .categorySectionTitle {
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    margin: 0 !important;
+  }
+
+  .categoriesBar {
     display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 12px !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 8px !important;
+    margin-bottom: 20px !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
-  @media (max-width: 360px) {
-    .productsGrid {
-      gap: 8px !important;
-    }
+  .categoryCircleBtn {
+    background: #071a10 !important;
+    border: 1px solid rgba(34, 197, 94, 0.18) !important;
+    border-radius: 14px !important;
+    padding: 10px 4px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    cursor: pointer !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    min-width: unset !important;
+    transition: all 0.2s ease !important;
+  }
+
+  .categoryCircleBtnActive {
+    background: #092616 !important;
+    border: 1.5px solid #22c55e !important;
+    box-shadow: 0 0 14px rgba(34, 197, 94, 0.4) !important;
+  }
+
+  .categoryCircleAvatar {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    background: #03140b !important;
+    border: 1px solid rgba(34, 197, 94, 0.25) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.4rem !important;
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.6) !important;
+    transition: transform 0.2s ease !important;
+  }
+
+  .categoryCircleBtn:hover .categoryCircleAvatar {
+    transform: scale(1.08) !important;
+  }
+
+  .categoryCircleTitle {
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    width: 100% !important;
+  }
+
+  /* 5. Today's Best Prices Section */
+  .sectionHeader {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 12px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .sectionTitle {
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    margin: 0 !important;
+  }
+
+  .lowestPriceBadge {
+    background: rgba(34, 197, 94, 0.15) !important;
+    border: 1px solid rgba(34, 197, 94, 0.3) !important;
+    color: #86efac !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    border-radius: 9999px !important;
+    padding: 4px 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+
+  /* Horizontal Product Card Layout (Mobile) */
+  .productsGrid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
   }
 
   .productCard {
-    background: #ffffff !important;
-    border-radius: 16px !important;
-    border: 1px solid rgba(226, 232, 240, 0.8) !important;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
-    padding: 10px 10px 12px !important;
+    background: #06190e !important;
+    border: 1px solid rgba(34, 197, 94, 0.22) !important;
+    border-radius: 18px !important;
+    padding: 12px !important;
     display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    cursor: pointer !important;
-    min-height: 270px !important;
-    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 14px !important;
+    min-height: unset !important;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45) !important;
+    transition: transform 0.2s ease, border-color 0.2s ease !important;
   }
 
   .productCard:hover {
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+    border-color: rgba(34, 197, 94, 0.45) !important;
+    transform: translateY(-1px) !important;
   }
 
   .cardImageContainer {
-    background: #f8fafc !important;
-    border-radius: 12px !important;
-    padding: 8px !important;
-    min-height: 110px !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    position: relative !important;
+    width: 115px !important;
+    height: 100px !important;
+    border-radius: 14px !important;
+    background: #04140b !important;
+    padding: 0 !important;
+    min-height: unset !important;
+    flex-shrink: 0 !important;
+    overflow: hidden !important;
+    position: static !important;
+    display: block !important;
   }
 
   .productImg {
-    width: 86px !important;
-    height: 86px !important;
-    object-fit: contain !important;
-  }
-
-  .heartBtn {
-    display: flex !important;
-    position: absolute !important;
-    top: 4px !important;
-    right: 4px !important;
-    background: rgba(255, 255, 255, 0.9) !important;
-    border: none !important;
-    border-radius: 50% !important;
-    width: 26px !important;
-    height: 26px !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-size: 0.85rem !important;
-    color: #94a3b8 !important;
-    cursor: pointer !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 14px !important;
   }
 
   .cardBody {
-    padding: 8px 2px 0 !important;
+    padding: 0 !important;
+    flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 4px !important;
-    flex: 1 !important;
+    gap: 2px !important;
+    width: auto !important;
+  }
+
+  .mobileCardTopRow {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
     width: 100% !important;
-    text-align: left !important;
-    box-sizing: border-box !important;
+    margin-bottom: 2px !important;
+  }
+
+  .freshLocalPill {
+    display: inline-block !important;
+    background: rgba(34, 197, 94, 0.12) !important;
+    border: 1px solid rgba(34, 197, 94, 0.3) !important;
+    color: #4ade80 !important;
+    border-radius: 9999px !important;
+    padding: 2px 8px !important;
+    font-size: 0.62rem !important;
+    font-weight: 800 !important;
+  }
+
+  .mobileHeartBtn {
+    display: flex !important;
+    background: transparent !important;
+    border: none !important;
+    color: #cbd5e1 !important;
+    font-size: 1.15rem !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    line-height: 1 !important;
   }
 
   .productName {
-    font-size: 0.86rem !important;
-    font-weight: 700 !important;
-    color: #0f172a !important;
+    font-size: 0.95rem !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
     line-height: 1.25 !important;
-    margin: 0 !important;
-    display: -webkit-box !important;
-    -webkit-line-clamp: 2 !important;
-    -webkit-box-orient: vertical !important;
-    overflow: hidden !important;
+    margin: 2px 0 0 0 !important;
+  }
+
+  .mobileProductSubtitle {
+    display: block !important;
+    font-size: 0.68rem !important;
+    color: #94a3b8 !important;
+    margin-bottom: 6px !important;
+  }
+
+  .mobilePriceActionRow {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    margin-top: 4px !important;
   }
 
   .productPrice {
-    font-size: 0.96rem !important;
+    font-size: 1.1rem !important;
     font-weight: 800 !important;
-    color: #15803d !important;
+    color: #22c55e !important;
     display: flex !important;
     align-items: baseline !important;
     gap: 3px !important;
+    margin: 0 !important;
   }
 
   .priceUnit {
     font-size: 0.72rem !important;
+    color: #94a3b8 !important;
     font-weight: 600 !important;
-    color: #64748b !important;
   }
 
-  .cardBadge {
-    background: #dcfce7 !important;
-    color: #15803d !important;
-    font-size: 0.62rem !important;
-    font-weight: 700 !important;
-    padding: 2px 8px !important;
-    border-radius: 9999px !important;
-    width: fit-content !important;
-  }
-
-  /* Vendor Info Preserved and Readable on Mobile */
-  .vendorInfo {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 2px !important;
-    margin-top: auto !important;
-    padding-top: 6px !important;
-    border-top: 1px solid #f1f5f9 !important;
-    width: 100% !important;
-  }
-
-  .vendorName,
-  .vendorLink {
-    font-size: 0.72rem !important;
-    font-weight: 700 !important;
-    color: #334155 !important;
-    text-decoration: none !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    display: block !important;
-    max-width: 100% !important;
-  }
-
-  .vendorRatingLocation {
-    display: flex !important;
-    align-items: center !important;
-    gap: 4px !important;
-    font-size: 0.65rem !important;
-    color: #64748b !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-  }
-
-  /* Add to Cart Button Restored on Mobile */
   .addToCartBtn {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    background: linear-gradient(135deg, #15803d 0%, #16a34a 100%) !important;
+    background: #16a34a !important;
     color: #ffffff !important;
     border: none !important;
-    border-radius: 8px !important;
-    padding: 8px 10px !important;
+    border-radius: 9999px !important;
+    padding: 7px 14px !important;
     font-size: 0.76rem !important;
-    font-weight: 700 !important;
+    font-weight: 800 !important;
     cursor: pointer !important;
-    width: 100% !important;
-    margin-top: 6px !important;
-    min-height: 34px !important;
-    box-shadow: 0 2px 6px rgba(21, 128, 61, 0.25) !important;
+    width: auto !important;
+    margin-top: 0 !important;
+    min-height: unset !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    box-shadow: 0 2px 8px rgba(22, 163, 74, 0.4) !important;
     transition: background 0.15s ease, transform 0.1s ease !important;
   }
 
   .addToCartBtn:hover {
-    background: linear-gradient(135deg, #166534 0%, #15803d 100%) !important;
+    background: #15803d !important;
     transform: translateY(-1px) !important;
+  }
+
+  .desktopOnlyHeart,
+  .desktopOnlyPrice,
+  .desktopOnlyBadge,
+  .desktopOnlyVendor,
+  .desktopOnlyAddToCart {
+    display: none !important;
   }
 
   .bottomBannerSection {
     display: none !important;
   }
 
-  /* Fixed Bottom Navigation (Image 2) */
+  /* 6. Fixed Bottom Navigation Bar */
   .mobileBottomNav {
     display: flex !important;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: #08190e;
-    border-top: 1px solid rgba(34, 197, 94, 0.2);
-    padding: 8px 16px;
-    justify-content: space-around;
-    align-items: center;
-    z-index: 1000;
-    backdrop-filter: blur(12px);
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: #06180e !important;
+    border-top: 1px solid rgba(34, 197, 94, 0.22) !important;
+    padding: 8px 12px 10px !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    z-index: 1000 !important;
+    backdrop-filter: blur(14px) !important;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5) !important;
   }
 
   .mobileNavItem {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    color: #94a3b8;
-    text-decoration: none;
-    font-size: 0.7rem;
-    font-weight: 600;
-    position: relative;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 4px !important;
+    color: #94a3b8 !important;
+    text-decoration: none !important;
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+    position: relative !important;
+    transition: color 0.2s ease !important;
   }
 
   .mobileNavItemActive {
     color: #22c55e !important;
   }
 
-  .mobileNavIcon {
-    font-size: 1.25rem;
+  .mobileNavSvg {
+    stroke: currentColor !important;
+    transition: transform 0.2s ease !important;
   }
 
-  .mobileNavBadge {
-    position: absolute;
-    top: -3px;
-    right: 2px;
-    background-color: #ef4444;
-    color: #ffffff;
-    font-size: 0.65rem;
-    font-weight: 800;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .mobileNavItem:hover .mobileNavSvg {
+    transform: translateY(-1px) !important;
   }
 }
 
