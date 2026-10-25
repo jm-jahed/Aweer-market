@@ -202,7 +202,7 @@ export const UpdateOrderStatusSchema = z.object({
 
 export const CreateCategorySchema = z.object({
   name: z.string({ required_error: 'Category name is required' }).trim().min(2, 'Name must be at least 2 characters').max(60),
-  slug: z.string({ required_error: 'Category slug is required' }).trim().min(2).max(60).regex(/^[a-z0-9_]+$/, 'Slug must only contain lowercase letters, numbers, and underscores'),
+  slug: z.string({ required_error: 'Category slug is required' }).trim().min(2).max(60).regex(/^[a-z0-9_-]+$/, 'Slug must only contain lowercase letters, numbers, hyphens, and underscores'),
   description: z.string().trim().max(300).optional().default(''),
   icon: z.string().trim().max(30).optional().default('📦'),
   bannerUrl: z.string().trim().optional().default(''),
@@ -212,12 +212,44 @@ export const CreateCategorySchema = z.object({
 
 export const UpdateCategorySchema = z.object({
   name: z.string().trim().min(2).max(60).optional(),
-  slug: z.string().trim().min(2).max(60).regex(/^[a-z0-9_]+$/, 'Slug must only contain lowercase letters, numbers, and underscores').optional(),
+  slug: z.string().trim().min(2).max(60).regex(/^[a-z0-9_-]+$/, 'Slug must only contain lowercase letters, numbers, hyphens, and underscores').optional(),
   description: z.string().trim().max(300).optional(),
   icon: z.string().trim().max(30).optional(),
   bannerUrl: z.string().trim().optional(),
   sortOrder: z.number().int().optional(),
   isActive: z.boolean().optional()
+}).strict();
+
+// ============================================================================
+// Reseller Schemas
+// ============================================================================
+
+export const CreateResellerSchema = z.object({
+  businessName: z.string({ required_error: 'Business name is required' }).trim().min(2, 'Business name must be at least 2 characters').max(100),
+  contactPerson: z.string({ required_error: 'Contact person is required' }).trim().min(2, 'Contact person must be at least 2 characters').max(60),
+  email: EmailSchema,
+  phone: z.string({ required_error: 'Phone number is required' }).trim().min(7, 'Phone number must be at least 7 digits'),
+  tradeLicenseNumber: z.string().trim().min(2).optional().default('TL-PENDING'),
+  tier: z.enum(['bronze', 'silver', 'gold', 'platinum']).default('bronze'),
+  discountPercent: z.number().min(0).max(50).default(5),
+  creditLimitAed: z.number().min(0).default(10000),
+  paymentTerms: z.enum(['cash_on_delivery', 'net_15', 'net_30', 'net_60']).default('net_15'),
+  status: z.enum(['pending', 'approved', 'suspended', 'rejected']).default('pending'),
+  notes: z.string().trim().max(500).optional().default('')
+}).strict();
+
+export const UpdateResellerSchema = z.object({
+  businessName: z.string().trim().min(2).max(100).optional(),
+  contactPerson: z.string().trim().min(2).max(60).optional(),
+  email: EmailSchema.optional(),
+  phone: z.string().trim().min(7).optional(),
+  tradeLicenseNumber: z.string().trim().min(2).optional(),
+  tier: z.enum(['bronze', 'silver', 'gold', 'platinum']).optional(),
+  discountPercent: z.number().min(0).max(50).optional(),
+  creditLimitAed: z.number().min(0).optional(),
+  paymentTerms: z.enum(['cash_on_delivery', 'net_15', 'net_30', 'net_60']).optional(),
+  status: z.enum(['pending', 'approved', 'suspended', 'rejected']).optional(),
+  notes: z.string().trim().max(500).optional()
 }).strict();
 
 // ============================================================================
@@ -239,4 +271,5 @@ export type CreateOrderInput = z.infer<typeof CreateOrderSchema>;
 export type UpdateOrderStatusInput = z.infer<typeof UpdateOrderStatusSchema>;
 export type CreateCategoryInput = z.infer<typeof CreateCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof UpdateCategorySchema>;
-
+export type CreateResellerInput = z.infer<typeof CreateResellerSchema>;
+export type UpdateResellerInput = z.infer<typeof UpdateResellerSchema>;

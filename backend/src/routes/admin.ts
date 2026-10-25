@@ -34,7 +34,23 @@ import {
   setCategoryStatus,
   deleteCategory
 } from '../models/category.model.js';
-import { CreateCategorySchema, UpdateCategorySchema } from '@aweermarket/validation';
+import {
+  listAllResellers,
+  findResellerById,
+  createReseller,
+  updateReseller,
+  setResellerStatus,
+  deleteReseller,
+  countResellers,
+  DatabaseUnavailableError
+} from '../models/reseller.model.js';
+import {
+  CreateCategorySchema,
+  UpdateCategorySchema,
+  CreateResellerSchema,
+  UpdateResellerSchema
+} from '@aweermarket/validation';
+
 
 /**
  * PreHandler hook: Live Super Admin database verification.
@@ -91,12 +107,18 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
    * Real platform metrics and counters across users, stalls, products, and orders.
    */
   fastify.get('/overview', async (_request: FastifyRequest, reply: FastifyReply) => {
-    const [userCounts, shopCounts, productCounts, orderCount, financials] = await Promise.all([
+    const [userCounts, shopCounts, productCounts, orderCount, financials, resellerCounts] = await Promise.all([
       countUsers(),
       countShops(),
       countProducts(),
       countOrders(),
-      getOrderFinancialMetrics()
+      getOrderFinancialMetrics(),
+      countResellers().catch((err: any) => {
+        if (err instanceof DatabaseUnavailableError || err.statusCode === 503) {
+          return { total: 0, approved: 0, pending: 0, suspended: 0 };
+        }
+        throw err;
+      })
     ]);
 
     return reply.status(200).send({
@@ -113,6 +135,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         activeProducts: productCounts.active,
         inactiveProducts: productCounts.inactive,
         totalOrders: orderCount,
+        totalResellers: resellerCounts.total,
+        approvedResellers: resellerCounts.approved,
+        pendingResellers: resellerCounts.pending,
         financials
       }
     });
@@ -521,5 +546,197 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       message: result.message || 'Category deleted successfully',
       deactivated: Boolean(result.deactivated)
     });
+  });
+
+  /**
+   * GET /api/v1/admin/resellers
+   * Lists commercial produce resellers and sub-distributors with status and tier filters.
+   */
+  fastify.get('/resellers', async (request: FastifyRequest, reply: FastifyReply) => {
+    const query = request.query as { status?: string; tier?: string };
+    try {
+      const resellers = await listAllResellers({
+        status: query.status?.trim(),
+        tier: query.tier?.trim()
+      });
+      return reply.status(200).send({
+        statusCode: 200,
+        resellers
+      });
+    } catch (err: any) {
+      if (err instanceof DatabaseUnavailableError || err.statusCode === 503) {
+        return reply.status(503).send({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: 'Database service is unavailable. Reseller data cannot be retrieved.'
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * POST /api/v1/admin/resellers
+   * Registers a new commercial reseller or wholesale sub-distributor.
+   */
+  fastify.post('/resellers', async (request: FastifyRequest, reply: FastifyReply) => {
+    const parseResult = CreateResellerSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: parseResult.error.errors[0]?.message || 'Invalid reseller input'
+      });
+    }
+
+    try {
+      const reseller = await createReseller(parseResult.data);
+      return reply.status(201).send({
+        statusCode: 201,
+        message: 'Reseller account registered successfully',
+        reseller
+      });
+    } catch (err: any) {
+      if (err.statusCode === 409) {
+        return reply.status(409).send({
+          statusCode: 409,
+          error: 'Conflict',
+          message: err.message
+        });
+      }
+      if (err instanceof DatabaseUnavailableError || err.statusCode === 503) {
+        return reply.status(503).send({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: 'Persistent database storage is unavailable. Reseller creation rejected.'
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * PUT /api/v1/admin/resellers/:id
+   * Updates commercial reseller profile, credit limits, discount rates, and terms.
+   */
+  fastify.put('/resellers/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const parseResult = UpdateResellerSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: parseResult.error.errors[0]?.message || 'Invalid reseller update input'
+      });
+    }
+
+    try {
+      const updated = await updateReseller(id, parseResult.data);
+      if (!updated) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: 'Not Found',
+          message: 'Reseller not found'
+        });
+      }
+
+      return reply.status(200).send({
+        statusCode: 200,
+        message: 'Reseller details updated successfully',
+        reseller: updated
+      });
+    } catch (err: any) {
+      if (err.statusCode === 409) {
+        return reply.status(409).send({
+          statusCode: 409,
+          error: 'Conflict',
+          message: err.message
+        });
+      }
+      if (err instanceof DatabaseUnavailableError || err.statusCode === 503) {
+        return reply.status(503).send({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: 'Persistent database storage is unavailable. Reseller update rejected.'
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * PATCH /api/v1/admin/resellers/:id/status
+   * Approves, suspends, or updates reseller partnership status.
+   */
+  fastify.patch('/resellers/:id/status', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const body = request.body as { status?: string };
+
+    if (!body?.status || !['pending', 'approved', 'suspended', 'rejected'].includes(body.status)) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: "Property 'status' must be one of: pending, approved, suspended, rejected"
+      });
+    }
+
+    try {
+      const updated = await setResellerStatus(id, body.status);
+      if (!updated) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: 'Not Found',
+          message: 'Reseller not found'
+        });
+      }
+
+      return reply.status(200).send({
+        statusCode: 200,
+        message: `Reseller status updated to '${body.status}'`,
+        reseller: updated
+      });
+    } catch (err: any) {
+      if (err instanceof DatabaseUnavailableError || err.statusCode === 503) {
+        return reply.status(503).send({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: 'Persistent database storage is unavailable. Reseller status update rejected.'
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * DELETE /api/v1/admin/resellers/:id
+   * Removes reseller account if there is no outstanding credit balance.
+   */
+  fastify.delete('/resellers/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const result = await deleteReseller(id);
+
+      if (!result.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: result.message || 'Could not delete reseller'
+        });
+      }
+
+      return reply.status(200).send({
+        statusCode: 200,
+        message: 'Reseller account deleted successfully'
+      });
+    } catch (err: any) {
+      if (err instanceof DatabaseUnavailableError || err.statusCode === 503) {
+        return reply.status(503).send({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: 'Persistent database storage is unavailable. Reseller deletion rejected.'
+        });
+      }
+      throw err;
+    }
   });
 };

@@ -3,7 +3,7 @@
  * Cookie-aware fetch wrapper communicating with Fastify backend on port 4000.
  */
 
-import type { UserSummary, UserRole, CategoryPublicItem } from '@aweermarket/types';
+import type { UserSummary, UserRole, CategoryPublicItem, ResellerItem } from '@aweermarket/types';
 
 const DEFAULT_API_BASE_URL = 'http://localhost:4000/api/v1';
 
@@ -112,8 +112,12 @@ export interface PlatformMetrics {
   activeProducts: number;
   inactiveProducts: number;
   totalOrders: number;
+  totalResellers?: number;
+  approvedResellers?: number;
+  pendingResellers?: number;
   financials?: OrderFinancialMetrics;
 }
+
 
 export async function getAdminOverview(): Promise<{ statusCode: number; metrics: PlatformMetrics }> {
   return await request<{ statusCode: number; metrics: PlatformMetrics }>('/admin/overview', {
@@ -310,6 +314,95 @@ export async function deleteAdminCategory(id: string): Promise<{
   deactivated: boolean;
 }> {
   return await request<{ statusCode: number; message: string; deactivated: boolean }>(`/admin/categories/${id}`, {
+    method: 'DELETE'
+  });
+}
+
+// ============================================================================
+// Reseller & B2B Sub-Distributor API Client
+// ============================================================================
+
+export type AdminResellerItem = ResellerItem;
+
+export interface CreateResellerPayload {
+  businessName: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  tradeLicenseNumber?: string;
+  tier?: 'bronze' | 'silver' | 'gold' | 'platinum';
+  discountPercent?: number;
+  creditLimitAed?: number;
+  paymentTerms?: 'cash_on_delivery' | 'net_15' | 'net_30' | 'net_60';
+  status?: 'pending' | 'approved' | 'suspended' | 'rejected';
+  notes?: string;
+}
+
+export interface UpdateResellerPayload {
+  businessName?: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  tradeLicenseNumber?: string;
+  tier?: 'bronze' | 'silver' | 'gold' | 'platinum';
+  discountPercent?: number;
+  creditLimitAed?: number;
+  paymentTerms?: 'cash_on_delivery' | 'net_15' | 'net_30' | 'net_60';
+  status?: 'pending' | 'approved' | 'suspended' | 'rejected';
+  notes?: string;
+}
+
+export async function getAdminResellers(status?: string, tier?: string): Promise<{
+  statusCode: number;
+  resellers: AdminResellerItem[];
+}> {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (tier) params.set('tier', tier);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return await request<{ statusCode: number; resellers: AdminResellerItem[] }>(`/admin/resellers${query}`, {
+    method: 'GET'
+  });
+}
+
+export async function createAdminReseller(payload: CreateResellerPayload): Promise<{
+  statusCode: number;
+  message: string;
+  reseller: AdminResellerItem;
+}> {
+  return await request<{ statusCode: number; message: string; reseller: AdminResellerItem }>('/admin/resellers', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateAdminReseller(id: string, payload: UpdateResellerPayload): Promise<{
+  statusCode: number;
+  message: string;
+  reseller: AdminResellerItem;
+}> {
+  return await request<{ statusCode: number; message: string; reseller: AdminResellerItem }>(`/admin/resellers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function setAdminResellerStatus(id: string, status: string): Promise<{
+  statusCode: number;
+  message: string;
+  reseller: AdminResellerItem;
+}> {
+  return await request<{ statusCode: number; message: string; reseller: AdminResellerItem }>(`/admin/resellers/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status })
+  });
+}
+
+export async function deleteAdminReseller(id: string): Promise<{
+  statusCode: number;
+  message: string;
+}> {
+  return await request<{ statusCode: number; message: string }>(`/admin/resellers/${id}`, {
     method: 'DELETE'
   });
 }

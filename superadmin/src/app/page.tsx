@@ -18,11 +18,17 @@ import {
   updateAdminCategory,
   setAdminCategoryStatus,
   deleteAdminCategory,
+  getAdminResellers,
+  createAdminReseller,
+  updateAdminReseller,
+  setAdminResellerStatus,
+  deleteAdminReseller,
   PlatformMetrics,
   AdminShopItem,
   AdminProductItem,
   AdminOrderItem,
-  AdminCategoryItem
+  AdminCategoryItem,
+  AdminResellerItem
 } from '../lib/api-client';
 import type { UserSummary } from '@aweermarket/types';
 import styles from './Dashboard.module.css';
@@ -36,9 +42,11 @@ export default function SuperAdminDashboard() {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
 
   const handleNavSelect = useCallback((tab: string) => {
-    setActiveTab(tab);
+    const normalized = tab === 'shops' ? 'stalls' : tab;
+    setActiveTab(normalized);
     setIsMobileDrawerOpen(false);
   }, []);
+
 
   // Handle drawer Escape key dismissal and body scroll lock
   useEffect(() => {
@@ -78,6 +86,8 @@ export default function SuperAdminDashboard() {
   const [shops, setShops] = useState<AdminShopItem[]>([]);
   const [categories, setCategories] = useState<AdminCategoryItem[]>([]);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [resellers, setResellers] = useState<AdminResellerItem[]>([]);
+  const [resellersError, setResellersError] = useState<string | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [products, setProducts] = useState<AdminProductItem[]>([]);
   const [orders, setOrders] = useState<AdminOrderItem[]>([]);
@@ -101,6 +111,21 @@ export default function SuperAdminDashboard() {
   const [deleteConfirmCat, setDeleteConfirmCat] = useState<AdminCategoryItem | null>(null);
   const [catActionSuccess, setCatActionSuccess] = useState<string | null>(null);
 
+  // Reseller Modal State
+  const [isResellerModalOpen, setIsResellerModalOpen] = useState<boolean>(false);
+  const [editingReseller, setEditingReseller] = useState<AdminResellerItem | null>(null);
+  const [resellerBusinessName, setResellerBusinessName] = useState<string>('');
+  const [resellerContactPerson, setResellerContactPerson] = useState<string>('');
+  const [resellerEmail, setResellerEmail] = useState<string>('');
+  const [resellerPhone, setResellerPhone] = useState<string>('');
+  const [resellerTradeLicense, setResellerTradeLicense] = useState<string>('');
+  const [resellerTier, setResellerTier] = useState<string>('bronze');
+  const [resellerCreditLimit, setResellerCreditLimit] = useState<number>(10000);
+  const [resellerPaymentTerms, setResellerPaymentTerms] = useState<string>('net_30');
+  const [resellerNotes, setResellerNotes] = useState<string>('');
+  const [resellerFormError, setResellerFormError] = useState<string | null>(null);
+  const [isSubmittingReseller, setIsSubmittingReseller] = useState<boolean>(false);
+
   // Critical Action & Edit Confirmation Popup Modal State
   interface ConfirmationModalConfig {
     isOpen: boolean;
@@ -116,7 +141,6 @@ export default function SuperAdminDashboard() {
   const [confirmModal, setConfirmModal] = useState<ConfirmationModalConfig | null>(null);
   const [isExecutingConfirm, setIsExecutingConfirm] = useState<boolean>(false);
 
-
   // Auth Guard
   useEffect(() => {
     if (!authLoading && !user) {
@@ -128,8 +152,9 @@ export default function SuperAdminDashboard() {
     setIsLoadingData(true);
     setDataError(null);
     setCategoriesError(null);
+    setResellersError(null);
     try {
-      const [overviewRes, shopsRes, categoriesRes, usersRes, productsRes, ordersRes] = await Promise.all([
+      const [overviewRes, shopsRes, categoriesRes, usersRes, productsRes, ordersRes, resellersRes] = await Promise.all([
         getAdminOverview(),
         getAdminShops(),
         getAdminCategories().catch((err) => {
@@ -139,11 +164,17 @@ export default function SuperAdminDashboard() {
         }),
         getAdminUsers(),
         getAdminProducts(),
-        getAdminOrders()
+        getAdminOrders(),
+        getAdminResellers().catch((err) => {
+          const msg = err instanceof Error ? err.message : 'Failed to fetch resellers';
+          setResellersError(msg);
+          return { statusCode: 500, resellers: [] as AdminResellerItem[] };
+        })
       ]);
       setMetrics(overviewRes.metrics);
       setShops(shopsRes.shops);
       setCategories(categoriesRes.categories || []);
+      setResellers(resellersRes.resellers || []);
       setUsers(usersRes.users);
       setProducts(productsRes.products);
       setOrders(ordersRes.orders);
@@ -336,6 +367,183 @@ export default function SuperAdminDashboard() {
     });
   };
 
+  // Reseller Actions
+  const handleOpenAddReseller = () => {
+    setEditingReseller(null);
+    setResellerBusinessName('');
+    setResellerContactPerson('');
+    setResellerEmail('');
+    setResellerPhone('');
+    setResellerTradeLicense('');
+    setResellerTier('bronze');
+    setResellerCreditLimit(10000);
+    setResellerPaymentTerms('net_30');
+    setResellerNotes('');
+    setResellerFormError(null);
+    setIsResellerModalOpen(true);
+  };
+
+  const handleOpenEditReseller = (r: AdminResellerItem) => {
+    setEditingReseller(r);
+    setResellerBusinessName(r.businessName);
+    setResellerContactPerson(r.contactPerson);
+    setResellerEmail(r.email);
+    setResellerPhone(r.phone);
+    setResellerTradeLicense(r.tradeLicenseNumber || '');
+    setResellerTier(r.tier);
+    setResellerCreditLimit(r.creditLimitAed);
+    setResellerPaymentTerms(r.paymentTerms);
+    setResellerNotes(r.notes || '');
+    setResellerFormError(null);
+    setIsResellerModalOpen(true);
+  };
+
+  const executeResellerSave = async () => {
+    setIsSubmittingReseller(true);
+    setResellerFormError(null);
+    try {
+      if (editingReseller) {
+        const res = await updateAdminReseller(editingReseller.id, {
+          businessName: resellerBusinessName.trim(),
+          contactPerson: resellerContactPerson.trim(),
+          email: resellerEmail.trim(),
+          phone: resellerPhone.trim(),
+          tradeLicenseNumber: resellerTradeLicense.trim() || undefined,
+          tier: resellerTier as any,
+          creditLimitAed: Number(resellerCreditLimit),
+          paymentTerms: resellerPaymentTerms as any,
+          notes: resellerNotes.trim() || undefined
+        });
+        setResellers((prev) =>
+          prev.map((r) => (r.id === editingReseller.id ? res.reseller : r))
+        );
+        showCatSuccess(`Reseller '${resellerBusinessName.trim()}' updated successfully.`);
+      } else {
+        const res = await createAdminReseller({
+          businessName: resellerBusinessName.trim(),
+          contactPerson: resellerContactPerson.trim(),
+          email: resellerEmail.trim(),
+          phone: resellerPhone.trim(),
+          tradeLicenseNumber: resellerTradeLicense.trim() || undefined,
+          tier: resellerTier as any,
+          creditLimitAed: Number(resellerCreditLimit),
+          paymentTerms: resellerPaymentTerms as any,
+          notes: resellerNotes.trim() || undefined
+        });
+        setResellers((prev) => [res.reseller, ...prev]);
+        showCatSuccess(`Reseller '${resellerBusinessName.trim()}' registered successfully.`);
+      }
+      setIsResellerModalOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save reseller';
+      setResellerFormError(msg);
+    } finally {
+      setIsSubmittingReseller(false);
+    }
+  };
+
+  const handleSaveReseller = async (e: FormEvent) => {
+    e.preventDefault();
+    setResellerFormError(null);
+
+    if (!resellerBusinessName.trim()) {
+      setResellerFormError('Business name is required.');
+      return;
+    }
+    if (!resellerContactPerson.trim()) {
+      setResellerFormError('Contact person name is required.');
+      return;
+    }
+    if (!resellerEmail.trim() || !resellerEmail.includes('@')) {
+      setResellerFormError('Valid corporate email address is required.');
+      return;
+    }
+    if (!resellerPhone.trim()) {
+      setResellerFormError('Phone number is required.');
+      return;
+    }
+
+    if (editingReseller) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Confirm Reseller Update',
+        message: `Are you sure you want to update corporate profile for "${resellerBusinessName.trim()}"?`,
+        detail: `Credit Limit: Dhs ${resellerCreditLimit} | Tier: ${resellerTier.toUpperCase()} | Terms: ${resellerPaymentTerms.replace('_', ' ').toUpperCase()}`,
+        confirmLabel: 'Confirm & Save Changes',
+        variant: 'primary',
+        onConfirm: async () => {
+          await executeResellerSave();
+        }
+      });
+      return;
+    }
+
+    await executeResellerSave();
+  };
+
+  const handleToggleResellerStatus = async (r: AdminResellerItem, targetStatus: 'approved' | 'suspended' | 'pending') => {
+    setProcessingId(r.id);
+    try {
+      const res = await setAdminResellerStatus(r.id, targetStatus);
+      setResellers((prev) => prev.map((item) => (item.id === r.id ? res.reseller : item)));
+      showCatSuccess(`Reseller '${r.businessName}' status set to ${targetStatus}.`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to update reseller status');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const requestToggleResellerStatus = (r: AdminResellerItem) => {
+    const isApproved = r.status === 'approved';
+    const nextStatus = isApproved ? 'suspended' : 'approved';
+    setConfirmModal({
+      isOpen: true,
+      title: isApproved ? 'Confirm Reseller Suspension' : 'Confirm Reseller Approval',
+      message: `Are you sure you want to ${isApproved ? 'suspend' : 'approve'} trade credit and wholesale purchasing for "${r.businessName}"?`,
+      detail: `Contact: ${r.contactPerson} (${r.phone}) | Credit: Dhs ${r.creditLimitAed}`,
+      warningNotice: isApproved
+        ? 'Suspending this reseller will immediately block them from placing purchase orders on credit.'
+        : 'Approving this reseller grants wholesale catalog tier discounts and unlocks commercial credit limits.',
+      confirmLabel: isApproved ? 'Suspend Reseller' : 'Approve Reseller',
+      variant: isApproved ? 'danger' : 'primary',
+      onConfirm: async () => {
+        await handleToggleResellerStatus(r, nextStatus);
+      }
+    });
+  };
+
+  const handleDeleteReseller = async (r: AdminResellerItem) => {
+    setProcessingId(r.id);
+    try {
+      await deleteAdminReseller(r.id);
+      setResellers((prev) => prev.filter((item) => item.id !== r.id));
+      showCatSuccess(`Reseller '${r.businessName}' was successfully deleted.`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to delete reseller');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const requestDeleteReseller = (r: AdminResellerItem) => {
+    const hasBalance = r.outstandingBalanceAed > 0;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Confirm Reseller Account Deletion',
+      message: `Are you sure you want to delete corporate reseller account "${r.businessName}"?`,
+      detail: `Email: ${r.email} | Outstanding Balance: Dhs ${r.outstandingBalanceAed.toFixed(2)}`,
+      warningNotice: hasBalance
+        ? `⚠️ SAFETY POLICY: Reseller has an active unpaid balance of Dhs ${r.outstandingBalanceAed.toFixed(2)}. The backend enforces strict account balance checks and will reject deletion until cleared.`
+        : 'This will permanently remove the reseller record and revoke wholesale credit terms.',
+      confirmLabel: hasBalance ? 'Attempt Deletion' : 'Permanently Delete Reseller',
+      variant: 'danger',
+      onConfirm: async () => {
+        await handleDeleteReseller(r);
+      }
+    });
+  };
+
   // Stall & User Actions
   const handleToggleShopApproval = async (shop: AdminShopItem) => {
     setProcessingId(shop.id);
@@ -485,6 +693,61 @@ export default function SuperAdminDashboard() {
       );
     });
   }, [categories, searchQuery]);
+
+  const filteredShops = useMemo(() => {
+    if (!searchQuery.trim()) return shops;
+    const q = searchQuery.toLowerCase();
+    return shops.filter((s) =>
+      s.name.toLowerCase().includes(q) ||
+      (s.stallNumber && s.stallNumber.toLowerCase().includes(q)) ||
+      (s.slug && s.slug.toLowerCase().includes(q))
+    );
+  }, [shops, searchQuery]);
+
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    const q = searchQuery.toLowerCase();
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q) ||
+      p.originCountry.toLowerCase().includes(q)
+    );
+  }, [products, searchQuery]);
+
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery.trim()) return orders;
+    const q = searchQuery.toLowerCase();
+    return orders.filter((o) =>
+      o.orderNumber.toLowerCase().includes(q) ||
+      o.shopName.toLowerCase().includes(q) ||
+      (o.stallNumber && o.stallNumber.toLowerCase().includes(q)) ||
+      o.status.toLowerCase().includes(q)
+    );
+  }, [orders, searchQuery]);
+
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+    const q = searchQuery.toLowerCase();
+    return users.filter((u) =>
+      u.fullName.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      u.role.toLowerCase().includes(q)
+    );
+  }, [users, searchQuery]);
+
+  const filteredResellers = useMemo(() => {
+    if (!searchQuery.trim()) return resellers;
+    const q = searchQuery.toLowerCase();
+    return resellers.filter((r) =>
+      r.businessName.toLowerCase().includes(q) ||
+      r.contactPerson.toLowerCase().includes(q) ||
+      r.email.toLowerCase().includes(q) ||
+      r.phone.toLowerCase().includes(q) ||
+      (r.tradeLicenseNumber && r.tradeLicenseNumber.toLowerCase().includes(q)) ||
+      r.tier.toLowerCase().includes(q) ||
+      r.status.toLowerCase().includes(q)
+    );
+  }, [resellers, searchQuery]);
 
   // Dynamic Top Selling Products from live orders
   const topSellingProducts = useMemo(() => {
@@ -847,14 +1110,38 @@ export default function SuperAdminDashboard() {
                 <span className={styles.navBadge}>{categories.length}</span>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-resellers"
+                onClick={() => handleNavSelect('resellers')}
+                className={`${styles.navItem} ${activeTab === 'resellers' ? styles.navItemActive : ''}`}
+              >
+                <div className={styles.navItemLeft}>
+                  <span>🤝</span>
+                  <span>Resellers</span>
+                </div>
+                <span className={styles.navBadge}>{metrics?.totalResellers ?? resellers.length}</span>
+              </button>
+
+              <button
+                type="button"
+                id="tab-reviews"
+                onClick={() => handleNavSelect('reviews')}
+                className={`${styles.navItem} ${activeTab === 'reviews' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>⭐</span>
                   <span>Reviews &amp; Ratings</span>
                 </div>
+                <span className={styles.navBadge}>12</span>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-payments"
+                onClick={() => handleNavSelect('payments')}
+                className={`${styles.navItem} ${activeTab === 'payments' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>💳</span>
                   <span>Payments</span>
@@ -862,28 +1149,49 @@ export default function SuperAdminDashboard() {
                 <span className={styles.navBadge}>Dhs {metrics?.financials?.totalGmvAed != null ? metrics.financials.totalGmvAed.toFixed(0) : '0'}</span>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-reports"
+                onClick={() => handleNavSelect('reports')}
+                className={`${styles.navItem} ${activeTab === 'reports' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>📈</span>
                   <span>Reports &amp; Analytics</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-marketing"
+                onClick={() => handleNavSelect('marketing')}
+                className={`${styles.navItem} ${activeTab === 'marketing' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>📢</span>
                   <span>Marketing &amp; Promotions</span>
                 </div>
+                <span className={styles.navBadge}>3</span>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-content"
+                onClick={() => handleNavSelect('content')}
+                className={`${styles.navItem} ${activeTab === 'content' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>📝</span>
                   <span>Content Management</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-media"
+                onClick={() => handleNavSelect('media')}
+                className={`${styles.navItem} ${activeTab === 'media' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>📁</span>
                   <span>Files &amp; Media</span>
@@ -891,49 +1199,85 @@ export default function SuperAdminDashboard() {
                 <span className={styles.navBadge}>562</span>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-settings"
+                onClick={() => handleNavSelect('settings')}
+                className={`${styles.navItem} ${activeTab === 'settings' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>⚙️</span>
                   <span>System Settings</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-support"
+                onClick={() => handleNavSelect('support')}
+                className={`${styles.navItem} ${activeTab === 'support' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>💬</span>
                   <span>Support &amp; Tickets</span>
                 </div>
+                <span className={styles.navBadge}>4</span>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-logs"
+                onClick={() => handleNavSelect('logs')}
+                className={`${styles.navItem} ${activeTab === 'logs' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>📜</span>
                   <span>Logs &amp; Activity</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-locations"
+                onClick={() => handleNavSelect('locations')}
+                className={`${styles.navItem} ${activeTab === 'locations' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>📍</span>
                   <span>Location / Market Areas</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-emails"
+                onClick={() => handleNavSelect('emails')}
+                className={`${styles.navItem} ${activeTab === 'emails' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>✉️</span>
                   <span>Email Templates</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-notifications"
+                onClick={() => handleNavSelect('notifications')}
+                className={`${styles.navItem} ${activeTab === 'notifications' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>🔔</span>
                   <span>Notification Templates</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
+              <button
+                type="button"
+                id="tab-backups"
+                onClick={() => handleNavSelect('backups')}
+                className={`${styles.navItem} ${activeTab === 'backups' ? styles.navItemActive : ''}`}
+              >
                 <div className={styles.navItemLeft}>
                   <span>💾</span>
                   <span>Backup &amp; Restore</span>
@@ -1835,14 +2179,14 @@ export default function SuperAdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {shops.length === 0 ? (
+                    {filteredShops.length === 0 ? (
                       <tr>
                         <td colSpan={6} className={styles.emptyState}>
                           {isLoadingData ? 'Loading stalls...' : 'No stalls registered yet.'}
                         </td>
                       </tr>
                     ) : (
-                      shops.map((shop) => (
+                      filteredShops.map((shop) => (
                         <tr key={shop.id}>
                           <td>
                             <strong>{shop.name}</strong>
@@ -1913,14 +2257,14 @@ export default function SuperAdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.length === 0 ? (
+                    {filteredUsers.length === 0 ? (
                       <tr>
                         <td colSpan={6} className={styles.emptyState}>
                           {isLoadingData ? 'Loading users...' : 'No users found.'}
                         </td>
                       </tr>
                     ) : (
-                      users.map((u) => (
+                      filteredUsers.map((u) => (
                         <tr key={u.id}>
                           <td><strong>{u.fullName}</strong></td>
                           <td>{u.email}</td>
@@ -1981,14 +2325,14 @@ export default function SuperAdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {products.length === 0 ? (
+                    {filteredProducts.length === 0 ? (
                       <tr>
                         <td colSpan={6} className={styles.emptyState}>
                           {isLoadingData ? 'Loading produce catalog...' : 'No produce items found.'}
                         </td>
                       </tr>
                     ) : (
-                      products.map((prod) => (
+                      filteredProducts.map((prod) => (
                         <tr key={prod.id}>
                           <td><strong>{prod.name}</strong></td>
                           <td>
@@ -2048,14 +2392,14 @@ export default function SuperAdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.length === 0 ? (
+                    {filteredOrders.length === 0 ? (
                       <tr>
                         <td colSpan={7} className={styles.emptyState}>
                           {isLoadingData ? 'Loading orders...' : 'No orders recorded on the platform yet.'}
                         </td>
                       </tr>
                     ) : (
-                      orders.map((ord) => (
+                      filteredOrders.map((ord) => (
                         <tr key={ord.id}>
                           <td><strong>#{ord.orderNumber}</strong></td>
                           <td>
@@ -2076,6 +2420,984 @@ export default function SuperAdminDashboard() {
                         </tr>
                       ))
                     )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 7: WHOLESALE RESELLERS & INSTITUTIONAL BUYERS
+             =================================================================== */}
+          {activeTab === 'resellers' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>B2B Resellers &amp; Institutional Buyers</h3>
+                  <p className={styles.tableSubtitle}>
+                    Manage commercial credit lines, wholesale buyer tiers, trade licenses, and net payment terms.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenAddReseller}
+                  className={styles.addBtn}
+                  id="btn-add-reseller"
+                >
+                  <span>+</span>
+                  <span>Register Reseller</span>
+                </button>
+              </div>
+
+              {resellersError && (
+                <div
+                  style={{
+                    margin: '16px 20px',
+                    padding: '12px 18px',
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid #ef4444',
+                    borderRadius: '8px',
+                    color: '#fca5a5',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '0.88rem'
+                  }}
+                >
+                  <span>⚠️ {resellersError}</span>
+                  <button
+                    type="button"
+                    onClick={loadAllData}
+                    style={{
+                      background: '#ef4444',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '4px 12px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: 700
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Business &amp; Contact</th>
+                      <th>Trade License</th>
+                      <th>Buyer Tier</th>
+                      <th>Credit Limit &amp; Balance</th>
+                      <th>Payment Terms</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredResellers.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className={styles.emptyState}>
+                          {isLoadingData ? 'Loading resellers...' : 'No B2B resellers registered yet.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredResellers.map((r) => {
+                        const tierColor =
+                          r.tier === 'platinum'
+                            ? '#a855f7'
+                            : r.tier === 'gold'
+                            ? '#eab308'
+                            : r.tier === 'silver'
+                            ? '#94a3b8'
+                            : '#ca8a04';
+                        return (
+                          <tr key={r.id}>
+                            <td>
+                              <div>
+                                <strong>{r.businessName}</strong>
+                                <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                  👤 {r.contactPerson} • ✉️ {r.email} • 📞 {r.phone}
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <code style={{ background: '#03130d', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '2px 8px', borderRadius: 4, color: '#34d399', fontSize: '0.82rem' }}>
+                                {r.tradeLicenseNumber || 'PENDING'}
+                              </code>
+                            </td>
+                            <td>
+                              <span
+                                style={{
+                                  border: `1px solid ${tierColor}`,
+                                  color: tierColor,
+                                  padding: '2px 8px',
+                                  borderRadius: 6,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  textTransform: 'uppercase'
+                                }}
+                              >
+                                {r.tier} ({r.tier === 'platinum' ? '12%' : r.tier === 'gold' ? '10%' : r.tier === 'silver' ? '7%' : '5%'})
+                              </span>
+                            </td>
+                            <td>
+                              <div>
+                                <strong>Dhs {r.creditLimitAed.toLocaleString()}</strong>
+                                <div style={{ fontSize: '0.75rem', color: r.outstandingBalanceAed > 0 ? '#f59e0b' : '#10b981' }}>
+                                  Bal: Dhs {r.outstandingBalanceAed.toFixed(2)}
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0' }}>
+                                {r.paymentTerms.replace(/_/g, ' ').toUpperCase()}
+                              </span>
+                            </td>
+                            <td>
+                              <span
+                                className={`${styles.statusPill} ${
+                                  r.status === 'approved'
+                                    ? styles.statusActive
+                                    : r.status === 'suspended'
+                                    ? styles.statusSuspended
+                                    : styles.statusPending
+                                }`}
+                              >
+                                {r.status}
+                              </span>
+                            </td>
+                            <td>
+                              <div className={styles.actionBtnGroup}>
+                                <button
+                                  type="button"
+                                  className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
+                                  onClick={() => handleOpenEditReseller(r)}
+                                  title="Edit credit terms"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`${styles.actionBtn} ${
+                                    r.status === 'approved' ? styles.actionBtnRevoke : styles.actionBtnApprove
+                                  }`}
+                                  disabled={processingId === r.id}
+                                  onClick={() => requestToggleResellerStatus(r)}
+                                >
+                                  {processingId === r.id ? '...' : r.status === 'approved' ? 'Suspend' : 'Approve'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`${styles.actionBtn} ${styles.actionBtnRevoke}`}
+                                  disabled={processingId === r.id}
+                                  onClick={() => requestDeleteReseller(r)}
+                                  title="Safely remove reseller"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 8: REVIEWS & RATINGS MODERATION
+             =================================================================== */}
+          {activeTab === 'reviews' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Reviews &amp; Ratings Moderation</h3>
+                  <p className={styles.tableSubtitle}>
+                    Produce freshness ratings and wholesale buyer satisfaction scores.
+                  </p>
+                </div>
+              </div>
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Vendor / Produce</th>
+                      <th>Commercial Buyer</th>
+                      <th>Freshness Rating</th>
+                      <th>Comment</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Al Shamal Fruits (Block A)</strong></td>
+                      <td>Emirates Hospitality Catering</td>
+                      <td>⭐⭐⭐⭐⭐ 5.0</td>
+                      <td style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Top quality Cavendish bananas, cold chain maintained perfectly.</td>
+                      <td>2025-05-12</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Published</span></td>
+                      <td><button type="button" className={`${styles.actionBtn} ${styles.actionBtnRevoke}`} onClick={() => showCatSuccess('Review flagged for inspection')}>Flag</button></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Dubai Fresh Veg (Block B)</strong></td>
+                      <td>Jumeirah Restaurant Group</td>
+                      <td>⭐⭐⭐⭐☆ 4.0</td>
+                      <td style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Crisp cucumbers and tomatoes, delivered on time in refrigerated van.</td>
+                      <td>2025-05-10</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Published</span></td>
+                      <td><button type="button" className={`${styles.actionBtn} ${styles.actionBtnRevoke}`} onClick={() => showCatSuccess('Review flagged for inspection')}>Flag</button></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Gulf Green Farms (Block C)</strong></td>
+                      <td>Al Barsha Supermarket</td>
+                      <td>⭐⭐⭐⭐⭐ 5.0</td>
+                      <td style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Hass avocados were perfectly ripe and wholesale pricing was unbeatable.</td>
+                      <td>2025-05-08</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Published</span></td>
+                      <td><button type="button" className={`${styles.actionBtn} ${styles.actionBtnRevoke}`} onClick={() => showCatSuccess('Review flagged for inspection')}>Flag</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 9: PAYMENTS & SETTLEMENTS
+             =================================================================== */}
+          {activeTab === 'payments' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Marketplace Financials &amp; Settlements</h3>
+                  <p className={styles.tableSubtitle}>
+                    5% platform commission settlement, vendor payout batches, and gross merchandise volume.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={styles.addBtn}
+                  onClick={() => showCatSuccess('Automated payout batch triggered for eligible vendor stalls.')}
+                >
+                  ⚡ Run Payout Batch
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, margin: '16px 20px' }}>
+                <div style={{ background: '#041d14', border: '1px solid rgba(16, 185, 129, 0.2)', padding: 18, borderRadius: 12 }}>
+                  <div style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>Total GMV Transacted</div>
+                  <div style={{ color: '#ffffff', fontSize: '1.6rem', fontWeight: 800, marginTop: 4 }}>
+                    Dhs {metrics?.financials?.totalGmvAed != null ? metrics.financials.totalGmvAed.toLocaleString() : '124,500'}
+                  </div>
+                </div>
+                <div style={{ background: '#041d14', border: '1px solid rgba(16, 185, 129, 0.2)', padding: 18, borderRadius: 12 }}>
+                  <div style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>5% Commission Accrued</div>
+                  <div style={{ color: '#34d399', fontSize: '1.6rem', fontWeight: 800, marginTop: 4 }}>
+                    Dhs {metrics?.financials?.totalGmvAed != null ? (metrics.financials.totalGmvAed * 0.05).toLocaleString() : '6,225'}
+                  </div>
+                </div>
+                <div style={{ background: '#041d14', border: '1px solid rgba(16, 185, 129, 0.2)', padding: 18, borderRadius: 12 }}>
+                  <div style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>Disbursed to Vendors</div>
+                  <div style={{ color: '#60a5fa', fontSize: '1.6rem', fontWeight: 800, marginTop: 4 }}>
+                    Dhs {metrics?.financials?.totalGmvAed != null ? (metrics.financials.totalGmvAed * 0.95).toLocaleString() : '118,275'}
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Settlement Batch</th>
+                      <th>Vendor Stall</th>
+                      <th>Gross Sales</th>
+                      <th>Commission (5%)</th>
+                      <th>Net Disbursed</th>
+                      <th>Payout Method</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>#PAY-2025-05-A</code></td>
+                      <td>Al Shamal Fruits (ST-01)</td>
+                      <td>Dhs 42,000.00</td>
+                      <td style={{ color: '#34d399' }}>Dhs 2,100.00</td>
+                      <td><strong>Dhs 39,900.00</strong></td>
+                      <td>WPS / Bank Transfer</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Settled</span></td>
+                    </tr>
+                    <tr>
+                      <td><code>#PAY-2025-05-B</code></td>
+                      <td>Dubai Fresh Veg (ST-04)</td>
+                      <td>Dhs 28,500.00</td>
+                      <td style={{ color: '#34d399' }}>Dhs 1,425.00</td>
+                      <td><strong>Dhs 27,075.00</strong></td>
+                      <td>WPS / Bank Transfer</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Settled</span></td>
+                    </tr>
+                    <tr>
+                      <td><code>#PAY-2025-05-C</code></td>
+                      <td>Gulf Green Farms (ST-09)</td>
+                      <td>Dhs 18,200.00</td>
+                      <td style={{ color: '#34d399' }}>Dhs 910.00</td>
+                      <td><strong>Dhs 17,290.00</strong></td>
+                      <td>WPS / Bank Transfer</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusPending}`}>Processing</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 10: REPORTS & ANALYTICS
+             =================================================================== */}
+          {activeTab === 'reports' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Wholesale Produce Analytics &amp; Reports</h3>
+                  <p className={styles.tableSubtitle}>
+                    Volume trends, seasonal turnover, produce category distribution, and market performance.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={styles.addBtn}
+                  onClick={() => showCatSuccess('Exporting full platform analytics report in CSV format...')}
+                >
+                  📥 Export CSV
+                </button>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Produce Category</th>
+                      <th>Volume Traded</th>
+                      <th>Average Price / Kg</th>
+                      <th>Gross Value (AED)</th>
+                      <th>Market Share</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>🥭 Fresh Mangoes &amp; Tropicals</td>
+                      <td>142.5 Metric Tons</td>
+                      <td>Dhs 8.50</td>
+                      <td>Dhs 48,200.00</td>
+                      <td>38.7%</td>
+                    </tr>
+                    <tr>
+                      <td>🍅 Vine Tomatoes &amp; Peppers</td>
+                      <td>98.2 Metric Tons</td>
+                      <td>Dhs 4.20</td>
+                      <td>Dhs 32,800.00</td>
+                      <td>26.3%</td>
+                    </tr>
+                    <tr>
+                      <td>🍌 Bananas &amp; Plantains</td>
+                      <td>85.0 Metric Tons</td>
+                      <td>Dhs 3.80</td>
+                      <td>Dhs 24,100.00</td>
+                      <td>19.4%</td>
+                    </tr>
+                    <tr>
+                      <td>🥑 Hass Avocados</td>
+                      <td>22.4 Metric Tons</td>
+                      <td>Dhs 16.50</td>
+                      <td>Dhs 19,400.00</td>
+                      <td>15.6%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 11: MARKETING & PROMOTIONS
+             =================================================================== */}
+          {activeTab === 'marketing' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Marketing &amp; Promotional Campaigns</h3>
+                  <p className={styles.tableSubtitle}>
+                    Manage commercial discount codes, wholesale volume coupons, and Ramadan festival specials.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={styles.addBtn}
+                  onClick={() => showCatSuccess('Campaign builder opened.')}
+                >
+                  <span>+</span>
+                  <span>Create Campaign</span>
+                </button>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Coupon Code</th>
+                      <th>Promotion Title</th>
+                      <th>Discount</th>
+                      <th>Min Order</th>
+                      <th>Usage Count</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code style={{ color: '#34d399', fontWeight: 800 }}>RAMADAN50</code></td>
+                      <td>Ramadan Wholesale Fresh Fruit Campaign</td>
+                      <td>Dhs 50 Off</td>
+                      <td>Dhs 1,000</td>
+                      <td>148 times</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Active</span></td>
+                    </tr>
+                    <tr>
+                      <td><code style={{ color: '#34d399', fontWeight: 800 }}>BULK10</code></td>
+                      <td>Wholesale Bulk Order Discount (5+ Crates)</td>
+                      <td>10% Off</td>
+                      <td>Dhs 2,500</td>
+                      <td>92 times</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Active</span></td>
+                    </tr>
+                    <tr>
+                      <td><code style={{ color: '#34d399', fontWeight: 800 }}>FIRSTBUYER</code></td>
+                      <td>Commercial Buyer Welcome Incentive</td>
+                      <td>5% Off</td>
+                      <td>Dhs 500</td>
+                      <td>315 times</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Active</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 12: CONTENT MANAGEMENT
+             =================================================================== */}
+          {activeTab === 'content' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Marketplace Content &amp; Announcements</h3>
+                  <p className={styles.tableSubtitle}>
+                    Broadcast official announcements to stall vendors and wholesale buyers.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={styles.addBtn}
+                  onClick={() => showCatSuccess('New announcement draft created.')}
+                >
+                  <span>+</span>
+                  <span>New Announcement</span>
+                </button>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Announcement Title</th>
+                      <th>Target Audience</th>
+                      <th>Display Location</th>
+                      <th>Published Date</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Al Aweer Market Ramadan Operating Hours</strong></td>
+                      <td>All Vendors &amp; Buyers</td>
+                      <td>Dashboard Banner + SMS</td>
+                      <td>2025-05-01</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Active</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Cold-Chain Storage Inspection Guidelines</strong></td>
+                      <td>Stall Vendors Only</td>
+                      <td>Vendor Portal Modal</td>
+                      <td>2025-04-20</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Active</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Dubai Municipality Health Certificate Renewal</strong></td>
+                      <td>Stall Vendors Only</td>
+                      <td>Portal Alert</td>
+                      <td>2025-04-10</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Active</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 13: FILES & MEDIA
+             =================================================================== */}
+          {activeTab === 'media' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Files &amp; Media Assets</h3>
+                  <p className={styles.tableSubtitle}>
+                    Catalog produce photography, vendor trade license documents, and inspection certificates.
+                  </p>
+                </div>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>File Name</th>
+                      <th>Category</th>
+                      <th>Associated Entity</th>
+                      <th>File Size</th>
+                      <th>Uploaded Date</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>produce-mango-chaunsa.jpg</code></td>
+                      <td>Catalog Photo</td>
+                      <td>Mango Chaunsa</td>
+                      <td>1.2 MB</td>
+                      <td>2025-05-11</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Verified</span></td>
+                    </tr>
+                    <tr>
+                      <td><code>trade-license-dubai-fresh.pdf</code></td>
+                      <td>Trade License</td>
+                      <td>Dubai Fresh Veg (ST-04)</td>
+                      <td>2.4 MB</td>
+                      <td>2025-04-29</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Verified</span></td>
+                    </tr>
+                    <tr>
+                      <td><code>cold-chain-cert-terminal1.pdf</code></td>
+                      <td>Health Audit</td>
+                      <td>Central Cold Store 1</td>
+                      <td>3.1 MB</td>
+                      <td>2025-04-15</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Verified</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 14: SYSTEM SETTINGS
+             =================================================================== */}
+          {activeTab === 'settings' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>System Governance &amp; Parameters</h3>
+                  <p className={styles.tableSubtitle}>
+                    Core marketplace operating rules, currency formatting, commission rates, and safety locks.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={styles.addBtn}
+                  onClick={() => showCatSuccess('System settings verified and saved.')}
+                >
+                  💾 Save Configuration
+                </button>
+              </div>
+
+              <div style={{ padding: '24px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
+                <div style={{ background: '#041d14', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 12, padding: 20 }}>
+                  <h4 style={{ margin: '0 0 12px', color: '#34d399' }}>Platform Commission</h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="number"
+                      defaultValue={5.0}
+                      step={0.1}
+                      style={{ background: '#030d0a', border: '1px solid #10b981', color: '#ffffff', padding: '8px 12px', borderRadius: 8, width: 90, fontWeight: 700 }}
+                    />
+                    <span style={{ color: '#cbd5e1' }}>% Gross Commission on Single-Vendor Orders</span>
+                  </div>
+                </div>
+
+                <div style={{ background: '#041d14', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 12, padding: 20 }}>
+                  <h4 style={{ margin: '0 0 12px', color: '#34d399' }}>Platform Currency</h4>
+                  <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '1.1rem' }}>
+                    AED (United Arab Emirates Dirham — Dhs)
+                  </div>
+                  <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: 4 }}>Fixed operating currency for Al Aweer wholesale terminal.</div>
+                </div>
+
+                <div style={{ background: '#041d14', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 12, padding: 20 }}>
+                  <h4 style={{ margin: '0 0 12px', color: '#34d399' }}>Security &amp; MFA</h4>
+                  <div style={{ color: '#34d399', fontWeight: 700 }}>✓ Enforced for Super Admin Actions</div>
+                  <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: 4 }}>Two-factor authentication active on privileged endpoints.</div>
+                </div>
+
+                <div style={{ background: '#041d14', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 12, padding: 20 }}>
+                  <h4 style={{ margin: '0 0 12px', color: '#34d399' }}>Cold Storage Verification</h4>
+                  <div style={{ color: '#34d399', fontWeight: 700 }}>✓ Mandatory Before Stall Approval</div>
+                  <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: 4 }}>Vendors must submit cold storage verification before publishing produce.</div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 15: SUPPORT & TICKETS
+             =================================================================== */}
+          {activeTab === 'support' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Support Desk &amp; Dispute Resolution</h3>
+                  <p className={styles.tableSubtitle}>
+                    Inquiries and quality disputes from wholesale buyers and stall vendors.
+                  </p>
+                </div>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Ticket #</th>
+                      <th>Submitter</th>
+                      <th>Topic / Subject</th>
+                      <th>Priority</th>
+                      <th>Created</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>#TCK-1082</code></td>
+                      <td>Dubai Fresh Veg (ST-04)</td>
+                      <td>Produce weight discrepancy on dispatch order #1002</td>
+                      <td><span style={{ color: '#f59e0b', fontWeight: 700 }}>HIGH</span></td>
+                      <td>2025-05-12</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusPending}`}>Open</span></td>
+                      <td><button type="button" className={`${styles.actionBtn} ${styles.actionBtnApprove}`} onClick={() => showCatSuccess('Ticket marked as resolved.')}>Resolve</button></td>
+                    </tr>
+                    <tr>
+                      <td><code>#TCK-1079</code></td>
+                      <td>Emirates Hospitality Catering</td>
+                      <td>Credit limit extension request for B2B reseller tier</td>
+                      <td><span style={{ color: '#38bdf8', fontWeight: 700 }}>MEDIUM</span></td>
+                      <td>2025-05-10</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Resolved</span></td>
+                      <td><button type="button" className={`${styles.actionBtn} ${styles.actionBtnEdit}`} onClick={() => showCatSuccess('Ticket reopened.')}>Reopen</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 16: LOGS & ACTIVITY
+             =================================================================== */}
+          {activeTab === 'logs' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Platform Audit Trail &amp; Activity Logs</h3>
+                  <p className={styles.tableSubtitle}>
+                    Immutable real-time audit trail of administrative operations, logins, and status toggles.
+                  </p>
+                </div>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>Operator</th>
+                      <th>Action Type</th>
+                      <th>Details</th>
+                      <th>IP Address</th>
+                      <th>Result</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>2025-05-13 14:22:10</td>
+                      <td>Super Admin ({user?.email || 'admin@aweermarket.ae'})</td>
+                      <td><code>RESELLER_REGISTERED</code></td>
+                      <td>New institutional reseller created with Dhs 50,000 credit limit</td>
+                      <td>192.168.1.1</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>SUCCESS</span></td>
+                    </tr>
+                    <tr>
+                      <td>2025-05-13 13:45:00</td>
+                      <td>Super Admin ({user?.email || 'admin@aweermarket.ae'})</td>
+                      <td><code>CATEGORY_UPDATED</code></td>
+                      <td>Produce category slug validation verified</td>
+                      <td>192.168.1.1</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>SUCCESS</span></td>
+                    </tr>
+                    <tr>
+                      <td>2025-05-13 11:10:33</td>
+                      <td>Super Admin ({user?.email || 'admin@aweermarket.ae'})</td>
+                      <td><code>ADMIN_LOGIN</code></td>
+                      <td>Successful authentication with JWT bearer token</td>
+                      <td>192.168.1.1</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>SUCCESS</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 17: LOCATION / MARKET AREAS
+             =================================================================== */}
+          {activeTab === 'locations' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Al Aweer Fruit &amp; Vegetable Wholesale Blocks</h3>
+                  <p className={styles.tableSubtitle}>
+                    Block layout, wholesale bays, and cold storage facilities at Ras Al Khor.
+                  </p>
+                </div>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Market Block</th>
+                      <th>Description</th>
+                      <th>Stalls Capacity</th>
+                      <th>Occupancy</th>
+                      <th>Cold Chain Facility</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Block A — Tropical &amp; Citrus</strong></td>
+                      <td>Mangoes, Oranges, Bananas, Papayas</td>
+                      <td>48 Stalls</td>
+                      <td>44 Stalls (91%)</td>
+                      <td>Active (4°C - 8°C)</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Operational</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Block B — Fresh Vegetables</strong></td>
+                      <td>Tomatoes, Cucumbers, Onions, Potatoes</td>
+                      <td>60 Stalls</td>
+                      <td>56 Stalls (93%)</td>
+                      <td>Active (6°C - 10°C)</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Operational</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Block C — Berries &amp; Exotics</strong></td>
+                      <td>Strawberries, Blueberries, Avocados, Kiwi</td>
+                      <td>36 Stalls</td>
+                      <td>32 Stalls (88%)</td>
+                      <td>Active (2°C - 4°C)</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Operational</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Central Cold Storage Bay 1</strong></td>
+                      <td>Long-term pallet refrigeration terminal</td>
+                      <td>120 Pallet Bays</td>
+                      <td>108 Bays (90%)</td>
+                      <td>Deep Chill (-1°C - 2°C)</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Operational</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 18: EMAIL TEMPLATES
+             =================================================================== */}
+          {activeTab === 'emails' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Transactional Email Templates</h3>
+                  <p className={styles.tableSubtitle}>
+                    Automated email communications dispatched to vendors, buyers, and resellers.
+                  </p>
+                </div>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Template Key</th>
+                      <th>Email Subject</th>
+                      <th>Target Recipient</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>ORDER_CONFIRMATION</code></td>
+                      <td>Your AweerMarket Wholesale Order Confirmation #{'{orderNumber}'}</td>
+                      <td>Wholesale Buyer</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Active</span></td>
+                      <td><button type="button" className={`${styles.actionBtn} ${styles.actionBtnEdit}`} onClick={() => showCatSuccess('Test email sent to administrator mailbox.')}>Send Test</button></td>
+                    </tr>
+                    <tr>
+                      <td><code>VENDOR_APPROVAL</code></td>
+                      <td>Congratulations! Your Stall #{'{stallNumber}'} has been approved</td>
+                      <td>Stall Vendor</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Active</span></td>
+                      <td><button type="button" className={`${styles.actionBtn} ${styles.actionBtnEdit}`} onClick={() => showCatSuccess('Test email sent to administrator mailbox.')}>Send Test</button></td>
+                    </tr>
+                    <tr>
+                      <td><code>RESELLER_CREDIT_FACILITY</code></td>
+                      <td>Commercial Credit Facility Approved: Dhs #{'{creditLimit}'}</td>
+                      <td>B2B Reseller</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Active</span></td>
+                      <td><button type="button" className={`${styles.actionBtn} ${styles.actionBtnEdit}`} onClick={() => showCatSuccess('Test email sent to administrator mailbox.')}>Send Test</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 19: NOTIFICATION TEMPLATES
+             =================================================================== */}
+          {activeTab === 'notifications' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Push &amp; SMS Notification Templates</h3>
+                  <p className={styles.tableSubtitle}>
+                    Real-time alert configurations for orders, price adjustments, and dispatch notifications.
+                  </p>
+                </div>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Notification Event</th>
+                      <th>Channel</th>
+                      <th>Message Preview</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Order Dispatched</strong></td>
+                      <td>SMS + Push</td>
+                      <td>Order #{'{orderNumber}'} is on the way from Al Aweer wholesale block.</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Enabled</span></td>
+                      <td><button type="button" className={`${styles.actionBtn} ${styles.actionBtnRevoke}`} onClick={() => showCatSuccess('Notification trigger toggled.')}>Toggle</button></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Low Stock Warning</strong></td>
+                      <td>Push Alert</td>
+                      <td>Only 5 crates remaining for #{'{produceName}'}. Update inventory.</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Enabled</span></td>
+                      <td><button type="button" className={`${styles.actionBtn} ${styles.actionBtnRevoke}`} onClick={() => showCatSuccess('Notification trigger toggled.')}>Toggle</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* ===================================================================
+              VIEW 20: BACKUP & RESTORE
+             =================================================================== */}
+          {activeTab === 'backups' && (
+            <section className={styles.tableSection}>
+              <div className={styles.tableHeaderBar}>
+                <div>
+                  <h3 className={styles.tableTitle}>Database Cluster Backup &amp; Disaster Recovery</h3>
+                  <p className={styles.tableSubtitle}>
+                    Daily automated MongoDB snapshots and high-availability point-in-time recovery points.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={styles.addBtn}
+                  onClick={() => showCatSuccess('Point-in-time database snapshot created successfully.')}
+                >
+                  📸 Create Snapshot
+                </button>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Snapshot ID</th>
+                      <th>Created At</th>
+                      <th>Data Size</th>
+                      <th>Type</th>
+                      <th>Storage Target</th>
+                      <th>Integrity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>#SNAP-2025-05-13-DAILY</code></td>
+                      <td>2025-05-13 03:00 UTC</td>
+                      <td>184.2 MB</td>
+                      <td>Automated Daily</td>
+                      <td>Encrypted S3 Bucket</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Verified (Healthy)</span></td>
+                    </tr>
+                    <tr>
+                      <td><code>#SNAP-2025-05-12-DAILY</code></td>
+                      <td>2025-05-12 03:00 UTC</td>
+                      <td>181.8 MB</td>
+                      <td>Automated Daily</td>
+                      <td>Encrypted S3 Bucket</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Verified (Healthy)</span></td>
+                    </tr>
+                    <tr>
+                      <td><code>#SNAP-2025-05-11-DAILY</code></td>
+                      <td>2025-05-11 03:00 UTC</td>
+                      <td>179.5 MB</td>
+                      <td>Automated Daily</td>
+                      <td>Encrypted S3 Bucket</td>
+                      <td><span className={`${styles.statusPill} ${styles.statusActive}`}>Verified (Healthy)</span></td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -2244,6 +3566,201 @@ export default function SuperAdminDashboard() {
                   disabled={isSubmittingCat}
                 >
                   {isSubmittingCat ? 'Saving...' : editingCat ? 'Update Category' : 'Create Category'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          RESELLER ADD/EDIT MODAL
+         ===================================================================== */}
+      {isResellerModalOpen && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true">
+          <div className={styles.modalCard}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>
+                {editingReseller ? `Edit Reseller: ${editingReseller.businessName}` : 'Register B2B Wholesale Reseller'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsResellerModalOpen(false)}
+                className={styles.modalCloseBtn}
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveReseller}>
+              <div className={styles.modalBody}>
+                {resellerFormError && (
+                  <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#fca5a5', padding: '8px 12px', borderRadius: 8, fontSize: '0.82rem' }}>
+                    {resellerFormError}
+                  </div>
+                )}
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="reseller-business-input" className={styles.formLabel}>
+                    Commercial Business Name *
+                  </label>
+                  <input
+                    id="reseller-business-input"
+                    type="text"
+                    className={styles.formInput}
+                    placeholder="e.g. Al Maya Supermarkets LLC"
+                    value={resellerBusinessName}
+                    onChange={(e) => setResellerBusinessName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="reseller-contact-input" className={styles.formLabel}>
+                      Contact Person *
+                    </label>
+                    <input
+                      id="reseller-contact-input"
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="e.g. Tariq Al Nuaimi"
+                      value={resellerContactPerson}
+                      onChange={(e) => setResellerContactPerson(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="reseller-phone-input" className={styles.formLabel}>
+                      Contact Phone *
+                    </label>
+                    <input
+                      id="reseller-phone-input"
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="+971 50 123 4567"
+                      value={resellerPhone}
+                      onChange={(e) => setResellerPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="reseller-email-input" className={styles.formLabel}>
+                      Corporate Email Address *
+                    </label>
+                    <input
+                      id="reseller-email-input"
+                      type="email"
+                      className={styles.formInput}
+                      placeholder="procurement@almaya.ae"
+                      value={resellerEmail}
+                      onChange={(e) => setResellerEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="reseller-license-input" className={styles.formLabel}>
+                      UAE Trade License #
+                    </label>
+                    <input
+                      id="reseller-license-input"
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="e.g. CN-1092837"
+                      value={resellerTradeLicense}
+                      onChange={(e) => setResellerTradeLicense(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="reseller-tier-select" className={styles.formLabel}>
+                      Wholesale Buyer Tier
+                    </label>
+                    <select
+                      id="reseller-tier-select"
+                      className={styles.formInput}
+                      value={resellerTier}
+                      onChange={(e) => setResellerTier(e.target.value)}
+                    >
+                      <option value="bronze">Bronze Tier (5% Margin Discount)</option>
+                      <option value="silver">Silver Tier (7% Margin Discount)</option>
+                      <option value="gold">Gold Tier (10% Margin Discount)</option>
+                      <option value="platinum">Platinum Tier (12% Margin Discount)</option>
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="reseller-terms-select" className={styles.formLabel}>
+                      Payment Terms
+                    </label>
+                    <select
+                      id="reseller-terms-select"
+                      className={styles.formInput}
+                      value={resellerPaymentTerms}
+                      onChange={(e) => setResellerPaymentTerms(e.target.value)}
+                    >
+                      <option value="cash_on_delivery">Cash on Delivery (COD)</option>
+                      <option value="net_15">Net 15 Days</option>
+                      <option value="net_30">Net 30 Days (Standard Commercial)</option>
+                      <option value="net_60">Net 60 Days (Institutional)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="reseller-credit-input" className={styles.formLabel}>
+                    Approved Commercial Credit Limit (AED) *
+                  </label>
+                  <input
+                    id="reseller-credit-input"
+                    type="number"
+                    min="0"
+                    step="1000"
+                    className={styles.formInput}
+                    value={resellerCreditLimit}
+                    onChange={(e) => setResellerCreditLimit(Number(e.target.value))}
+                    required
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="reseller-notes-input" className={styles.formLabel}>
+                    Administrative Notes &amp; Credit References
+                  </label>
+                  <textarea
+                    id="reseller-notes-input"
+                    className={styles.formTextarea}
+                    rows={2}
+                    placeholder="e.g. Central Dubai cold storage dock delivery, verified by Dubai Municipality trade audit."
+                    value={resellerNotes}
+                    onChange={(e) => setResellerNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.modalFooter}>
+                <button
+                  type="button"
+                  onClick={() => setIsResellerModalOpen(false)}
+                  className={styles.formCancelBtn}
+                  disabled={isSubmittingReseller}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.formSubmitBtn}
+                  disabled={isSubmittingReseller}
+                >
+                  {isSubmittingReseller ? 'Saving...' : editingReseller ? 'Update Reseller' : 'Register Reseller'}
                 </button>
               </div>
             </form>

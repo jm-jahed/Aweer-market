@@ -202,3 +202,48 @@ export interface ReadinessResponse {
   timestamp: string;
   error?: string;
 }
+
+// ============================================================================
+// Reseller & B2B Sub-Distributor Types
+// ============================================================================
+
+export enum ResellerStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  SUSPENDED = 'suspended',
+  REJECTED = 'rejected'
+}
+
+export enum ResellerTier {
+  BRONZE = 'bronze',
+  SILVER = 'silver',
+  GOLD = 'gold',
+  PLATINUM = 'platinum'
+}
+
+export enum ResellerPaymentTerms {
+  COD = 'cash_on_delivery',
+  NET_15 = 'net_15',
+  NET_30 = 'net_30',
+  NET_60 = 'net_60'
+}
+
+export interface ResellerItem {
+  id: string;
+  businessName: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  tradeLicenseNumber: string;
+  tier: ResellerTier | string;
+  discountPercent: number;
+  creditLimitAed: number;
+  outstandingBalanceAed: number;
+  paymentTerms: ResellerPaymentTerms | string;
+  status: ResellerStatus | string;
+  totalOrders: number;
+  totalSpentAed: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
