@@ -8,6 +8,7 @@ export interface IUserDocument extends Document {
   fullName: string;
   role: UserRole;
   shopId?: string;
+  resellerId?: string;
   businessName?: string;
   phone?: string;
   tradeLicenseNumber?: string;
@@ -47,6 +48,12 @@ const UserSchema = new Schema<IUserDocument>(
       index: true
     },
     shopId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true
+    },
+    resellerId: {
       type: String,
       trim: true,
       sparse: true,
@@ -93,6 +100,7 @@ UserSchema.methods.toUserSummary = function (): UserSummary {
     role: this.role,
     shopId: this.shopId,
     vendorId: this.shopId,
+    resellerId: this.resellerId || undefined,
     businessName: this.businessName,
     isActive: this.isActive,
     isEmailVerified: this.isEmailVerified,
@@ -114,6 +122,7 @@ export interface UserRecord {
   fullName: string;
   role: UserRole;
   shopId?: string;
+  resellerId?: string;
   businessName?: string;
   phone?: string;
   tradeLicenseNumber?: string;
@@ -141,6 +150,7 @@ function createInMemoryRecord(data: Omit<UserRecord, 'toUserSummary'>): UserReco
         role: this.role,
         shopId: this.shopId,
         vendorId: this.shopId,
+        resellerId: this.resellerId || undefined,
         businessName: this.businessName,
         isActive: this.isActive,
         isEmailVerified: this.isEmailVerified,
@@ -294,6 +304,161 @@ export async function createBuyerUser(data: CreateBuyerData): Promise<IUserDocum
   inMemoryUsersById.set(newId, record);
   inMemoryUsersByEmail.set(normalizedEmail, newId);
   return record;
+}
+
+export interface UpsertResellerUserInput {
+  email: string;
+  passwordHash: string;
+  fullName: string;
+  phone?: string;
+  businessName?: string;
+  tradeLicenseNumber?: string;
+  resellerId?: string;
+}
+
+export type UpsertBuyerForResellerInput = UpsertResellerUserInput;
+
+/**
+ * Creates or updates an administrative RESELLER user account.
+ * This guarantees the reseller can log in immediately to the management portal.
+ */
+export async function upsertResellerUser(data: UpsertResellerUserInput): Promise<IUserDocument | UserRecord> {
+  const normalizedEmail = data.email.toLowerCase().trim();
+
+  if (isDatabaseConnected()) {
+    const existing = await UserModel.findOne({ email: normalizedEmail }).exec();
+    if (existing) {
+      existing.passwordHash = data.passwordHash;
+      if (data.fullName) existing.fullName = data.fullName.trim();
+      if (data.phone) existing.phone = data.phone.trim();
+      if (data.businessName) existing.businessName = data.businessName.trim();
+      if (data.tradeLicenseNumber) existing.tradeLicenseNumber = data.tradeLicenseNumber.trim();
+      if (data.resellerId) existing.resellerId = data.resellerId.trim();
+      existing.role = UserRole.RESELLER;
+      existing.isActive = true;
+      existing.isEmailVerified = true;
+      existing.tokenVersion = (existing.tokenVersion ?? 0) + 1;
+      return await existing.save();
+    }
+
+    return await UserModel.create({
+      email: normalizedEmail,
+      passwordHash: data.passwordHash,
+      fullName: data.fullName.trim(),
+      phone: data.phone?.trim(),
+      businessName: data.businessName?.trim(),
+      tradeLicenseNumber: data.tradeLicenseNumber?.trim(),
+      resellerId: data.resellerId?.trim(),
+      role: UserRole.RESELLER,
+      isActive: true,
+      isEmailVerified: true
+    });
+  }
+
+  // Fail closed in production and development
+  if (!isInMemoryUserStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. User creation rejected in fail-closed mode.');
+  }
+
+  // In-memory test store
+  const existingId = inMemoryUsersByEmail.get(normalizedEmail);
+  if (existingId) {
+    const rec = inMemoryUsersById.get(existingId);
+    if (rec) {
+      rec.passwordHash = data.passwordHash;
+      rec.fullName = data.fullName.trim();
+      if (data.phone) rec.phone = data.phone.trim();
+      if (data.businessName) rec.businessName = data.businessName.trim();
+      if (data.tradeLicenseNumber) rec.tradeLicenseNumber = data.tradeLicenseNumber.trim();
+      if (data.resellerId) rec.resellerId = data.resellerId.trim();
+      rec.role = UserRole.RESELLER;
+      rec.isActive = true;
+      rec.isEmailVerified = true;
+      rec.tokenVersion = (rec.tokenVersion ?? 0) + 1;
+      rec.updatedAt = new Date();
+      return rec;
+    }
+  }
+
+  const newId = `reseller_usr_${idCounter++}_${Date.now()}`;
+  const now = new Date();
+  const record = createInMemoryRecord({
+    id: newId,
+    email: normalizedEmail,
+    passwordHash: data.passwordHash,
+    fullName: data.fullName.trim(),
+    phone: data.phone?.trim(),
+    businessName: data.businessName?.trim(),
+    tradeLicenseNumber: data.tradeLicenseNumber?.trim(),
+    resellerId: data.resellerId?.trim(),
+    role: UserRole.RESELLER,
+    isActive: true,
+    isEmailVerified: true,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  inMemoryUsersById.set(newId, record);
+  inMemoryUsersByEmail.set(normalizedEmail, newId);
+  return record;
+}
+
+export const upsertBuyerForReseller = upsertResellerUser;
+
+/**
+ * Updates user credentials (password / contact / email) for a reseller.
+ */
+export async function updateUserCredentialsForReseller(
+  oldEmail: string,
+  data: {
+    email?: string;
+    passwordHash?: string;
+    fullName?: string;
+    phone?: string;
+    businessName?: string;
+    tradeLicenseNumber?: string;
+  }
+): Promise<void> {
+  const normOldEmail = oldEmail.toLowerCase().trim();
+  const normNewEmail = data.email ? data.email.toLowerCase().trim() : undefined;
+
+  if (isDatabaseConnected()) {
+    const existing = await UserModel.findOne({ email: normOldEmail }).exec();
+    if (existing) {
+      if (normNewEmail) existing.email = normNewEmail;
+      if (data.passwordHash) existing.passwordHash = data.passwordHash;
+      if (data.fullName) existing.fullName = data.fullName.trim();
+      if (data.phone) existing.phone = data.phone.trim();
+      if (data.businessName) existing.businessName = data.businessName.trim();
+      if (data.tradeLicenseNumber) existing.tradeLicenseNumber = data.tradeLicenseNumber.trim();
+      existing.tokenVersion = (existing.tokenVersion ?? 0) + 1;
+      await existing.save();
+    }
+    return;
+  }
+
+  if (!isInMemoryUserStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const userId = inMemoryUsersByEmail.get(normOldEmail);
+  if (userId) {
+    const rec = inMemoryUsersById.get(userId);
+    if (rec) {
+      if (normNewEmail && normNewEmail !== normOldEmail) {
+        inMemoryUsersByEmail.delete(normOldEmail);
+        inMemoryUsersByEmail.set(normNewEmail, userId);
+        rec.email = normNewEmail;
+      }
+      if (data.passwordHash) rec.passwordHash = data.passwordHash;
+      if (data.fullName) rec.fullName = data.fullName.trim();
+      if (data.phone) rec.phone = data.phone.trim();
+      if (data.businessName) rec.businessName = data.businessName.trim();
+      if (data.tradeLicenseNumber) rec.tradeLicenseNumber = data.tradeLicenseNumber.trim();
+      rec.tokenVersion = (rec.tokenVersion ?? 0) + 1;
+      rec.updatedAt = new Date();
+    }
+  }
 }
 
 /**

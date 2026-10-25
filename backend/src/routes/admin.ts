@@ -1,15 +1,22 @@
 import { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
-import { UserRole, OrderStatus } from '@aweermarket/types';
+import { UserRole, OrderStatus, isAdministrativeRole } from '@aweermarket/types';
 import { authenticate, requireRole } from '../plugins/security.js';
 import {
   listAllUsers,
   countUsers,
   setUserActiveStatus,
-  findUserById
+  findUserById,
+  findUserByEmail,
+  createShopAdminUser,
+  upsertResellerUser,
+  updateUserCredentialsForReseller
 } from '../models/user.model.js';
+import { hashPassword } from '../utils/crypto.js';
 import {
   listAllShops,
   countShops,
+  createShop,
+  updateShop,
   setShopApproval,
   setShopActiveStatus,
   findShopById
@@ -48,19 +55,20 @@ import {
   CreateCategorySchema,
   UpdateCategorySchema,
   CreateResellerSchema,
-  UpdateResellerSchema
+  UpdateResellerSchema,
+  CreateShopByAdminSchema
 } from '@aweermarket/validation';
 
 
 /**
- * PreHandler hook: Live Super Admin database verification.
+ * PreHandler hook: Live Admin database verification.
  * Enforces that the authenticated user:
  * 1. Authoritatively exists in the database.
  * 2. Has active account status (isActive === true).
- * 3. Currently holds the database role of SUPER_ADMIN.
+ * 3. Currently holds the database role of SUPER_ADMIN or RESELLER.
  * Stale JWT tokens from deactivated or demoted accounts are rejected.
  */
-export async function requireActiveSuperAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+export async function requireActiveAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const userId = request.user?.userId;
   if (!userId) {
     return reply.status(401).send({
@@ -75,7 +83,7 @@ export async function requireActiveSuperAdmin(request: FastifyRequest, reply: Fa
     return reply.status(401).send({
       statusCode: 401,
       error: 'Unauthorized',
-      message: 'Super admin account not found'
+      message: 'Administrative account not found'
     });
   }
 
@@ -83,24 +91,24 @@ export async function requireActiveSuperAdmin(request: FastifyRequest, reply: Fa
     return reply.status(403).send({
       statusCode: 403,
       error: 'Forbidden',
-      message: 'Super admin account has been deactivated'
+      message: 'Administrative account has been deactivated'
     });
   }
 
-  if (dbUser.role !== UserRole.SUPER_ADMIN) {
+  if (dbUser.role !== UserRole.SUPER_ADMIN && dbUser.role !== UserRole.RESELLER) {
     return reply.status(403).send({
       statusCode: 403,
       error: 'Forbidden',
-      message: 'Access denied: insufficient permissions'
+      message: 'Access denied: insufficient administrative permissions'
     });
   }
 }
 
 export const adminRoutes: FastifyPluginAsync = async (fastify) => {
-  // All admin routes strictly require Super Admin authentication and live DB verification
+  // Administrative routes require valid session token, administrative role (Super Admin or Reseller), and active DB record
   fastify.addHook('preHandler', authenticate);
-  fastify.addHook('preHandler', requireRole(UserRole.SUPER_ADMIN));
-  fastify.addHook('preHandler', requireActiveSuperAdmin);
+  fastify.addHook('preHandler', requireRole(UserRole.SUPER_ADMIN, UserRole.RESELLER));
+  fastify.addHook('preHandler', requireActiveAdmin);
 
   /**
    * GET /api/v1/admin/overview
@@ -145,16 +153,21 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * GET /api/v1/admin/shops
-   * Lists all Al Aweer wholesale stalls with approval and active status.
+   * Lists wholesale vendor stalls with approval, active, and reseller tenant scoping.
    */
   fastify.get('/shops', async (request: FastifyRequest, reply: FastifyReply) => {
     const query = request.query as { status?: string };
-    let filter: { isApproved?: boolean } | undefined;
+    const filter: { isApproved?: boolean; resellerId?: string } = {};
 
     if (query.status === 'approved') {
-      filter = { isApproved: true };
+      filter.isApproved = true;
     } else if (query.status === 'pending') {
-      filter = { isApproved: false };
+      filter.isApproved = false;
+    }
+
+    // Multi-Tenant Isolation: Resellers strictly see only their own affiliated stalls
+    if (request.user?.role === UserRole.RESELLER) {
+      filter.resellerId = request.user.resellerId;
     }
 
     const shops = await listAllShops(filter);
@@ -162,6 +175,92 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       statusCode: 200,
       shops: shops.map((s) => s.toPublicSummary())
     });
+  });
+
+  /**
+   * POST /api/v1/admin/shops
+   * Admin or Reseller registers a wholesale vendor stall and provisions login credentials.
+   */
+  fastify.post('/shops', async (request: FastifyRequest, reply: FastifyReply) => {
+    const parseResult = CreateShopByAdminSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: parseResult.error.errors[0]?.message || 'Invalid vendor stall input'
+      });
+    }
+
+    const { name, stallNumber, ownerName, email, password, phone, tradeLicenseNumber, marketLocation, description, openingHours } = parseResult.data;
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Verify account email uniqueness
+    const existingUser = await findUserByEmail(normalizedEmail);
+    if (existingUser) {
+      return reply.status(409).send({
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'An account with this email address already exists'
+      });
+    }
+
+    // Securely hash vendor portal password
+    const passwordHash = await hashPassword(password);
+
+    // Multi-tenant isolation tag: If created by Reseller, associate with resellerId
+    const resellerId = request.user?.role === UserRole.RESELLER ? request.user.resellerId : undefined;
+
+    try {
+      const tempOwnerId = `pending_owner_${Date.now()}`;
+      const shop = await createShop({
+        name,
+        stallNumber,
+        ownerId: tempOwnerId,
+        resellerId,
+        tradeLicenseNumber,
+        phone,
+        isApproved: true,
+        isActive: true
+      });
+
+      const vendorUser = await createShopAdminUser({
+        email: normalizedEmail,
+        passwordHash,
+        fullName: ownerName,
+        phone,
+        shopId: shop.id,
+        tradeLicenseNumber
+      });
+
+      // Update shop with authoritative owner ID
+      await updateShop(shop.id, { ownerId: vendorUser.id } as any);
+      if ((shop as any).ownerId !== undefined) {
+        (shop as any).ownerId = vendorUser.id;
+      }
+
+      return reply.status(201).send({
+        statusCode: 201,
+        message: 'Vendor stall and portal login registered successfully',
+        shop: shop.toPublicSummary(),
+        vendor: vendorUser.toUserSummary()
+      });
+    } catch (err: any) {
+      if (err.statusCode === 409 || err.code === 11000) {
+        return reply.status(409).send({
+          statusCode: 409,
+          error: 'Conflict',
+          message: 'A shop or user with this name or email already exists'
+        });
+      }
+      if (err instanceof DatabaseUnavailableError || err.statusCode === 503) {
+        return reply.status(503).send({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: 'Database storage is unavailable. Stall creation rejected.'
+        });
+      }
+      throw err;
+    }
   });
 
   /**
@@ -186,6 +285,15 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         statusCode: 404,
         error: 'Not Found',
         message: 'Shop not found'
+      });
+    }
+
+    // Security: Enforce reseller tenant isolation
+    if (request.user?.role === UserRole.RESELLER && shop.resellerId !== request.user.resellerId) {
+      return reply.status(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Access denied: You cannot manage vendor stalls belonging to another reseller'
       });
     }
 
@@ -223,6 +331,15 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         statusCode: 404,
         error: 'Not Found',
         message: 'Shop not found'
+      });
+    }
+
+    // Security: Enforce reseller tenant isolation
+    if (request.user?.role === UserRole.RESELLER && shop.resellerId !== request.user.resellerId) {
+      return reply.status(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Access denied: You cannot manage vendor stalls belonging to another reseller'
       });
     }
 
@@ -551,8 +668,17 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * GET /api/v1/admin/resellers
    * Lists commercial produce resellers and sub-distributors with status and tier filters.
+   * Strictly restricted to SUPER_ADMIN (Resellers cannot manage or view other resellers).
    */
   fastify.get('/resellers', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.user?.role !== UserRole.SUPER_ADMIN) {
+      return reply.status(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Access denied: Resellers cannot view or manage other reseller accounts'
+      });
+    }
+
     const query = request.query as { status?: string; tier?: string };
     try {
       const resellers = await listAllResellers({
@@ -578,8 +704,17 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * POST /api/v1/admin/resellers
    * Registers a new commercial reseller or wholesale sub-distributor.
+   * Strictly restricted to SUPER_ADMIN.
    */
   fastify.post('/resellers', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.user?.role !== UserRole.SUPER_ADMIN) {
+      return reply.status(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Access denied: Resellers cannot create other reseller accounts'
+      });
+    }
+
     const parseResult = CreateResellerSchema.safeParse(request.body);
     if (!parseResult.success) {
       return reply.status(400).send({
@@ -591,6 +726,22 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const reseller = await createReseller(parseResult.data);
+
+      // If an initial password was provided, provision the RESELLER administrative user account
+      // so the reseller can log in immediately to their management portal.
+      if (parseResult.data.password) {
+        const passwordHash = await hashPassword(parseResult.data.password);
+        await upsertResellerUser({
+          email: reseller.email,
+          passwordHash,
+          fullName: reseller.contactPerson,
+          phone: reseller.phone,
+          businessName: reseller.businessName,
+          tradeLicenseNumber: reseller.tradeLicenseNumber,
+          resellerId: reseller.id
+        });
+      }
+
       return reply.status(201).send({
         statusCode: 201,
         message: 'Reseller account registered successfully',
@@ -620,6 +771,14 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
    * Updates commercial reseller profile, credit limits, discount rates, and terms.
    */
   fastify.put('/resellers/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.user?.role !== UserRole.SUPER_ADMIN) {
+      return reply.status(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Access denied: Resellers cannot update other reseller accounts'
+      });
+    }
+
     const { id } = request.params as { id: string };
     const parseResult = UpdateResellerSchema.safeParse(request.body);
     if (!parseResult.success) {
@@ -631,12 +790,29 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      const existing = await findResellerById(id);
       const updated = await updateReseller(id, parseResult.data);
       if (!updated) {
         return reply.status(404).send({
           statusCode: 404,
           error: 'Not Found',
           message: 'Reseller not found'
+        });
+      }
+
+      // If password or profile data updated, update user credentials as well
+      if (parseResult.data.password || parseResult.data.email || parseResult.data.contactPerson) {
+        let passwordHash: string | undefined;
+        if (parseResult.data.password) {
+          passwordHash = await hashPassword(parseResult.data.password);
+        }
+        await updateUserCredentialsForReseller(existing?.email || updated.email, {
+          email: updated.email,
+          passwordHash,
+          fullName: updated.contactPerson,
+          phone: updated.phone,
+          businessName: updated.businessName,
+          tradeLicenseNumber: updated.tradeLicenseNumber
         });
       }
 
@@ -669,6 +845,14 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
    * Approves, suspends, or updates reseller partnership status.
    */
   fastify.patch('/resellers/:id/status', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.user?.role !== UserRole.SUPER_ADMIN) {
+      return reply.status(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Access denied: Resellers cannot modify reseller partnership status'
+      });
+    }
+
     const { id } = request.params as { id: string };
     const body = request.body as { status?: string };
 
@@ -712,6 +896,14 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
    * Removes reseller account if there is no outstanding credit balance.
    */
   fastify.delete('/resellers/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.user?.role !== UserRole.SUPER_ADMIN) {
+      return reply.status(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Access denied: Resellers cannot delete reseller accounts'
+      });
+    }
+
     const { id } = request.params as { id: string };
     try {
       const result = await deleteReseller(id);

@@ -259,8 +259,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    // Strictly enforce SUPER_ADMIN role (SEC-02 Core Defense)
-    if (user.role !== UserRole.SUPER_ADMIN) {
+    // Enforce administrative role: SUPER_ADMIN or RESELLER
+    if (user.role !== UserRole.SUPER_ADMIN && user.role !== UserRole.RESELLER) {
       return reply.status(401).send({
         statusCode: 401,
         error: 'Unauthorized',
@@ -268,22 +268,23 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    // Sign strictly with isolated super admin secret
+    // Sign strictly with isolated admin secret for the role
     const token = signSessionToken(
       {
         userId: user.id,
-        role: UserRole.SUPER_ADMIN,
+        role: user.role,
         email: user.email,
+        resellerId: user.resellerId,
         tokenVersion: user.tokenVersion ?? 0
       },
-      getSecretForRole(UserRole.SUPER_ADMIN)
+      getSecretForRole(user.role)
     );
 
     reply.header('Set-Cookie', serializeSessionCookie(token));
 
     return reply.status(200).send({
       statusCode: 200,
-      message: 'Super admin login successful',
+      message: 'Administration login successful',
       token,
       user: user.toUserSummary()
     });
@@ -291,23 +292,23 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * GET /api/v1/auth/super-admin/me
-   * Restores super admin session from HTTP-only cookie.
+   * Restores admin session from HTTP-only cookie.
    */
   fastify.get('/super-admin/me', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!request.user || request.user.role !== UserRole.SUPER_ADMIN) {
+    if (!request.user || (request.user.role !== UserRole.SUPER_ADMIN && request.user.role !== UserRole.RESELLER)) {
       return reply.status(401).send({
         statusCode: 401,
         error: 'Unauthorized',
-        message: 'Access denied: valid super admin session required'
+        message: 'Access denied: valid admin session required'
       });
     }
 
     const user = request.dbUser || await findUserById(request.user.userId);
-    if (!user || user.role !== UserRole.SUPER_ADMIN) {
+    if (!user || (user.role !== UserRole.SUPER_ADMIN && user.role !== UserRole.RESELLER)) {
       return reply.status(401).send({
         statusCode: 401,
         error: 'Unauthorized',
-        message: 'Super admin account not found'
+        message: 'Admin account not found'
       });
     }
 
@@ -315,7 +316,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(403).send({
         statusCode: 403,
         error: 'Forbidden',
-        message: 'Super admin account has been deactivated'
+        message: 'Admin account has been deactivated'
       });
     }
 

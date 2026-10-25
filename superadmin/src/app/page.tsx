@@ -6,6 +6,7 @@ import { useSuperAdminAuth } from '../lib/auth-context';
 import {
   getAdminOverview,
   getAdminShops,
+  createAdminShop,
   setAdminShopApproval,
   getAdminUsers,
   setAdminUserStatus,
@@ -42,10 +43,20 @@ export default function SuperAdminDashboard() {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
 
   const handleNavSelect = useCallback((tab: string) => {
+    if (user?.role === 'reseller' && tab === 'resellers') {
+      return;
+    }
     const normalized = tab === 'shops' ? 'stalls' : tab;
     setActiveTab(normalized);
     setIsMobileDrawerOpen(false);
-  }, []);
+  }, [user]);
+
+  // Enforce reseller access restriction
+  useEffect(() => {
+    if (user?.role === 'reseller' && activeTab === 'resellers') {
+      setActiveTab('dashboard');
+    }
+  }, [user, activeTab]);
 
 
   // Handle drawer Escape key dismissal and body scroll lock
@@ -123,8 +134,25 @@ export default function SuperAdminDashboard() {
   const [resellerCreditLimit, setResellerCreditLimit] = useState<number>(10000);
   const [resellerPaymentTerms, setResellerPaymentTerms] = useState<string>('net_30');
   const [resellerNotes, setResellerNotes] = useState<string>('');
+  const [resellerPassword, setResellerPassword] = useState<string>('');
+  const [showResellerPassword, setShowResellerPassword] = useState<boolean>(false);
   const [resellerFormError, setResellerFormError] = useState<string | null>(null);
   const [isSubmittingReseller, setIsSubmittingReseller] = useState<boolean>(false);
+
+  // Vendor Stall Modal State
+  const [isShopModalOpen, setIsShopModalOpen] = useState<boolean>(false);
+  const [shopName, setShopName] = useState<string>('');
+  const [shopStallNumber, setShopStallNumber] = useState<string>('');
+  const [shopOwnerName, setShopOwnerName] = useState<string>('');
+  const [shopEmail, setShopEmail] = useState<string>('');
+  const [shopPassword, setShopPassword] = useState<string>('');
+  const [showShopPassword, setShowShopPassword] = useState<boolean>(false);
+  const [shopPhone, setShopPhone] = useState<string>('');
+  const [shopTradeLicense, setShopTradeLicense] = useState<string>('');
+  const [shopMarketLocation, setShopMarketLocation] = useState<string>('Al Aweer Central Wholesale Market');
+  const [shopDescription, setShopDescription] = useState<string>('');
+  const [shopFormError, setShopFormError] = useState<string | null>(null);
+  const [isSubmittingShop, setIsSubmittingShop] = useState<boolean>(false);
 
   // Critical Action & Edit Confirmation Popup Modal State
   interface ConfirmationModalConfig {
@@ -367,12 +395,84 @@ export default function SuperAdminDashboard() {
     });
   };
 
+  // Vendor Stall Actions (Admin & Reseller)
+  const handleOpenAddShop = () => {
+    setShopName('');
+    setShopStallNumber('');
+    setShopOwnerName('');
+    setShopEmail('');
+    setShopPassword('');
+    setShowShopPassword(false);
+    setShopPhone('');
+    setShopTradeLicense('');
+    setShopMarketLocation('Al Aweer Central Wholesale Market');
+    setShopDescription('');
+    setShopFormError(null);
+    setIsShopModalOpen(true);
+  };
+
+  const handleSaveShop = async (e: FormEvent) => {
+    e.preventDefault();
+    setShopFormError(null);
+
+    if (!shopName.trim()) {
+      setShopFormError('Stall / Shop name is required.');
+      return;
+    }
+    if (!shopStallNumber.trim()) {
+      setShopFormError('Al Aweer stall number is required.');
+      return;
+    }
+    if (!shopOwnerName.trim()) {
+      setShopFormError('Vendor contact person name is required.');
+      return;
+    }
+    if (!shopEmail.trim() || !shopEmail.includes('@')) {
+      setShopFormError('Valid vendor corporate email is required.');
+      return;
+    }
+    if (!shopPassword.trim() || shopPassword.trim().length < 8) {
+      setShopFormError('Vendor portal login password is required and must be at least 8 characters long.');
+      return;
+    }
+    if (!shopPhone.trim()) {
+      setShopFormError('Contact phone number is required.');
+      return;
+    }
+
+    setIsSubmittingShop(true);
+    try {
+      const res = await createAdminShop({
+        name: shopName.trim(),
+        stallNumber: shopStallNumber.trim(),
+        ownerName: shopOwnerName.trim(),
+        email: shopEmail.trim(),
+        password: shopPassword.trim(),
+        phone: shopPhone.trim(),
+        tradeLicenseNumber: shopTradeLicense.trim() || undefined,
+        marketLocation: shopMarketLocation.trim() || undefined,
+        description: shopDescription.trim() || undefined
+      });
+
+      setShops((prev) => [res.shop, ...prev]);
+      showCatSuccess(`Vendor stall '${shopName.trim()}' and portal login credentials created successfully!`);
+      setIsShopModalOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to register vendor stall';
+      setShopFormError(msg);
+    } finally {
+      setIsSubmittingShop(false);
+    }
+  };
+
   // Reseller Actions
   const handleOpenAddReseller = () => {
     setEditingReseller(null);
     setResellerBusinessName('');
     setResellerContactPerson('');
     setResellerEmail('');
+    setResellerPassword('');
+    setShowResellerPassword(false);
     setResellerPhone('');
     setResellerTradeLicense('');
     setResellerTier('bronze');
@@ -388,6 +488,8 @@ export default function SuperAdminDashboard() {
     setResellerBusinessName(r.businessName);
     setResellerContactPerson(r.contactPerson);
     setResellerEmail(r.email);
+    setResellerPassword('');
+    setShowResellerPassword(false);
     setResellerPhone(r.phone);
     setResellerTradeLicense(r.tradeLicenseNumber || '');
     setResellerTier(r.tier);
@@ -407,6 +509,7 @@ export default function SuperAdminDashboard() {
           businessName: resellerBusinessName.trim(),
           contactPerson: resellerContactPerson.trim(),
           email: resellerEmail.trim(),
+          password: resellerPassword.trim() || undefined,
           phone: resellerPhone.trim(),
           tradeLicenseNumber: resellerTradeLicense.trim() || undefined,
           tier: resellerTier as any,
@@ -423,6 +526,7 @@ export default function SuperAdminDashboard() {
           businessName: resellerBusinessName.trim(),
           contactPerson: resellerContactPerson.trim(),
           email: resellerEmail.trim(),
+          password: resellerPassword.trim() || undefined,
           phone: resellerPhone.trim(),
           tradeLicenseNumber: resellerTradeLicense.trim() || undefined,
           tier: resellerTier as any,
@@ -458,6 +562,14 @@ export default function SuperAdminDashboard() {
       setResellerFormError('Valid corporate email address is required.');
       return;
     }
+    if (!editingReseller && (!resellerPassword.trim() || resellerPassword.trim().length < 8)) {
+      setResellerFormError('Portal login password is required and must be at least 8 characters long.');
+      return;
+    }
+    if (editingReseller && resellerPassword.trim() && resellerPassword.trim().length < 8) {
+      setResellerFormError('New password must be at least 8 characters long.');
+      return;
+    }
     if (!resellerPhone.trim()) {
       setResellerFormError('Phone number is required.');
       return;
@@ -468,7 +580,7 @@ export default function SuperAdminDashboard() {
         isOpen: true,
         title: 'Confirm Reseller Update',
         message: `Are you sure you want to update corporate profile for "${resellerBusinessName.trim()}"?`,
-        detail: `Credit Limit: Dhs ${resellerCreditLimit} | Tier: ${resellerTier.toUpperCase()} | Terms: ${resellerPaymentTerms.replace('_', ' ').toUpperCase()}`,
+        detail: `Credit Limit: Dhs ${resellerCreditLimit} | Tier: ${resellerTier.toUpperCase()} | Terms: ${resellerPaymentTerms.replace('_', ' ').toUpperCase()}${resellerPassword.trim() ? ' | Password will be updated' : ''}`,
         confirmLabel: 'Confirm & Save Changes',
         variant: 'primary',
         onConfirm: async () => {
@@ -1110,18 +1222,20 @@ export default function SuperAdminDashboard() {
                 <span className={styles.navBadge}>{categories.length}</span>
               </button>
 
-              <button
-                type="button"
-                id="tab-resellers"
-                onClick={() => handleNavSelect('resellers')}
-                className={`${styles.navItem} ${activeTab === 'resellers' ? styles.navItemActive : ''}`}
-              >
-                <div className={styles.navItemLeft}>
-                  <span>🤝</span>
-                  <span>Resellers</span>
-                </div>
-                <span className={styles.navBadge}>{metrics?.totalResellers ?? resellers.length}</span>
-              </button>
+              {user?.role !== 'reseller' && (
+                <button
+                  type="button"
+                  id="tab-resellers"
+                  onClick={() => handleNavSelect('resellers')}
+                  className={`${styles.navItem} ${activeTab === 'resellers' ? styles.navItemActive : ''}`}
+                >
+                  <div className={styles.navItemLeft}>
+                    <span>🤝</span>
+                    <span>Resellers</span>
+                  </div>
+                  <span className={styles.navBadge}>{metrics?.totalResellers ?? resellers.length}</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -2165,6 +2279,14 @@ export default function SuperAdminDashboard() {
                     Approve or revoke wholesale vendor stalls to control visibility in the marketplace.
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleOpenAddShop}
+                  className={styles.addCategoryBtn}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span>+</span> Register Vendor Stall
+                </button>
               </div>
               <div className={styles.tableWrapper}>
                 <table className={styles.table}>
@@ -3679,6 +3801,49 @@ export default function SuperAdminDashboard() {
                   </div>
                 </div>
 
+                {/* Direct Password Field for Reseller Portal */}
+                <div className={styles.formGroup}>
+                  <label htmlFor="reseller-password-input" className={styles.formLabel}>
+                    {editingReseller ? 'Update Reseller Login Password (Optional)' : 'Reseller Management Login Password *'}
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      id="reseller-password-input"
+                      type={showResellerPassword ? 'text' : 'password'}
+                      className={styles.formInput}
+                      placeholder={editingReseller ? 'Leave empty to keep existing password unchanged' : 'Min. 8 characters (e.g. ResellerAdmin2026!)'}
+                      value={resellerPassword}
+                      onChange={(e) => setResellerPassword(e.target.value)}
+                      required={!editingReseller}
+                      minLength={8}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResellerPassword(!showResellerPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: 12,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#10b981',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        padding: '4px 8px',
+                        borderRadius: 4
+                      }}
+                    >
+                      {showResellerPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: 4, display: 'block' }}>
+                    {editingReseller
+                      ? 'Leave blank to preserve current password. Changing will update their portal login credentials.'
+                      : 'The reseller will use this password together with the Corporate Email to log in at admin.barakahalrizquae.com.'}
+                  </span>
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className={styles.formGroup}>
                     <label htmlFor="reseller-tier-select" className={styles.formLabel}>
@@ -3761,6 +3926,218 @@ export default function SuperAdminDashboard() {
                   disabled={isSubmittingReseller}
                 >
                   {isSubmittingReseller ? 'Saving...' : editingReseller ? 'Update Reseller' : 'Register Reseller'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          VENDOR STALL REGISTRATION MODAL (Admin & Reseller)
+         ===================================================================== */}
+      {isShopModalOpen && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true">
+          <div className={styles.modalCard}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Register Wholesale Vendor Stall</h3>
+              <button
+                type="button"
+                onClick={() => setIsShopModalOpen(false)}
+                className={styles.modalCloseBtn}
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveShop}>
+              <div className={styles.modalBody}>
+                {shopFormError && (
+                  <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#fca5a5', padding: '8px 12px', borderRadius: 8, fontSize: '0.82rem' }}>
+                    {shopFormError}
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="shop-name-input" className={styles.formLabel}>
+                      Stall / Business Name *
+                    </label>
+                    <input
+                      id="shop-name-input"
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="e.g. Al Barakah Fresh Produce LLC"
+                      value={shopName}
+                      onChange={(e) => setShopName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="shop-stallnum-input" className={styles.formLabel}>
+                      Al Aweer Stall Number *
+                    </label>
+                    <input
+                      id="shop-stallnum-input"
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="e.g. Block C, Stall #18"
+                      value={shopStallNumber}
+                      onChange={(e) => setShopStallNumber(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="shop-owner-input" className={styles.formLabel}>
+                      Vendor Contact Person *
+                    </label>
+                    <input
+                      id="shop-owner-input"
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="e.g. Mohammed Al Hashmi"
+                      value={shopOwnerName}
+                      onChange={(e) => setShopOwnerName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="shop-phone-input" className={styles.formLabel}>
+                      Contact Phone *
+                    </label>
+                    <input
+                      id="shop-phone-input"
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="+971 50 987 6543"
+                      value={shopPhone}
+                      onChange={(e) => setShopPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="shop-email-input" className={styles.formLabel}>
+                      Vendor Portal Email *
+                    </label>
+                    <input
+                      id="shop-email-input"
+                      type="email"
+                      className={styles.formInput}
+                      placeholder="vendor@albarakahproduce.ae"
+                      value={shopEmail}
+                      onChange={(e) => setShopEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="shop-license-input" className={styles.formLabel}>
+                      UAE Trade License #
+                    </label>
+                    <input
+                      id="shop-license-input"
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="e.g. TL-DXB-98124"
+                      value={shopTradeLicense}
+                      onChange={(e) => setShopTradeLicense(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Direct Password Field for Vendor Registration */}
+                <div className={styles.formGroup}>
+                  <label htmlFor="shop-password-input" className={styles.formLabel}>
+                    Vendor Portal Login Password *
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      id="shop-password-input"
+                      type={showShopPassword ? 'text' : 'password'}
+                      className={styles.formInput}
+                      placeholder="Min. 8 characters (e.g. VendorSecret2026!)"
+                      value={shopPassword}
+                      onChange={(e) => setShopPassword(e.target.value)}
+                      required
+                      minLength={8}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowShopPassword(!showShopPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: 12,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#10b981',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        padding: '4px 8px',
+                        borderRadius: 4
+                      }}
+                    >
+                      {showShopPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: 4, display: 'block' }}>
+                    The vendor will use this password together with their email to log in at vendor.barakahalrizquae.com.
+                  </span>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="shop-location-input" className={styles.formLabel}>
+                    Market Location
+                  </label>
+                  <input
+                    id="shop-location-input"
+                    type="text"
+                    className={styles.formInput}
+                    value={shopMarketLocation}
+                    onChange={(e) => setShopMarketLocation(e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="shop-desc-input" className={styles.formLabel}>
+                    Stall Description / Notes (Optional)
+                  </label>
+                  <textarea
+                    id="shop-desc-input"
+                    className={styles.formTextarea}
+                    rows={2}
+                    placeholder="e.g. Direct citrus and imported apples wholesale vendor dock delivery."
+                    value={shopDescription}
+                    onChange={(e) => setShopDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.modalFooter}>
+                <button
+                  type="button"
+                  onClick={() => setIsShopModalOpen(false)}
+                  className={styles.formCancelBtn}
+                  disabled={isSubmittingShop}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.formSubmitBtn}
+                  disabled={isSubmittingShop}
+                >
+                  {isSubmittingShop ? 'Provisioning...' : 'Register Vendor Stall'}
                 </button>
               </div>
             </form>

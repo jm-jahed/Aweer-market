@@ -136,6 +136,30 @@ export interface AdminShopItem {
   createdAt: string;
 }
 
+export interface CreateAdminShopPayload {
+  name: string;
+  stallNumber: string;
+  ownerName: string;
+  email: string;
+  password: string;
+  phone: string;
+  tradeLicenseNumber?: string;
+  marketLocation?: string;
+  description?: string;
+}
+
+export async function createAdminShop(payload: CreateAdminShopPayload): Promise<{
+  statusCode: number;
+  message: string;
+  shop: AdminShopItem;
+  vendor: UserSummary;
+}> {
+  return await request<{ statusCode: number; message: string; shop: AdminShopItem; vendor: UserSummary }>('/admin/shops', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function getAdminShops(status?: 'approved' | 'pending'): Promise<{ statusCode: number; shops: AdminShopItem[] }> {
   const query = status ? `?status=${status}` : '';
   return await request<{ statusCode: number; shops: AdminShopItem[] }>(`/admin/shops${query}`, {
@@ -328,6 +352,7 @@ export interface CreateResellerPayload {
   businessName: string;
   contactPerson: string;
   email: string;
+  password?: string;
   phone: string;
   tradeLicenseNumber?: string;
   tier?: 'bronze' | 'silver' | 'gold' | 'platinum';
@@ -342,6 +367,7 @@ export interface UpdateResellerPayload {
   businessName?: string;
   contactPerson?: string;
   email?: string;
+  password?: string;
   phone?: string;
   tradeLicenseNumber?: string;
   tier?: 'bronze' | 'silver' | 'gold' | 'platinum';

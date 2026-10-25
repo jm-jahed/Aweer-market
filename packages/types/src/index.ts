@@ -7,6 +7,7 @@ export enum UserRole {
   BUYER = 'buyer',
   SHOP_ADMIN = 'shop_admin',
   SUPER_ADMIN = 'super_admin',
+  RESELLER = 'reseller',
   /**
    * @deprecated Retained for backward-compatibility with earlier Phase 1 drafts.
    * Consumers should migrate to UserRole.SHOP_ADMIN.
@@ -31,6 +32,13 @@ export function isShopAdminRole(role: UserRole | string): boolean {
  */
 export function isSuperAdminRole(role: UserRole | string): boolean {
   return role === UserRole.SUPER_ADMIN;
+}
+
+/**
+ * Type guard for administrative portal access (Super Admin & Reseller Sub-Admin)
+ */
+export function isAdministrativeRole(role: UserRole | string): boolean {
+  return role === UserRole.SUPER_ADMIN || role === UserRole.RESELLER;
 }
 
 export enum WholesaleUnit {
@@ -93,6 +101,7 @@ export interface UserSummary {
   shopId?: string;
   /** @deprecated Backward compatibility alias for shopId */
   vendorId?: string;
+  resellerId?: string;
   businessName?: string;
   isActive: boolean;
   isEmailVerified?: boolean;
@@ -109,6 +118,7 @@ export interface AuthSessionPayload {
   shopId?: string;
   /** @deprecated Backward compatibility alias for shopId */
   vendorId?: string;
+  resellerId?: string;
   isMfaVerified?: boolean;
   tokenVersion?: number;
   issuedAt?: number;

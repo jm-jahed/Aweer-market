@@ -6,6 +6,7 @@ export interface IShopDocument extends Document {
   slug: string;
   stallNumber: string;
   ownerId: string;
+  resellerId?: string;
   tradeLicenseNumber: string;
   phone: string;
   logoUrl?: string;
@@ -26,6 +27,8 @@ export interface ShopPublicSummary {
   name: string;
   slug: string;
   stallNumber: string;
+  ownerId?: string;
+  resellerId?: string;
   phone: string;
   logoUrl?: string;
   coverImageUrl?: string;
@@ -61,6 +64,12 @@ const ShopSchema = new Schema<IShopDocument>(
     ownerId: {
       type: String,
       required: [true, 'Owner ID is required'],
+      index: true
+    },
+    resellerId: {
+      type: String,
+      trim: true,
+      sparse: true,
       index: true
     },
     tradeLicenseNumber: {
@@ -101,6 +110,8 @@ ShopSchema.methods.toPublicSummary = function (): ShopPublicSummary {
     name: this.name,
     slug: this.slug,
     stallNumber: this.stallNumber,
+    ownerId: this.ownerId,
+    resellerId: this.resellerId || undefined,
     phone: this.phone,
     logoUrl: this.logoUrl || '',
     coverImageUrl: this.coverImageUrl || '',
@@ -127,6 +138,7 @@ export interface ShopRecord {
   slug: string;
   stallNumber: string;
   ownerId: string;
+  resellerId?: string;
   tradeLicenseNumber: string;
   phone: string;
   logoUrl?: string;
@@ -155,6 +167,8 @@ function createInMemoryShopRecord(data: Omit<ShopRecord, 'toPublicSummary'>): Sh
         name: this.name,
         slug: this.slug,
         stallNumber: this.stallNumber,
+        ownerId: this.ownerId,
+        resellerId: this.resellerId || undefined,
         phone: this.phone,
         logoUrl: this.logoUrl || '',
         coverImageUrl: this.coverImageUrl || '',
@@ -200,6 +214,7 @@ export interface CreateShopData {
   slug?: string;
   stallNumber: string;
   ownerId: string;
+  resellerId?: string;
   tradeLicenseNumber: string;
   phone: string;
   isApproved?: boolean;
@@ -215,6 +230,7 @@ export async function createShop(data: CreateShopData): Promise<IShopDocument | 
       slug,
       stallNumber: data.stallNumber.trim(),
       ownerId: data.ownerId,
+      resellerId: data.resellerId?.trim() || undefined,
       tradeLicenseNumber: data.tradeLicenseNumber.trim(),
       phone: data.phone.trim(),
       isApproved: data.isApproved ?? false,
@@ -240,6 +256,7 @@ export async function createShop(data: CreateShopData): Promise<IShopDocument | 
     slug,
     stallNumber: data.stallNumber.trim(),
     ownerId: data.ownerId,
+    resellerId: data.resellerId?.trim() || undefined,
     tradeLicenseNumber: data.tradeLicenseNumber.trim(),
     phone: data.phone.trim(),
     isApproved: data.isApproved ?? false,
@@ -377,10 +394,11 @@ export async function updateShop(id: string, updates: UpdateShopData): Promise<I
   return shop;
 }
 
-export async function listAllShops(filter?: { isApproved?: boolean }): Promise<Array<IShopDocument | ShopRecord>> {
+export async function listAllShops(filter?: { isApproved?: boolean; resellerId?: string }): Promise<Array<IShopDocument | ShopRecord>> {
   if (isDatabaseConnected()) {
     const q: Record<string, unknown> = {};
     if (filter?.isApproved !== undefined) q.isApproved = filter.isApproved;
+    if (filter?.resellerId !== undefined) q.resellerId = filter.resellerId;
     return await ShopModel.find(q).sort({ createdAt: -1 }).exec();
   }
 
@@ -392,15 +410,28 @@ export async function listAllShops(filter?: { isApproved?: boolean }): Promise<A
   if (filter?.isApproved !== undefined) {
     list = list.filter((s) => s.isApproved === filter.isApproved);
   }
+  if (filter?.resellerId !== undefined) {
+    list = list.filter((s) => s.resellerId === filter.resellerId);
+  }
   return list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-export async function countShops(): Promise<{ total: number; approved: number; pending: number }> {
+export async function countShops(filter?: { resellerId?: string }): Promise<{ total: number; approved: number; pending: number }> {
   if (isDatabaseConnected()) {
+    const qTotal: Record<string, unknown> = {};
+    const qApproved: Record<string, unknown> = { isApproved: true };
+    const qPending: Record<string, unknown> = { isApproved: false };
+
+    if (filter?.resellerId !== undefined) {
+      qTotal.resellerId = filter.resellerId;
+      qApproved.resellerId = filter.resellerId;
+      qPending.resellerId = filter.resellerId;
+    }
+
     const [total, approved, pending] = await Promise.all([
-      ShopModel.countDocuments(),
-      ShopModel.countDocuments({ isApproved: true }),
-      ShopModel.countDocuments({ isApproved: false })
+      ShopModel.countDocuments(qTotal),
+      ShopModel.countDocuments(qApproved),
+      ShopModel.countDocuments(qPending)
     ]);
     return { total, approved, pending };
   }
@@ -409,7 +440,10 @@ export async function countShops(): Promise<{ total: number; approved: number; p
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
-  const all = Array.from(inMemoryShopsById.values());
+  let all = Array.from(inMemoryShopsById.values());
+  if (filter?.resellerId !== undefined) {
+    all = all.filter((s) => s.resellerId === filter.resellerId);
+  }
   return {
     total: all.length,
     approved: all.filter((s) => s.isApproved).length,

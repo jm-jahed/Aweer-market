@@ -73,7 +73,7 @@ export function validateAllSecrets(config?: SecurityConfig): void {
 export function getSecretForRole(role?: UserRole | string, configOverride?: SecurityConfig): string {
   const baseSecret = validateSecret('JWT_SECRET', configOverride?.jwtSecret ?? process.env.JWT_SECRET);
 
-  if (role === UserRole.SUPER_ADMIN) {
+  if (role === UserRole.SUPER_ADMIN || role === UserRole.RESELLER) {
     const superSecret = configOverride !== undefined ? configOverride.superAdminJwtSecret : process.env.SUPER_ADMIN_JWT_SECRET;
     if (superSecret) {
       return validateSecret('SUPER_ADMIN_JWT_SECRET', superSecret);

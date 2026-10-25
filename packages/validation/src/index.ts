@@ -112,6 +112,23 @@ export const RegisterVendorSchema = z.object({
 }).strict();
 
 /**
+ * Admin / Reseller Vendor Stall Registration Schema.
+ * Allows Super Admin or Reseller to provision a wholesale stall and vendor login credentials.
+ */
+export const CreateShopByAdminSchema = z.object({
+  name: z.string({ required_error: 'Stall name is required' }).trim().min(2, 'Stall name must be at least 2 characters').max(100),
+  stallNumber: z.string({ required_error: 'Al Aweer stall number is required' }).trim().min(1, 'Stall number is required'),
+  ownerName: z.string({ required_error: 'Vendor contact person name is required' }).trim().min(2, 'Contact person name must be at least 2 characters'),
+  email: EmailSchema,
+  password: PasswordSchema,
+  phone: z.string({ required_error: 'Contact phone is required' }).trim().min(7, 'Phone number must be at least 7 digits'),
+  tradeLicenseNumber: z.string().trim().min(2).optional().default('TL-PENDING'),
+  marketLocation: z.string().trim().optional().default('Al Aweer Central Wholesale Market'),
+  description: z.string().trim().max(500).optional().default(''),
+  openingHours: z.string().trim().optional()
+}).strict();
+
+/**
  * Shop Admin Stall Profile Update Schema.
  * Vendors can update their shop contact details, but CANNOT self-approve (isApproved forbidden).
  */
@@ -228,6 +245,7 @@ export const CreateResellerSchema = z.object({
   businessName: z.string({ required_error: 'Business name is required' }).trim().min(2, 'Business name must be at least 2 characters').max(100),
   contactPerson: z.string({ required_error: 'Contact person is required' }).trim().min(2, 'Contact person must be at least 2 characters').max(60),
   email: EmailSchema,
+  password: PasswordSchema.optional(),
   phone: z.string({ required_error: 'Phone number is required' }).trim().min(7, 'Phone number must be at least 7 digits'),
   tradeLicenseNumber: z.string().trim().min(2).optional().default('TL-PENDING'),
   tier: z.enum(['bronze', 'silver', 'gold', 'platinum']).default('bronze'),
@@ -242,6 +260,7 @@ export const UpdateResellerSchema = z.object({
   businessName: z.string().trim().min(2).max(100).optional(),
   contactPerson: z.string().trim().min(2).max(60).optional(),
   email: EmailSchema.optional(),
+  password: PasswordSchema.optional(),
   phone: z.string().trim().min(7).optional(),
   tradeLicenseNumber: z.string().trim().min(2).optional(),
   tier: z.enum(['bronze', 'silver', 'gold', 'platinum']).optional(),
@@ -273,3 +292,4 @@ export type CreateCategoryInput = z.infer<typeof CreateCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof UpdateCategorySchema>;
 export type CreateResellerInput = z.infer<typeof CreateResellerSchema>;
 export type UpdateResellerInput = z.infer<typeof UpdateResellerSchema>;
+export type CreateShopByAdminInput = z.infer<typeof CreateShopByAdminSchema>;

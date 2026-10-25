@@ -611,4 +611,160 @@ describe('AweerMarket Super Admin — Reseller Persistence Safety & Integration 
     });
     assert.strictEqual(delRes.statusCode, 200);
   });
+
+  it('12. Reseller Admin Provisioning, Multi-Tenant Stall Governance, and Isolation', async () => {
+    setInMemoryResellerStoreAllowed(true);
+
+    // 1. Super Admin registers Reseller with a direct password
+    const resellerPayload = {
+      businessName: 'Apex Produce Wholesale LLC',
+      contactPerson: 'Apex Partner Admin',
+      email: 'partner@apexwholesale.ae',
+      password: 'ApexSecretPass2026!',
+      phone: '+971 50 111 2222',
+      tradeLicenseNumber: 'TL-APEX-001',
+      tier: 'gold',
+      creditLimitAed: 100000
+    };
+
+    const regRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/resellers',
+      headers: {
+        cookie: `aweer_session=${superAdminToken}`
+      },
+      payload: resellerPayload
+    });
+    assert.strictEqual(regRes.statusCode, 201);
+    const resellerData = JSON.parse(regRes.payload).reseller;
+
+    // 2. Reseller logs into the administration portal with their provisioned credentials
+    const loginRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/auth/super-admin/login',
+      payload: {
+        email: resellerPayload.email,
+        password: resellerPayload.password
+      }
+    });
+    assert.strictEqual(loginRes.statusCode, 200);
+    const loginBody = JSON.parse(loginRes.payload);
+    assert.strictEqual(loginBody.user.role, UserRole.RESELLER);
+    assert.strictEqual(loginBody.user.resellerId, resellerData.id);
+
+    // Extract reseller session cookie
+    const setCookie = loginRes.headers['set-cookie'];
+    assert.ok(setCookie);
+    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
+    const match = cookieHeader.match(/aweer_session=([^;]+)/);
+    assert.ok(match);
+    const resellerToken = match[1];
+
+    // 3. Security Restriction: Reseller CANNOT access /admin/resellers
+    const forbiddenRes = await server.inject({
+      method: 'GET',
+      url: '/api/v1/admin/resellers',
+      headers: {
+        cookie: `aweer_session=${resellerToken}`
+      }
+    });
+    assert.strictEqual(forbiddenRes.statusCode, 403);
+    assert.strictEqual(JSON.parse(forbiddenRes.payload).error, 'Forbidden');
+
+    // 4. Reseller CAN create a wholesale vendor stall with a password
+    const shopPayload = {
+      name: 'Al Aweer Berry Hub',
+      stallNumber: 'Stall D-42',
+      ownerName: 'Rashid Al Shamsi',
+      email: 'rashid@berryhub.ae',
+      password: 'BerryHubVendorPass2026!',
+      phone: '+971 50 333 4444',
+      tradeLicenseNumber: 'TL-DXB-BERRY-42'
+    };
+
+    const createShopRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/shops',
+      headers: {
+        cookie: `aweer_session=${resellerToken}`
+      },
+      payload: shopPayload
+    });
+    assert.strictEqual(createShopRes.statusCode, 201);
+    const createdShop = JSON.parse(createShopRes.payload).shop;
+    assert.strictEqual(createdShop.resellerId, resellerData.id);
+
+    // 5. Newly created vendor can immediately log into the vendor portal
+    const vendorLoginRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/auth/vendor/login',
+      payload: {
+        email: shopPayload.email,
+        password: shopPayload.password
+      }
+    });
+    assert.strictEqual(vendorLoginRes.statusCode, 200);
+    const vendorLoginBody = JSON.parse(vendorLoginRes.payload);
+    assert.strictEqual(vendorLoginBody.user.email, shopPayload.email);
+    assert.strictEqual(vendorLoginBody.shop.id, createdShop.id);
+
+    // 6. Reseller can manage their own stall
+    const patchApproveRes = await server.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/shops/${createdShop.id}/status`,
+      headers: {
+        cookie: `aweer_session=${resellerToken}`
+      },
+      payload: { isActive: false }
+    });
+    assert.strictEqual(patchApproveRes.statusCode, 200);
+    assert.strictEqual(JSON.parse(patchApproveRes.payload).shop.isActive, false);
+
+    // 7. Multi-Tenant Isolation: Another reseller cannot manage this stall
+    // Create second reseller
+    const regRes2 = await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/resellers',
+      headers: {
+        cookie: `aweer_session=${superAdminToken}`
+      },
+      payload: {
+        businessName: 'Rival Wholesale Trading LLC',
+        contactPerson: 'Rival Admin',
+        email: 'rival@rivaltrading.ae',
+        password: 'RivalSecurePass2026!',
+        phone: '+971 50 999 8888',
+        tradeLicenseNumber: 'TL-RIVAL-002'
+      }
+    });
+    assert.strictEqual(regRes2.statusCode, 201);
+
+    const loginRes2 = await server.inject({
+      method: 'POST',
+      url: '/api/v1/auth/super-admin/login',
+      payload: {
+        email: 'rival@rivaltrading.ae',
+        password: 'RivalSecurePass2026!'
+      }
+    });
+    const setCookie2 = loginRes2.headers['set-cookie'];
+    assert.ok(setCookie2);
+    const cookieHeader2 = Array.isArray(setCookie2) ? setCookie2[0] : setCookie2;
+    assert.ok(cookieHeader2);
+    const match2 = cookieHeader2.match(/aweer_session=([^;]+)/);
+    assert.ok(match2);
+    const rivalResellerToken = match2[1];
+
+    // Rival tries to modify Apex's stall -> MUST BE 403 FORBIDDEN
+    const rivalForbiddenPatch = await server.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/shops/${createdShop.id}/status`,
+      headers: {
+        cookie: `aweer_session=${rivalResellerToken}`
+      },
+      payload: { isActive: true }
+    });
+    assert.strictEqual(rivalForbiddenPatch.statusCode, 403);
+    assert.strictEqual(JSON.parse(rivalForbiddenPatch.payload).error, 'Forbidden');
+  });
 });
