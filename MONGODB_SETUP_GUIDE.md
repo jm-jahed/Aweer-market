@@ -87,13 +87,19 @@ NODE_ENV=production
 # Format: mongodb+srv://<db_user>:<db_password>@<cluster-endpoint>/aweermarket?retryWrites=true&w=majority
 MONGODB_URI=mongodb+srv://<db_user>:<db_password>@<cluster-endpoint>/aweermarket?retryWrites=true&w=majority
 
-# CORS Configuration
-CORS_ORIGINS=https://aweermarket.barakahalrizquae.com,https://api.aweermarket.barakahalrizquae.com
+# CORS Configuration (All active web portals)
+CORS_ORIGINS=https://barakahalrizquae.com,https://shop.barakahalrizquae.com,https://aweeradmin.barakahalrizquae.com,https://aweermarket.barakahalrizquae.com
 
 # JWT Authentication Secrets (Must be 32+ cryptographically random characters)
 JWT_SECRET=<32_char_cryptographically_secure_random_string>
 ADMIN_JWT_SECRET=<32_char_cryptographically_secure_random_string>
 SUPER_ADMIN_JWT_SECRET=<32_char_cryptographically_secure_random_string>
+
+# Super Admin Initial Seeding (Set true only if initial production seed is required)
+ENABLE_SUPER_ADMIN_SEED=false
+SUPER_ADMIN_EMAIL=superadmin@aweermarket.ae
+SUPER_ADMIN_PASSWORD=<strong_password_minimum_12_characters>
+SUPER_ADMIN_NAME="Aweer Market Super Admin"
 ```
 
 ---
@@ -105,4 +111,4 @@ Once the new cluster, IP allowlist, and user are provisioned, the following safe
 2. **Outbound TCP Check:** Confirm port 27017 on the cluster shards can be reached over TCP.
 3. **Isolated Test Script:** Run an isolated one-shot script on the VPS using Mongoose to verify authentication without affecting the live backend.
 4. **Controlled Switchover:** Update `/var/www/aweer-market/backend/.env` and restart only `aweermarket-api` via PM2.
-5. **Health Validation:** Verify `http://127.0.0.1:4000/health` and `https://api.aweermarket.barakahalrizquae.com/health` return HTTP 200 `{"status":"ok"}`.
+5. **Health Validation:** Verify `http://127.0.0.1:4000/api/v1/health` and `https://api.barakahalrizquae.com/api/v1/health` return HTTP 200 `{"status":"ok"}`.

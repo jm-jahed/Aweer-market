@@ -33,6 +33,42 @@ export default function SuperAdminDashboard() {
 
   // Active Navigation Tab
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
+
+  const handleNavSelect = useCallback((tab: string) => {
+    setActiveTab(tab);
+    setIsMobileDrawerOpen(false);
+  }, []);
+
+  // Handle drawer Escape key dismissal and body scroll lock
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileDrawerOpen) {
+        setIsMobileDrawerOpen(false);
+      }
+    };
+    if (isMobileDrawerOpen) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMobileDrawerOpen]);
+
+  // Automatically close mobile drawer when window is resized to desktop viewport
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 1024 && isMobileDrawerOpen) {
+        setIsMobileDrawerOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isMobileDrawerOpen]);
 
   // Search input state
   const [searchQuery, setSearchQuery] = useState('');
@@ -578,14 +614,36 @@ export default function SuperAdminDashboard() {
           TOP HEADER BAR (Matching Reference Image)
          ===================================================================== */}
       <header className={styles.topHeader}>
-        {/* Brand Logo */}
-        <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab('dashboard'); }} className={styles.headerBrand}>
-          <div className={styles.brandLogoWrap}>🌿</div>
-          <div className={styles.brandTextGroup}>
-            <span className={styles.brandTitle}>Aweer<span>market</span></span>
-            <span className={styles.brandSubtitle}>Fresh • Local • Together</span>
-          </div>
-        </a>
+        <div className={styles.headerLeftGroup}>
+          {/* Hamburger Menu Toggle (Mobile & Tablet) */}
+          <button
+            type="button"
+            className={styles.hamburgerBtn}
+            onClick={() => setIsMobileDrawerOpen((prev) => !prev)}
+            aria-label={isMobileDrawerOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={isMobileDrawerOpen}
+            id="super-admin-mobile-menu-btn"
+          >
+            <span className={styles.hamburgerIcon}>{isMobileDrawerOpen ? '✕' : '☰'}</span>
+          </button>
+
+          {/* Brand Logo */}
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavSelect('dashboard');
+            }}
+            className={styles.headerBrand}
+            aria-label="Aweermarket Central Super Admin Home"
+          >
+            <div className={styles.brandLogoWrap}>🌿</div>
+            <div className={styles.brandTextGroup}>
+              <span className={styles.brandTitle}>Aweer<span>market</span></span>
+              <span className={styles.brandSubtitle}>Central Administration</span>
+            </div>
+          </a>
+        </div>
 
         {/* Global Search Bar with Ctrl + K */}
         <div className={styles.headerSearchWrap}>
@@ -608,14 +666,24 @@ export default function SuperAdminDashboard() {
             <span style={{ fontSize: '0.65rem' }}>▼</span>
           </button>
 
-          <button type="button" className={styles.headerIconButton} title="Alerts & Notifications">
+          <button
+            type="button"
+            className={styles.headerIconButton}
+            title="Orders & Pending Actions"
+            onClick={() => handleNavSelect('orders')}
+          >
             <span>🔔</span>
-            <span className={styles.badgeCountRed}>12</span>
+            <span className={styles.badgeCountRed}>{metrics?.totalOrders || 12}</span>
           </button>
 
-          <button type="button" className={styles.headerIconButton} title="Messages & Inquiries">
-            <span>💬</span>
-            <span className={styles.badgeCountGreen}>3</span>
+          <button
+            type="button"
+            className={styles.headerIconButton}
+            title="Registered Vendors"
+            onClick={() => handleNavSelect('stalls')}
+          >
+            <span>🏪</span>
+            <span className={styles.badgeCountGreen}>{metrics?.totalShops || shops.length}</span>
           </button>
 
           <div className={styles.userProfilePill}>
@@ -638,12 +706,40 @@ export default function SuperAdminDashboard() {
         </div>
       </header>
 
+      {/* Mobile Drawer Backdrop */}
+      {isMobileDrawerOpen && (
+        <div
+          className={styles.drawerBackdrop}
+          onClick={() => setIsMobileDrawerOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* =====================================================================
           MAIN LAYOUT: Left Sidebar + Right Content Area
          ===================================================================== */}
       <div className={styles.layoutBody}>
         {/* LEFT SIDEBAR NAVIGATION */}
-        <aside className={styles.sidebar}>
+        <aside
+          className={`${styles.sidebar} ${isMobileDrawerOpen ? styles.sidebarOpen : ''}`}
+          aria-label="Super Admin Navigation"
+        >
+          {/* Mobile Drawer Top Header with Close Button */}
+          <div className={styles.mobileDrawerHeader}>
+            <div className={styles.mobileDrawerBrand}>
+              <span>🛡️</span>
+              <span>Super Admin Portal</span>
+            </div>
+            <button
+              type="button"
+              className={styles.mobileDrawerCloseBtn}
+              onClick={() => setIsMobileDrawerOpen(false)}
+              aria-label="Close navigation menu"
+            >
+              ✕
+            </button>
+          </div>
+
           <div>
             {/* Super Admin Mini Profile Card */}
             <div className={styles.sidebarCard}>
@@ -658,7 +754,7 @@ export default function SuperAdminDashboard() {
             <nav className={styles.navGroup}>
               <button
                 type="button"
-                onClick={() => setActiveTab('dashboard')}
+                onClick={() => handleNavSelect('dashboard')}
                 className={`${styles.navItem} ${activeTab === 'dashboard' ? styles.navItemActive : ''}`}
               >
                 <div className={styles.navItemLeft}>
@@ -669,7 +765,7 @@ export default function SuperAdminDashboard() {
 
               <button
                 type="button"
-                onClick={() => setActiveTab('stalls')}
+                onClick={() => handleNavSelect('stalls')}
                 className={`${styles.navItem} ${activeTab === 'stalls' ? styles.navItemActive : ''}`}
               >
                 <div className={styles.navItemLeft}>
@@ -681,7 +777,7 @@ export default function SuperAdminDashboard() {
 
               <button
                 type="button"
-                onClick={() => setActiveTab('products')}
+                onClick={() => handleNavSelect('products')}
                 className={`${styles.navItem} ${activeTab === 'products' ? styles.navItemActive : ''}`}
               >
                 <div className={styles.navItemLeft}>
@@ -693,7 +789,7 @@ export default function SuperAdminDashboard() {
 
               <button
                 type="button"
-                onClick={() => setActiveTab('orders')}
+                onClick={() => handleNavSelect('orders')}
                 className={`${styles.navItem} ${activeTab === 'orders' ? styles.navItemActive : ''}`}
               >
                 <div className={styles.navItemLeft}>
@@ -705,7 +801,7 @@ export default function SuperAdminDashboard() {
 
               <button
                 type="button"
-                onClick={() => setActiveTab('users')}
+                onClick={() => handleNavSelect('users')}
                 className={`${styles.navItem} ${activeTab === 'users' ? styles.navItemActive : ''}`}
               >
                 <div className={styles.navItemLeft}>
@@ -718,7 +814,7 @@ export default function SuperAdminDashboard() {
               <button
                 type="button"
                 id="tab-categories"
-                onClick={() => setActiveTab('categories')}
+                onClick={() => handleNavSelect('categories')}
                 className={`${styles.navItem} ${activeTab === 'categories' ? styles.navItemActive : ''}`}
               >
                 <div className={styles.navItemLeft}>
@@ -728,14 +824,14 @@ export default function SuperAdminDashboard() {
                 <span className={styles.navBadge}>{categories.length}</span>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>⭐</span>
-                  <span>Reviews & Ratings</span>
+                  <span>Reviews &amp; Ratings</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>💳</span>
                   <span>Payments</span>
@@ -743,81 +839,81 @@ export default function SuperAdminDashboard() {
                 <span className={styles.navBadge}>Dhs {metrics?.financials?.totalGmvAed != null ? metrics.financials.totalGmvAed.toFixed(0) : '0'}</span>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>📈</span>
-                  <span>Reports & Analytics</span>
+                  <span>Reports &amp; Analytics</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>📢</span>
-                  <span>Marketing & Promotions</span>
+                  <span>Marketing &amp; Promotions</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>📝</span>
                   <span>Content Management</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>📁</span>
-                  <span>Files & Media</span>
+                  <span>Files &amp; Media</span>
                 </div>
                 <span className={styles.navBadge}>562</span>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>⚙️</span>
                   <span>System Settings</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>💬</span>
-                  <span>Support & Tickets</span>
+                  <span>Support &amp; Tickets</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>📜</span>
-                  <span>Logs & Activity</span>
+                  <span>Logs &amp; Activity</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>📍</span>
                   <span>Location / Market Areas</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>✉️</span>
                   <span>Email Templates</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>🔔</span>
                   <span>Notification Templates</span>
                 </div>
               </button>
 
-              <button type="button" onClick={() => setActiveTab('dashboard')} className={styles.navItem}>
+              <button type="button" onClick={() => handleNavSelect('dashboard')} className={styles.navItem}>
                 <div className={styles.navItemLeft}>
                   <span>💾</span>
-                  <span>Backup & Restore</span>
+                  <span>Backup &amp; Restore</span>
                 </div>
               </button>
             </nav>
@@ -920,7 +1016,7 @@ export default function SuperAdminDashboard() {
                   <div className={styles.quickActionsList}>
                     <button
                       type="button"
-                      onClick={() => setActiveTab('stalls')}
+                      onClick={() => handleNavSelect('stalls')}
                       className={styles.actionPillBtn}
                     >
                       <span>🏪 Add Vendor</span>
@@ -928,7 +1024,7 @@ export default function SuperAdminDashboard() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setActiveTab('products')}
+                      onClick={() => handleNavSelect('products')}
                       className={styles.actionPillBtn}
                     >
                       <span>📦 Add Product</span>
@@ -944,7 +1040,7 @@ export default function SuperAdminDashboard() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setActiveTab('orders')}
+                      onClick={() => handleNavSelect('orders')}
                       className={styles.actionPillBtn}
                     >
                       <span>🛒 Manage Orders</span>
@@ -1290,88 +1386,92 @@ export default function SuperAdminDashboard() {
                 <div className={styles.dashCard}>
                   <div className={styles.dashCardHeader}>
                     <h3 className={styles.dashCardTitle}>Recent Orders</h3>
-                    <button type="button" onClick={() => setActiveTab('orders')} className={styles.viewAllLink}>
+                    <button type="button" onClick={() => handleNavSelect('orders')} className={styles.viewAllLink}>
                       View All →
                     </button>
                   </div>
 
-                  <table className={styles.miniTable}>
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Customer</th>
-                        <th>Items</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders.length > 0 ? (
-                        orders.slice(0, 5).map((o) => (
-                          <tr key={o.id}>
-                            <td>#{o.orderNumber || o.id.slice(0, 8)}</td>
-                            <td>{o.shopName || 'Wholesale Buyer'}</td>
-                            <td>{o.items?.length || 0}</td>
-                            <td>${(o.totalAmountAed ?? 0).toFixed(2)}</td>
-                            <td>
-                              <span className={`${styles.statusPill} ${styles.statusDelivered}`}>
-                                {o.status}
-                              </span>
-                            </td>
-                            <td>{new Date(o.createdAt).toLocaleDateString()}</td>
-                          </tr>
-                        ))
-                      ) : (
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.miniTable}>
+                      <thead>
                         <tr>
-                          <td colSpan={6} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
-                            No recent wholesale orders placed yet.
-                          </td>
+                          <th>#</th>
+                          <th>Customer</th>
+                          <th>Items</th>
+                          <th>Amount</th>
+                          <th>Status</th>
+                          <th>Date</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {orders.length > 0 ? (
+                          orders.slice(0, 5).map((o) => (
+                            <tr key={o.id}>
+                              <td>#{o.orderNumber || o.id.slice(0, 8)}</td>
+                              <td>{o.shopName || 'Wholesale Buyer'}</td>
+                              <td>{o.items?.length || 0}</td>
+                              <td>${(o.totalAmountAed ?? 0).toFixed(2)}</td>
+                              <td>
+                                <span className={`${styles.statusPill} ${styles.statusDelivered}`}>
+                                  {o.status}
+                                </span>
+                              </td>
+                              <td>{new Date(o.createdAt).toLocaleDateString()}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={6} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
+                              No recent wholesale orders placed yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 {/* 2. Top Vendors */}
                 <div className={styles.dashCard}>
                   <div className={styles.dashCardHeader}>
                     <h3 className={styles.dashCardTitle}>Top Vendors</h3>
-                    <button type="button" onClick={() => setActiveTab('stalls')} className={styles.viewAllLink}>
+                    <button type="button" onClick={() => handleNavSelect('stalls')} className={styles.viewAllLink}>
                       View All →
                     </button>
                   </div>
 
-                  <table className={styles.miniTable}>
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Vendor</th>
-                        <th>Products</th>
-                        <th>Sales</th>
-                        <th>Stall Number</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {topVendors.length > 0 ? (
-                        topVendors.map((v, idx) => (
-                          <tr key={v.id}>
-                            <td>{idx + 1}</td>
-                            <td>🏪 {v.name}</td>
-                            <td>{v.productCount}</td>
-                            <td>Dhs {v.sales.toFixed(0)}</td>
-                            <td>{v.stallNumber || '—'}</td>
-                          </tr>
-                        ))
-                      ) : (
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.miniTable}>
+                      <thead>
                         <tr>
-                          <td colSpan={5} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
-                            No vendor activity recorded yet.
-                          </td>
+                          <th>#</th>
+                          <th>Vendor</th>
+                          <th>Products</th>
+                          <th>Sales</th>
+                          <th>Stall Number</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {topVendors.length > 0 ? (
+                          topVendors.map((v, idx) => (
+                            <tr key={v.id}>
+                              <td>{idx + 1}</td>
+                              <td>🏪 {v.name}</td>
+                              <td>{v.productCount}</td>
+                              <td>Dhs {v.sales.toFixed(0)}</td>
+                              <td>{v.stallNumber || '—'}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={5} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
+                              No vendor activity recorded yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 {/* 3. Market Areas (Dubai) */}
@@ -1383,34 +1483,36 @@ export default function SuperAdminDashboard() {
                     </button>
                   </div>
 
-                  <table className={styles.miniTable}>
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Market Area / Block</th>
-                        <th>Vendors</th>
-                        <th>Products</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {marketBlocks.length > 0 ? (
-                        marketBlocks.map((b, idx) => (
-                          <tr key={b.area}>
-                            <td>{idx + 1}</td>
-                            <td>📍 {b.area}</td>
-                            <td>{b.vendorCount}</td>
-                            <td>{b.productCount}</td>
-                          </tr>
-                        ))
-                      ) : (
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.miniTable}>
+                      <thead>
                         <tr>
-                          <td colSpan={4} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
-                            No market blocks or stalls registered yet.
-                          </td>
+                          <th>#</th>
+                          <th>Market Area / Block</th>
+                          <th>Vendors</th>
+                          <th>Products</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {marketBlocks.length > 0 ? (
+                          marketBlocks.map((b, idx) => (
+                            <tr key={b.area}>
+                              <td>{idx + 1}</td>
+                              <td>📍 {b.area}</td>
+                              <td>{b.vendorCount}</td>
+                              <td>{b.productCount}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
+                              No market blocks or stalls registered yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 
@@ -1420,48 +1522,50 @@ export default function SuperAdminDashboard() {
                 <div className={styles.dashCard}>
                   <div className={styles.dashCardHeader}>
                     <h3 className={styles.dashCardTitle}>Latest Vendors</h3>
-                    <button type="button" onClick={() => setActiveTab('stalls')} className={styles.viewAllLink}>
+                    <button type="button" onClick={() => handleNavSelect('stalls')} className={styles.viewAllLink}>
                       View All →
                     </button>
                   </div>
 
-                  <table className={styles.miniTable}>
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Shop Name</th>
-                        <th>Owner</th>
-                        <th>Status</th>
-                        <th>Joined</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {shops.length > 0 ? (
-                        shops.slice(0, 5).map((s, idx) => {
-                          const ownerUser = users.find((u) => u.shopId === s.id);
-                          return (
-                            <tr key={s.id}>
-                              <td>#V{String(idx + 1).padStart(3, '0')}</td>
-                              <td>{s.name}</td>
-                              <td>{ownerUser?.fullName || 'Stall Owner'}</td>
-                              <td>
-                                <span className={`${styles.statusPill} ${s.isApproved ? styles.statusApproved : styles.statusPending}`}>
-                                  {s.isApproved ? 'Approved' : 'Pending'}
-                                </span>
-                              </td>
-                              <td>{new Date(s.createdAt).toLocaleDateString()}</td>
-                            </tr>
-                          );
-                        })
-                      ) : (
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.miniTable}>
+                      <thead>
                         <tr>
-                          <td colSpan={5} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
-                            No stalls registered on platform yet.
-                          </td>
+                          <th>#</th>
+                          <th>Shop Name</th>
+                          <th>Owner</th>
+                          <th>Status</th>
+                          <th>Joined</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {shops.length > 0 ? (
+                          shops.slice(0, 5).map((s, idx) => {
+                            const ownerUser = users.find((u) => u.shopId === s.id);
+                            return (
+                              <tr key={s.id}>
+                                <td>#V{String(idx + 1).padStart(3, '0')}</td>
+                                <td>{s.name}</td>
+                                <td>{ownerUser?.fullName || 'Stall Owner'}</td>
+                                <td>
+                                  <span className={`${styles.statusPill} ${s.isApproved ? styles.statusApproved : styles.statusPending}`}>
+                                    {s.isApproved ? 'Approved' : 'Pending'}
+                                  </span>
+                                </td>
+                                <td>{new Date(s.createdAt).toLocaleDateString()}</td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan={5} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
+                              No stalls registered on platform yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 {/* 2. Platform Activity */}
@@ -1498,34 +1602,36 @@ export default function SuperAdminDashboard() {
                     </button>
                   </div>
 
-                  <table className={styles.miniTable}>
-                    <thead>
-                      <tr>
-                        <th>File Name</th>
-                        <th>Type</th>
-                        <th>Size / Role</th>
-                        <th>Recorded</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {uploadedMediaFiles.length > 0 ? (
-                        uploadedMediaFiles.map((f, idx) => (
-                          <tr key={idx}>
-                            <td>{f.name}</td>
-                            <td>{f.type}</td>
-                            <td>{f.size}</td>
-                            <td>{f.uploaded}</td>
-                          </tr>
-                        ))
-                      ) : (
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.miniTable}>
+                      <thead>
                         <tr>
-                          <td colSpan={4} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
-                            No media documents or files uploaded yet.
-                          </td>
+                          <th>File Name</th>
+                          <th>Type</th>
+                          <th>Size / Role</th>
+                          <th>Recorded</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {uploadedMediaFiles.length > 0 ? (
+                          uploadedMediaFiles.map((f, idx) => (
+                            <tr key={idx}>
+                              <td>{f.name}</td>
+                              <td>{f.type}</td>
+                              <td>{f.size}</td>
+                              <td>{f.uploaded}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} style={{ textAlign: 'center', padding: '24px 12px', color: '#64748b' }}>
+                              No media documents or files uploaded yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </>

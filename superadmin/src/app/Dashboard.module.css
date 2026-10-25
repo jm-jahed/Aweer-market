@@ -25,6 +25,97 @@
   gap: 16px;
 }
 
+.headerLeftGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Hamburger Menu Toggle (Visible on <= 1024px) */
+.hamburgerBtn {
+  display: none;
+  background: #061e16;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #10b981;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.hamburgerBtn:hover {
+  background: #092e20;
+  border-color: #10b981;
+  color: #ffffff;
+}
+
+.hamburgerIcon {
+  line-height: 1;
+}
+
+/* Mobile Drawer Backdrop */
+.drawerBackdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(3px);
+  z-index: 190;
+  animation: drawerFadeIn 0.2s ease-out;
+}
+
+@keyframes drawerFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Mobile Drawer Internal Header */
+.mobileDrawerHeader {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 14px;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+  margin-bottom: 14px;
+}
+
+.mobileDrawerBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #ffffff;
+}
+
+.mobileDrawerCloseBtn {
+  background: #061e16;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #94a3b8;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mobileDrawerCloseBtn:hover {
+  background: #0b2f22;
+  color: #ffffff;
+}
+
 .headerBrand {
   display: flex;
   align-items: center;
@@ -778,6 +869,7 @@
 
 .miniTable {
   width: 100%;
+  min-width: 480px;
   border-collapse: collapse;
   font-size: 0.78rem;
 }
@@ -927,10 +1019,13 @@
 
 .tableWrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
 }
 
 .table {
   width: 100%;
+  min-width: 680px;
   border-collapse: collapse;
   font-size: 0.85rem;
 }
@@ -1153,8 +1248,9 @@
 }
 
 /* ==========================================================================
-   RESPONSIVE DESIGN (Tablets & Mobile)
+   RESPONSIVE DESIGN SYSTEM (Super Admin Drawer, Grids, and Tables)
    ========================================================================== */
+
 @media (max-width: 1280px) {
   .kpiGrid {
     grid-template-columns: repeat(3, 1fr);
@@ -1167,26 +1263,264 @@
   }
 }
 
-@media (max-width: 900px) {
+/* Tablet & Below: Slide-Out Mobile Drawer Navigation */
+@media (max-width: 1024px) {
+  .hamburgerBtn {
+    display: flex;
+  }
+
+  .mobileDrawerHeader {
+    display: flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 85vw;
+    height: 100vh;
+    z-index: 200;
+    background-color: #04110c;
+    border-right: 1px solid rgba(16, 185, 129, 0.25);
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: none;
+    overflow-y: auto;
+    padding: 16px 14px 40px;
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.85);
+  }
+
+  .mainContent {
+    padding: 16px 16px 36px;
+    max-width: 100%;
+  }
+
   .topBannerRow {
     grid-template-columns: 1fr;
   }
+
+  .headerSearchWrap {
+    max-width: 320px;
+  }
+}
+
+/* Mobile Landscape & Standard Phones (<= 768px) */
+@media (max-width: 768px) {
+  .topHeader {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .headerBrand {
+    min-width: auto;
+    gap: 8px;
+  }
+
+  .brandTitle {
+    font-size: 1.05rem;
+  }
+
+  .brandSubtitle {
+    font-size: 0.62rem;
+  }
+
+  .headerShortcutBadge {
+    display: none;
+  }
+
+  .headerSearchWrap {
+    display: none;
+  }
+
+  .langBtn {
+    display: none;
+  }
+
+  .userMeta {
+    display: none;
+  }
+
+  .userProfilePill {
+    padding-left: 6px;
+    gap: 6px;
+  }
+
   .kpiGrid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
-  .layoutBody {
+
+  .heroBanner {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 18px 16px;
   }
-  .sidebar {
+
+  .heroProduceImgWrap {
     width: 100%;
-    min-width: 100%;
-    border-right: none;
-    border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+    height: 130px;
   }
-  .navGroup {
-    flex-direction: row;
-    overflow-x: auto;
-    max-height: none;
+
+  .heroProduceImg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .tableHeaderBar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .tableHeaderBar > div {
+    width: 100%;
+  }
+
+  .addBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .viewAllLink {
+    align-self: flex-start;
+  }
+
+  .dashboardFooter {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+
+  .footerLinks {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .modalCard,
+  .confirmModalCard {
+    max-width: 95vw;
+    margin: 10px;
+  }
+
+  .modalBody {
+    padding: 14px 16px;
+  }
+
+  .modalFooter {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+}
+
+/* Compact Smartphones (<= 480px) */
+@media (max-width: 480px) {
+  .topHeader {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .brandLogoWrap {
+    width: 32px;
+    height: 32px;
+    font-size: 1.1rem;
+    border-radius: 8px;
+  }
+
+  .brandTitle {
+    font-size: 0.95rem;
+  }
+
+  .brandSubtitle {
+    font-size: 0.58rem;
+  }
+
+  .hamburgerBtn {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+    border-radius: 8px;
+  }
+
+  .headerIconButton {
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+  }
+
+  .userAvatar {
+    width: 30px;
+    height: 30px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+  }
+
+  .logoutBtn {
+    padding: 3px 6px;
+    font-size: 0.65rem;
+  }
+
+  .mainContent {
+    padding: 10px 8px 30px;
+    gap: 12px;
+  }
+
+  .kpiCard {
+    padding: 12px 10px;
+  }
+
+  .kpiValue {
+    font-size: 1.3rem;
+  }
+
+  .actionBtnGroup {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .actionBtn,
+  .actionBtnApprove,
+  .actionBtnRevoke,
+  .actionBtnEdit {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+  }
+
+  .table th,
+  .table td {
+    padding: 10px 12px;
+    font-size: 0.76rem;
+  }
+
+  .dashCard {
+    padding: 14px 12px;
+  }
+}
+
+/* Ultra Narrow Devices (<= 380px: 320px - 360px) */
+@media (max-width: 380px) {
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .brandSubtitle {
+    display: none;
+  }
+
+  .headerActions {
+    gap: 4px;
+  }
+
+  .userProfilePill {
+    padding-left: 2px;
+    border-left: none;
   }
 }
 

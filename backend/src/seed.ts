@@ -4,21 +4,99 @@ import { createShop } from './models/shop.model.js';
 import { createProduct } from './models/product.model.js';
 import { ProductCategory, WholesaleUnit } from '@aweermarket/types';
 
-export async function seedDemoData(): Promise<void> {
-  const existingAdmin = await findUserByEmail('superadmin@aweermarket.ae');
+export async function ensureDefaultSuperAdmin(): Promise<void> {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (isProduction) {
+    // In production, seeding is strictly opt-in and requires explicit, secure configuration
+    if (process.env.ENABLE_SUPER_ADMIN_SEED !== 'true') {
+      console.log('[Seed] Production super admin initialization is disabled (ENABLE_SUPER_ADMIN_SEED is not "true"). Skipping.');
+      return;
+    }
+
+    const email = process.env.SUPER_ADMIN_EMAIL?.toLowerCase().trim();
+    const password = process.env.SUPER_ADMIN_PASSWORD;
+    const name = process.env.SUPER_ADMIN_NAME?.trim();
+
+    if (!email || !email.includes('@')) {
+      console.warn('[Seed] Production super admin initialization skipped: SUPER_ADMIN_EMAIL is missing or invalid.');
+      return;
+    }
+
+    if (!password || password.length < 12) {
+      console.warn('[Seed] Production super admin initialization skipped: SUPER_ADMIN_PASSWORD must be at least 12 characters.');
+      return;
+    }
+
+    if (!name) {
+      console.warn('[Seed] Production super admin initialization skipped: SUPER_ADMIN_NAME is required.');
+      return;
+    }
+
+    // Check if account already exists (never overwrite existing admin)
+    const existing = await findUserByEmail(email);
+    if (existing) {
+      return;
+    }
+
+    const passwordHash = await hashPassword(password);
+    try {
+      await createSuperAdminUser({
+        email,
+        passwordHash,
+        fullName: name
+      });
+      console.log('[Seed] Production Super Admin initial account created successfully.');
+    } catch (err: unknown) {
+      // Handle only verified MongoDB duplicate-key races (code 11000)
+      if ((err as { code?: number })?.code === 11000) {
+        const recheck = await findUserByEmail(email);
+        if (recheck) {
+          return; // Race resolved: another worker created the expected account
+        }
+      }
+      throw err;
+    }
+    return;
+  }
+
+  // Development / Test workflow
+  const adminEmail = (process.env.SUPER_ADMIN_EMAIL || 'superadmin@aweermarket.ae').toLowerCase().trim();
+  const existingAdmin = await findUserByEmail(adminEmail);
   if (existingAdmin) {
+    return; // Already initialized; never overwrite existing account data
+  }
+
+  const adminPass = process.env.SUPER_ADMIN_PASSWORD || 'SuperAdmin123!';
+  const adminName = process.env.SUPER_ADMIN_NAME || 'Aweer Market Super Admin';
+  const passwordHash = await hashPassword(adminPass);
+
+  try {
+    await createSuperAdminUser({
+      email: adminEmail,
+      passwordHash,
+      fullName: adminName
+    });
+  } catch (err: unknown) {
+    if ((err as { code?: number })?.code === 11000) {
+      const recheck = await findUserByEmail(adminEmail);
+      if (recheck) {
+        return;
+      }
+    }
+    throw err;
+  }
+}
+
+export async function seedDemoData(): Promise<void> {
+  await ensureDefaultSuperAdmin();
+
+  const existingStallA = await findUserByEmail('vendor@alaweer.ae');
+  if (existingStallA) {
     return; // Already seeded
   }
 
   console.log('[Seed] Seeding initial AweerMarket wholesale marketplace data...');
-
-  // 1. Super Admin
-  const adminPass = await hashPassword('SuperAdmin123!');
-  await createSuperAdminUser({
-    email: 'superadmin@aweermarket.ae',
-    passwordHash: adminPass,
-    fullName: 'Aweer Market Super Admin'
-  });
 
   // 2. Verified Wholesale Stalls & Shop Admins
   const vendorPass = await hashPassword('Vendor123!');

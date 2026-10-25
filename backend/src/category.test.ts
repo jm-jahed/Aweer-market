@@ -21,7 +21,8 @@ import {
   resetInMemoryCategories,
   listAllCategories,
   findCategoryById,
-  setCategoryStatus
+  setCategoryStatus,
+  createCategory
 } from './models/category.model.js';
 
 describe('AweerMarket Step 1 — Category Initialization & Public Catalog Tests', () => {
@@ -103,6 +104,36 @@ describe('AweerMarket Step 1 — Category Initialization & Public Catalog Tests'
       const uniqueSlugs = new Set(slugs);
       assert.strictEqual(uniqueSlugs.size, 7, 'All category slugs must be unique');
     });
+
+    it('preserves existing custom categories without deletion or alteration when default categories are initialized', async () => {
+      clearInMemoryCategories();
+
+      // Pre-seed a custom category
+      await createCategory({
+        name: 'Medjool Dates',
+        slug: 'medjool_dates',
+        description: 'Fresh Al Qassim and local UAE dates',
+        icon: '🌴',
+        sortOrder: 50,
+        isActive: true
+      });
+
+      const before = await listAllCategories();
+      assert.strictEqual(before.length, 1);
+      assert.strictEqual(before[0].key, 'medjool_dates');
+
+      // Run default category initialization
+      await ensureDefaultCategories();
+
+      const after = await listAllCategories();
+      // Total should be 7 default categories + 1 custom category = 8
+      assert.strictEqual(after.length, 8);
+
+      const customFound = after.find((c) => c.key === 'medjool_dates');
+      assert.ok(customFound, 'Custom category must remain present after default category initialization');
+      assert.strictEqual(customFound.label, 'Medjool Dates');
+      assert.strictEqual(customFound.isActive, true);
+    });
   });
 
   describe('2. Public Active-Category Retrieval & Filtering', () => {
@@ -170,6 +201,29 @@ describe('AweerMarket Step 1 — Category Initialization & Public Catalog Tests'
       assert.ok(keys.includes('exotic_produce'));
       assert.ok(keys.includes('berries'));
       assert.ok(keys.includes('root_vegetables'));
+    });
+
+    it('is strictly read-only: listAllCategories() and GET /categories perform no database mutations when store is empty', async () => {
+      clearInMemoryCategories();
+
+      // Read from empty store
+      const before = await listAllCategories();
+      assert.strictEqual(before.length, 0);
+
+      // Issue GET /api/v1/categories
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/v1/categories'
+      });
+
+      assert.strictEqual(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.strictEqual(body.statusCode, 200);
+      assert.deepStrictEqual(body.categories, []);
+
+      // Verify no write mutation occurred
+      const after = await listAllCategories();
+      assert.strictEqual(after.length, 0, 'Category store must remain completely unmutated by read operations');
     });
   });
 });

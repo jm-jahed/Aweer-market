@@ -193,8 +193,8 @@ function createInMemoryCategoryRecord(data: Omit<CategoryRecord, 'toPublicItem'>
 }
 
 export function initDefaultInMemoryCategories(): void {
-  if (inMemoryCategoriesById.size === 0) {
-    for (const def of DEFAULT_CATEGORIES) {
+  for (const def of DEFAULT_CATEGORIES) {
+    if (!inMemoryCategoriesBySlug.has(def.slug)) {
       const id = `cat_${catIdCounter++}`;
       const rec = createInMemoryCategoryRecord({
         id,

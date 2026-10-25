@@ -96,6 +96,8 @@ export async function start() {
 
     if (connected) {
       await ensureDefaultCategories();
+      const { ensureDefaultSuperAdmin } = await import('./seed.js');
+      await ensureDefaultSuperAdmin();
     }
 
     if (process.env.ALLOW_IN_MEMORY_DB === 'true') {

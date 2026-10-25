@@ -31,7 +31,11 @@ export class ApiClientError extends Error {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const normalizedPath = cleanPath.startsWith('/api/v1')
+    ? cleanPath.substring('/api/v1'.length)
+    : cleanPath;
+  const url = `${baseUrl}${normalizedPath}`;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
