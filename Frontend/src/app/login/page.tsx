@@ -111,50 +111,15 @@ export default function LoginPage() {
             LEFT COLUMN: BRAND & BUYER LOGIN FORM
            =================================================================== */}
         <section className={styles.leftCol}>
-          {/* Mobile Top Navigation */}
-          <div className={styles.mobileTopNav}>
+          {/* Back Navigation Button */}
+          <div className={styles.backNavRow}>
             <Link href="/" className={styles.backBtn} aria-label="Back to Marketplace">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="19" y1="12" x2="5" y2="12"></line>
                 <polyline points="12 19 5 12 12 5"></polyline>
               </svg>
+              <span>Back to Marketplace</span>
             </Link>
-
-            <Link href="/" className={styles.brandHeader}>
-              <svg
-                className={styles.leafIcon}
-                width="38"
-                height="38"
-                viewBox="0 0 40 40"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path d="M8 28C6 20 12 10 24 6C24 18 16 26 8 28Z" fill="url(#buyerLeaf1)" />
-                <path d="M16 34C14 26 22 16 34 10C34 24 24 32 16 34Z" fill="url(#buyerLeaf2)" />
-                <path d="M6 34C14 28 20 22 30 14" stroke="#bbf7d0" strokeWidth="2" strokeLinecap="round" />
-                <defs>
-                  <linearGradient id="buyerLeaf1" x1="6" y1="6" x2="24" y2="28" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#4ade80" />
-                    <stop offset="1" stopColor="#15803d" />
-                  </linearGradient>
-                  <linearGradient id="buyerLeaf2" x1="14" y1="10" x2="34" y2="34" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#86efac" />
-                    <stop offset="1" stopColor="#22c55e" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className={styles.brandTitles}>
-                <span className={styles.brandLogoText}>Aweermarket</span>
-                <span className={styles.brandLogoSub}>FRESH • LOCAL • TOGETHER</span>
-              </div>
-            </Link>
-
-            <button type="button" className={styles.langSelector} aria-label="Change language">
-              <span>🌐</span>
-              <span>EN</span>
-              <span>▾</span>
-            </button>
           </div>
 
           {/* Form Card */}
@@ -319,14 +284,6 @@ export default function LoginPage() {
             RIGHT COLUMN: HERO IMAGERY & CALLIGRAPHY (Desktop)
            =================================================================== */}
         <section className={styles.rightCol} aria-hidden="true">
-          <div className={styles.topRightBar}>
-            <button type="button" className={styles.langSelector} aria-label="Change language">
-              <span>🌐</span>
-              <span>EN</span>
-              <span>▾</span>
-            </button>
-          </div>
-
           <div className={styles.heroGraphicArea}>
             <img
               src="/images/hero-basket.jpg"

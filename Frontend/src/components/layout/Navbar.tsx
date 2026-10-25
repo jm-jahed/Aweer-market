@@ -116,30 +116,58 @@ export function Navbar() {
         {/* Mobile Header Row (Visible <= 768px) */}
         <div className={styles.mobileOnly}>
           <div className={styles.mobileHeaderRow}>
-            <div className={styles.mobileLocation}>
-              <span>📍</span>
-              <span>Dubai Wholesale Market</span>
-            </div>
+            <Link href="/" className={styles.mobileBrandLink}>
+              <svg
+                className={styles.leafIcon}
+                width="34"
+                height="34"
+                viewBox="0 0 40 40"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M8 28C6 20 12 10 24 6C24 18 16 26 8 28Z" fill="url(#mobileLeaf1)" />
+                <path d="M16 34C14 26 22 16 34 10C34 24 24 32 16 34Z" fill="url(#mobileLeaf2)" />
+                <path d="M6 34C14 28 20 22 30 14" stroke="#bbf7d0" strokeWidth="2" strokeLinecap="round" />
+                <defs>
+                  <linearGradient id="mobileLeaf1" x1="6" y1="6" x2="24" y2="28" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#4ade80" />
+                    <stop offset="1" stopColor="#15803d" />
+                  </linearGradient>
+                  <linearGradient id="mobileLeaf2" x1="14" y1="10" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#86efac" />
+                    <stop offset="1" stopColor="#22c55e" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div className={styles.brandTitles}>
+                <span className={styles.brandLogoText}>
+                  Aweer<span className={styles.brandAccent}>market</span>
+                </span>
+                <span className={styles.brandTagline}>FRESH • LOCAL • TOGETHER</span>
+              </div>
+            </Link>
+
             <div className={styles.mobileHeaderActions}>
-              {user ? (
-                <Link href="/account" className={styles.mobileUserBtn} title={user.fullName} aria-label="Buyer Account">
-                  <span className={styles.mobileUserAvatar}>{user.fullName.charAt(0).toUpperCase()}</span>
-                </Link>
-              ) : (
-                <Link href="/login" className={styles.mobileAuthBtn} aria-label="Login or Sign Up" title="Sign In">
-                  <span>👤</span>
-                </Link>
-              )}
-              <Link href="/cart" className={styles.mobileCartBtn} id="mobile-nav-cart-btn" aria-label={`Wholesale Cart (${totalItemsCount} items)`}>
-                <span>🛒</span>
-                {totalItemsCount > 0 && <span className={styles.cartBadge}>{totalItemsCount}</span>}
+              <div className={styles.mobileLocationPill}>
+                <span style={{ color: '#ef4444', fontSize: '0.9rem' }}>📍</span>
+                <span>Dubai, UAE</span>
+                <span style={{ fontSize: '0.7rem', color: '#86efac' }}>▾</span>
+              </div>
+
+              <Link href="/cart" className={styles.mobileCartCircle} aria-label={`Wholesale Cart (${totalItemsCount} items)`}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="9" cy="21" r="1"></circle>
+                  <circle cx="20" cy="21" r="1"></circle>
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+                <span className={styles.mobileCartBadgeCount}>{totalItemsCount}</span>
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Brand / Logo */}
-        <Link href="/" className={styles.brandLink}>
+        {/* Brand / Logo (Desktop) */}
+        <Link href="/" className={`${styles.brandLink} ${styles.desktopOnly}`}>
           {/* Custom SVG Leaf Logo */}
           <svg
             className={styles.leafIcon}

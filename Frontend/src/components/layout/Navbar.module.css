@@ -551,15 +551,15 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
+    gap: 8px;
   }
 
-  .mobileLocation {
+  .mobileBrandLink {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: #ffffff;
+    gap: 8px;
+    text-decoration: none;
+    flex-shrink: 0;
   }
 
   .mobileHeaderActions {
@@ -568,61 +568,53 @@
     gap: 8px;
   }
 
-  .mobileCartBtn {
+  .mobileLocationPill {
     display: flex;
     align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #166534 0%, #15803d 100%);
-    border: 1px solid #22c55e;
-    color: #ffffff;
-    text-decoration: none;
-    font-size: 0.92rem;
-    padding: 5px 10px;
-    border-radius: 9999px;
-    position: relative;
-    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
-    transition: all 0.2s ease;
-  }
-
-  .mobileCartBtn:hover {
-    background: linear-gradient(135deg, #15803d 0%, #16a34a 100%);
-  }
-
-  .mobileAuthBtn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(34, 197, 94, 0.12);
+    gap: 5px;
+    background: #091e13;
     border: 1px solid rgba(34, 197, 94, 0.3);
-    color: #86efac;
-    text-decoration: none;
-    font-size: 0.95rem;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    transition: all 0.2s ease;
+    border-radius: 9999px;
+    padding: 6px 12px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    white-space: nowrap;
   }
 
-  .mobileUserBtn {
+  .mobileCartCircle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #092113;
+    border: 1.5px solid #22c55e;
+    color: #22c55e;
     display: flex;
     align-items: center;
     justify-content: center;
     text-decoration: none;
+    position: relative;
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.35);
+    flex-shrink: 0;
   }
 
-  .mobileUserAvatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
+  .mobileCartBadgeCount {
+    position: absolute;
+    top: -4px;
+    right: -4px;
     background: #22c55e;
-    color: #052e16;
+    color: #031c10;
+    font-size: 0.68rem;
     font-weight: 800;
-    font-size: 0.82rem;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid #052e16;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   }
 
   .brandLink {
