@@ -1,0 +1,567 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+/* =====================================================================
+   AweerMarket — Buyer Login Page Styles
+   State-of-the-art dark emerald aesthetic with glowing borders,
+   two-column desktop layout, mobile backdrop, and trust badges.
+   ===================================================================== */
+
+.container {
+  min-height: 100vh;
+  background-color: #021a12;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* =====================================================================
+   MAIN TWO-COLUMN WORKSPACE (Desktop)
+   ===================================================================== */
+.mainWorkspace {
+  flex: 1;
+  display: flex;
+  min-height: calc(100vh - 86px);
+  position: relative;
+}
+
+/* Left Column: Form & Brand Section */
+.leftCol {
+  width: 50%;
+  min-width: 460px;
+  max-width: 620px;
+  padding: 32px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  z-index: 10;
+  box-sizing: border-box;
+}
+
+/* Brand Logo (Top Left) */
+.brandHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  text-decoration: none;
+}
+
+.leafIcon {
+  width: 44px;
+  height: 44px;
+  filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.4));
+}
+
+.brandTitles {
+  display: flex;
+  flex-direction: column;
+}
+
+.brandLogoText {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.brandLogoSub {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #22c55e;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+/* Form Card */
+.card {
+  width: 100%;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(3, 27, 18, 0.90) 0%, rgba(2, 18, 12, 0.95) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 20px;
+  padding: 32px 28px;
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.75), 0 0 35px rgba(34, 197, 94, 0.12);
+  backdrop-filter: blur(14px);
+}
+
+/* Card Header */
+.cardHeader {
+  margin-bottom: 22px;
+}
+
+.badgeWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #4ade80;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.cardTitle {
+  font-size: 1.95rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.02em;
+}
+
+.greenAccent {
+  color: #22c55e;
+}
+
+.cardSubtitle {
+  font-size: 0.92rem;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Banners */
+.bannerError {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+
+.bannerSuccess {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid #22c55e;
+  color: #86efac;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+
+/* Form Fields */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.inputGroup {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 14px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(2, 20, 14, 0.85);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 10px;
+  padding: 13px 44px 13px 42px;
+  font-size: 0.95rem;
+  color: #ffffff;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.input::placeholder {
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.input:focus {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.22);
+  background: rgba(2, 24, 17, 0.98);
+}
+
+.inputError {
+  border-color: #ef4444;
+}
+
+.inputErrorText {
+  font-size: 0.78rem;
+  color: #f87171;
+  margin-top: 2px;
+}
+
+.togglePassBtn {
+  position: absolute;
+  right: 14px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.togglePassBtn:hover {
+  color: #94a3b8;
+}
+
+/* Submit Button */
+.signInBtn {
+  margin-top: 6px;
+  width: 100%;
+  background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.45);
+}
+
+.signInBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #16a34a 0%, #059669 100%);
+  box-shadow: 0 6px 24px rgba(34, 197, 94, 0.6);
+  transform: translateY(-1px);
+}
+
+.signInBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Card Divider */
+.cardDivider {
+  width: 100%;
+  height: 1px;
+  background: rgba(34, 197, 94, 0.2);
+  margin-top: 22px;
+}
+
+/* Footer inside Left Column */
+.cardFooter {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: #94a3b8;
+}
+
+.registerLink {
+  color: #22c55e;
+  font-weight: 700;
+  text-decoration: none;
+  margin-left: 6px;
+  transition: color 0.15s ease;
+}
+
+.registerLink:hover {
+  color: #4ade80;
+  text-decoration: underline;
+}
+
+.homeLink {
+  color: #64748b;
+  font-size: 0.82rem;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.homeLink:hover {
+  color: #94a3b8;
+  text-decoration: underline;
+}
+
+/* =====================================================================
+   RIGHT COLUMN: HERO & VISUAL (Desktop)
+   ===================================================================== */
+.rightCol {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.topRightBar {
+  position: absolute;
+  top: 28px;
+  right: 40px;
+  z-index: 20;
+}
+
+.langSelector {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(3, 27, 18, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.langSelector:hover {
+  background: rgba(3, 27, 18, 0.9);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.heroGraphicArea {
+  flex: 1;
+  position: relative;
+  background: radial-gradient(circle at 75% 45%, rgba(34, 197, 94, 0.08) 0%, transparent 60%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heroBasketImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: contrast(1.08) brightness(0.92);
+  mask-image: radial-gradient(circle at 60% 50%, black 60%, transparent 95%);
+  -webkit-mask-image: radial-gradient(circle at 60% 50%, black 60%, transparent 95%);
+}
+
+.calligraphyArea {
+  position: absolute;
+  top: 90px;
+  right: 50px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+  transform: rotate(-6deg);
+}
+
+.calligraphyWhite {
+  font-family: 'Caveat', cursive;
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.8);
+}
+
+.calligraphyGreen {
+  font-family: 'Caveat', cursive;
+  font-size: 3.2rem;
+  font-weight: 700;
+  color: #22c55e;
+  line-height: 1.1;
+  text-shadow: 0 4px 20px rgba(34, 197, 94, 0.4), 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+/* =====================================================================
+   BOTTOM TRUST BAR (Desktop)
+   ===================================================================== */
+.bottomBar {
+  background: #01140e;
+  border-top: 1px solid rgba(34, 197, 94, 0.15);
+  padding: 18px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  z-index: 20;
+}
+
+.featureList {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+}
+
+.featureItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.featureIconBadge {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4ade80;
+  font-size: 1.1rem;
+}
+
+.featureTextCol {
+  display: flex;
+  flex-direction: column;
+}
+
+.featureTitle {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.featureDesc {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.bottomBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bottomBrandText {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.bottomBrandSub {
+  font-size: 0.55rem;
+  font-weight: 800;
+  color: #22c55e;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* =====================================================================
+   MOBILE LAYOUT (<= 900px) — Pixel-perfect to Mobile Screenshot
+   ===================================================================== */
+@media (max-width: 900px) {
+  .container {
+    background: linear-gradient(180deg, rgba(2, 26, 18, 0.88) 0%, rgba(2, 26, 18, 0.72) 40%, rgba(2, 26, 18, 0.72) 60%, rgba(2, 26, 18, 0.92) 100%),
+                url('/images/hero-basket.jpg') center/cover no-repeat;
+    min-height: 100vh;
+  }
+
+  .mainWorkspace {
+    flex-direction: column;
+    min-height: 100vh;
+    padding-bottom: 24px;
+  }
+
+  .leftCol {
+    width: 100%;
+    min-width: unset;
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 18px 16px 20px 16px;
+    justify-content: flex-start;
+  }
+
+  .mobileTopNav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .backBtn {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 1.3rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    text-decoration: none;
+  }
+
+  .topRightBar {
+    position: static;
+  }
+
+  .card {
+    padding: 26px 20px 22px 20px;
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(3, 27, 18, 0.94) 0%, rgba(2, 20, 13, 0.98) 100%);
+    border: 1.5px solid rgba(34, 197, 94, 0.42);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 35px rgba(34, 197, 94, 0.16);
+    backdrop-filter: blur(16px);
+  }
+
+  .rightCol {
+    display: none;
+  }
+
+  .bottomBar {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .leftCol {
+    padding: 14px 12px 16px 12px;
+  }
+
+  .card {
+    padding: 22px 16px;
+  }
+
+  .brandLogoText {
+    font-size: 1.4rem;
+  }
+
+  .leafIcon {
+    width: 36px;
+    height: 36px;
+  }
+}
