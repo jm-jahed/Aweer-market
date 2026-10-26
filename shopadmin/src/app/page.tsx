@@ -3109,47 +3109,6 @@ export default function ShopAdminDashboard() {
                       onChange={handleImageFileChange}
                     />
 
-                    {/* Quick Produce Image Presets (1-Tap Select & Auto-Fill) */}
-                    <div className={styles.presetPickerContainer}>
-                      <div className={styles.presetPickerHeader}>
-                        <span className={styles.presetPickerLabel}>⚡ Quick Catalog Presets (1-Tap):</span>
-                        <span className={styles.presetPickerHint}>Auto-sets photo &amp; name</span>
-                      </div>
-                      <div className={styles.presetPillsRow}>
-                        {PRODUCE_IMAGE_PRESETS.map((img) => {
-                          const isSelected = prodImageUrl === img.src;
-                          return (
-                            <button
-                              key={img.src}
-                              type="button"
-                              className={`${styles.presetPill} ${isSelected ? styles.presetPillActive : ''}`}
-                              onClick={() => {
-                                if (draftUploadedKey) {
-                                  safeCleanupDraftImage(draftUploadedKey);
-                                  setDraftUploadedKey(null);
-                                }
-                                setProdImageUrl(img.src);
-                                setUploadPreviewUrl(null);
-                                setAddModalError(null);
-                                if (!prodName.trim()) {
-                                  setProdName(img.label);
-                                }
-                                if (img.category) {
-                                  setProdCategory(img.category);
-                                }
-                              }}
-                              disabled={isUploadingImage}
-                              title={`Select ${img.label}`}
-                            >
-                              <img src={img.src} alt={img.label} className={styles.presetPillImg} />
-                              <span className={styles.presetPillText}>{img.label}</span>
-                              {isSelected && <span className={styles.presetCheck}>✓</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
                     {/* Selected Image Preview or Compact Upload Dropzone */}
                     {(uploadPreviewUrl || prodImageUrl) ? (
                       <div className={styles.imagePreviewWrap}>
