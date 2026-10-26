@@ -38,6 +38,45 @@ const PRODUCE_IMAGE_PRESETS = [
 // Configured marketplace platform commission rate (e.g. 5% standard wholesale rate)
 const MARKETPLACE_COMMISSION_RATE = 0.05;
 
+/**
+ * Intelligently extracts a short stall code (e.g., "M02", "ST-15", "A15")
+ * avoiding full addresses or redundant prefixes in badges and KPI cards.
+ */
+function getStallShortCode(stall?: string): string {
+  if (!stall) return '—';
+  const trimmed = stall.trim();
+  const firstPart = trimmed.split(',')[0].trim();
+  const cleaned = firstPart
+    .replace(/^(stall|unit|shop|no\.?|stall\s*no\.?)\s*#?\s*/i, '')
+    .trim();
+  return cleaned || firstPart;
+}
+
+/**
+ * Cleanly formats a stall badge for headers, sidebars, and invoices without repeating "Stall #Stall"
+ */
+function formatStallBadge(stall?: string): string {
+  if (!stall) return 'Al Aweer Market';
+  const trimmed = stall.trim();
+  const parts = trimmed.split(',').map((p) => p.trim()).filter(Boolean);
+  const first = parts[0] || '';
+  const second = parts[1] || '';
+
+  let label = first;
+  if (!/^(stall|unit|#)/i.test(first)) {
+    label = `Stall #${first}`;
+  } else if (!/^stall/i.test(first) && /^no\./i.test(first)) {
+    label = `Stall ${first}`;
+  }
+
+  if (second && /building|bldg/i.test(second) && parts.length > 2) {
+    const bldgShort = second.replace(/building\s*no\.?/i, 'Bldg').trim();
+    return `${label} (${bldgShort})`;
+  }
+
+  return label;
+}
+
 export default function ShopAdminDashboard() {
   const router = useRouter();
   const { user, shop, isLoading: authLoading, logout, refreshShop } = useShopAdminAuth();
@@ -510,7 +549,8 @@ export default function ShopAdminDashboard() {
     const lineTotal = piItemQuantity * piItemUnitPrice;
     const vat = lineTotal * 0.05;
     const grandTotal = lineTotal + vat;
-    const invNumber = `STALL-${shop?.stallNumber || '15'}-${Date.now().toString().slice(-6)}`;
+    const cleanStall = getStallShortCode(shop?.stallNumber).replace(/[^a-zA-Z0-9]/g, '') || '15';
+    const invNumber = `STALL-${cleanStall}-${Date.now().toString().slice(-6)}`;
 
     const newInvoice: PersonalInvoice = {
       id: `pi-${Date.now()}`,
@@ -1034,8 +1074,8 @@ export default function ShopAdminDashboard() {
                 <div className={styles.sidebarCardTitle}>
                   {shop?.name || user?.businessName || 'Wholesale Stall'}
                 </div>
-                <div className={styles.sidebarCardSub}>
-                  {shop?.stallNumber ? `Stall #${shop.stallNumber}` : 'Al Aweer Market'}
+                <div className={styles.sidebarCardSub} title={shop?.stallNumber || 'Al Aweer Market'}>
+                  {formatStallBadge(shop?.stallNumber)}
                 </div>
               </div>
             </div>
@@ -1251,12 +1291,19 @@ export default function ShopAdminDashboard() {
                     <h1 className={styles.heroTitle}>
                       {shop?.name || user?.businessName || 'Your Wholesale Stall'}
                     </h1>
-                    <p className={styles.heroSubtitle}>
-                      Stall #{shop?.stallNumber || '—'} • Real-time wholesale orders, produce inventory &amp; Dhs settlements.
-                    </p>
-                    <div style={{ marginTop: 4 }}>
+                    <div className={styles.heroMetaLine}>
+                      <span className={styles.heroStallPill}>
+                        📍 {formatStallBadge(shop?.stallNumber)}
+                      </span>
+                      <span className={styles.heroDivider}>•</span>
+                      <span className={styles.heroTagline}>
+                        Real-time wholesale orders, produce inventory &amp; Dhs settlements.
+                      </span>
+                    </div>
+                    <div style={{ marginTop: 6 }}>
                       {isApproved ? (
                         <span className={`${styles.statusPill} ${styles.statusActive}`}>
+                          <span className={styles.livePulseDot} />
                           ✓ Approved — Live on Al Aweer Marketplace
                         </span>
                       ) : (
@@ -1401,16 +1448,18 @@ export default function ShopAdminDashboard() {
                   </div>
                 </div>
 
-                {/* 5. Stall Location & Market Status */}
+                {/* 5. Assigned Stall & Market Location */}
                 <div className={styles.kpiCard}>
                   <div className={styles.kpiTopRow}>
                     <div className={styles.kpiAvatarWrap}>📍</div>
-                    <span className={styles.kpiDeltaBadge}>Stall</span>
+                    <span className={styles.kpiDeltaBadge}>Terminal</span>
                   </div>
-                  <div className={styles.kpiTitle}>Market Location</div>
-                  <div className={styles.kpiValue}>#{shop?.stallNumber || '—'}</div>
+                  <div className={styles.kpiTitle}>Assigned Stall</div>
+                  <div className={styles.kpiValue} title={shop?.stallNumber || 'Wholesale Stall'}>
+                    {getStallShortCode(shop?.stallNumber)}
+                  </div>
                   <div className={styles.kpiSubtext}>
-                    Al Aweer Central Fruits &amp; Veg Market
+                    {shop?.marketLocation ? 'Al Aweer Central Fruits & Veg' : 'Al Aweer Central Wholesale Terminal'}
                   </div>
                 </div>
               </div>
@@ -2063,7 +2112,7 @@ export default function ShopAdminDashboard() {
                             🌿 {shop?.name || user?.businessName || 'Al Aweer Wholesale Produce'}
                           </div>
                           <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: 4 }}>
-                            {shop?.stallNumber ? `Stall #${shop.stallNumber}` : 'Wholesale Produce Stall'} • Al Aweer Central Fruits &amp; Vegetables Market, Dubai
+                            {formatStallBadge(shop?.stallNumber)} • Al Aweer Central Fruits &amp; Vegetables Market, Dubai
                           </div>
                           <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
                             Tel: {shop?.phone || 'Contact Stall Operations'} | TRN: {shop?.tradeLicenseNumber || 'Registered Wholesale Stall'}
@@ -2183,7 +2232,7 @@ export default function ShopAdminDashboard() {
                             🏪 {shop?.name || user?.businessName || 'Al Aweer Vendor Stall'}
                           </div>
                           <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: 4 }}>
-                            {shop?.stallNumber ? `Stall #${shop.stallNumber}` : 'Wholesale Stall'} • Direct Wholesale Sales Invoice
+                            {formatStallBadge(shop?.stallNumber)} • Direct Wholesale Sales Invoice
                           </div>
                           <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
                             Tel: {shop?.phone || 'Contact Stall Operations'} | TRN: {shop?.tradeLicenseNumber || 'Registered Wholesale Stall'}
@@ -2543,7 +2592,7 @@ export default function ShopAdminDashboard() {
                 <h4 style={{ margin: '0 0 10px', color: '#ffffff', fontSize: '0.9rem' }}>Wholesale Settlement Account Information</h4>
                 <div style={{ fontSize: '0.85rem', color: '#cbd5e1', lineHeight: 1.6 }}>
                   <div>Settlement Beneficiary: <strong>{shop?.name || user?.businessName || 'Verified Vendor Stall'}</strong></div>
-                  <div>Assigned Stall: <strong>{shop?.stallNumber ? `Stall #${shop.stallNumber}` : 'Al Aweer Central Fruits & Vegetables Market'}</strong></div>
+                  <div>Assigned Stall: <strong>{formatStallBadge(shop?.stallNumber)}</strong></div>
                   <div>Trade License / TRN: <strong>{shop?.tradeLicenseNumber || 'Verified Wholesale Business'}</strong></div>
                   <div>Clearing Mechanism: <strong>Direct Bank Settlement via UAE Central Bank WPS / Clearinghouse</strong></div>
                   <div>Settlement Schedule: <strong>Automated weekly clearing on verified delivered orders</strong></div>

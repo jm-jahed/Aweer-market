@@ -399,13 +399,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 140px;
+  max-width: 145px;
 }
 
 .sidebarCardSub {
-  font-size: 0.7rem;
-  color: #10b981;
-  font-weight: 600;
+  font-size: 0.72rem;
+  color: #34d399;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 145px;
+  display: block;
 }
 
 .navGroup {
@@ -501,14 +506,14 @@
 }
 
 .heroBanner {
-  background: linear-gradient(135deg, #07261d 0%, #03140e 100%);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: linear-gradient(135deg, rgba(7, 38, 29, 0.95) 0%, rgba(4, 26, 19, 0.98) 50%, rgba(2, 12, 9, 0.99) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.28);
   border-radius: 16px;
   padding: 24px 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   position: relative;
   overflow: hidden;
 }
@@ -532,11 +537,53 @@
 }
 
 .heroTitle {
-  font-size: 1.55rem;
+  font-size: 1.6rem;
   font-weight: 800;
   color: #ffffff;
   margin: 0;
   line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.heroMetaLine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 4px 0;
+}
+
+.heroStallPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.heroDivider {
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+.heroTagline {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.livePulseDot {
+  width: 7px;
+  height: 7px;
+  background: #10b981;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 10px #10b981;
+  margin-right: 6px;
 }
 
 .heroSubtitle {
@@ -547,22 +594,28 @@
 }
 
 .heroProduceImgWrap {
-  width: 200px;
-  height: 120px;
+  width: 210px;
+  height: 125px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
 
 .heroProduceImg {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 12px;
-  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.6));
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  transition: transform 0.4s ease;
+}
+
+.heroProduceImgWrap:hover .heroProduceImg {
+  transform: scale(1.05);
 }
 
 /* Quick Actions Card */
@@ -646,22 +699,25 @@
 }
 
 .kpiCard {
-  background: #061912;
+  background: linear-gradient(180deg, rgba(6, 25, 18, 0.95) 0%, rgba(3, 14, 10, 0.98) 100%);
   border: 1px solid rgba(16, 185, 129, 0.18);
   border-radius: 14px;
-  padding: 16px;
+  padding: 18px 16px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 8px;
-  transition: all 0.2s ease;
+  min-height: 142px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
 }
 
 .kpiCard:hover {
-  border-color: rgba(16, 185, 129, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-color: rgba(16, 185, 129, 0.45);
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px -6px rgba(0, 0, 0, 0.55), 0 0 20px -4px rgba(16, 185, 129, 0.2);
 }
 
 .kpiTopRow {
@@ -674,7 +730,8 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: #0a2d20;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -685,9 +742,10 @@
   font-size: 0.7rem;
   font-weight: 800;
   color: #10b981;
-  background: rgba(16, 185, 129, 0.12);
-  padding: 2px 6px;
-  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  padding: 2px 7px;
+  border-radius: 6px;
 }
 
 .kpiTitle {
@@ -695,7 +753,7 @@
   font-weight: 700;
   color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .kpiValue {
@@ -703,12 +761,18 @@
   font-weight: 800;
   color: #ffffff;
   letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kpiSubtext {
   font-size: 0.72rem;
   color: #64748b;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ==========================================================================
