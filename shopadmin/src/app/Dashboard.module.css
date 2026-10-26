@@ -1132,16 +1132,24 @@
   border: 1px solid rgba(16, 185, 129, 0.32);
   border-radius: 18px;
   width: 100%;
-  max-width: 580px;
+  max-width: 560px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   overflow: hidden;
-  max-height: calc(100dvh - 32px);
+  max-height: min(700px, calc(100dvh - 32px));
   display: flex;
   flex-direction: column;
 }
 
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .modalHeader {
-  padding: 20px 24px;
+  padding: 14px 20px;
   background: linear-gradient(180deg, rgba(10, 42, 30, 0.7) 0%, transparent 100%);
   border-bottom: 1px solid rgba(16, 185, 129, 0.2);
   display: flex;
@@ -1151,7 +1159,7 @@
 }
 
 .modalTitle {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: #ffffff;
   margin: 0;
@@ -1159,25 +1167,26 @@
 }
 
 .modalSubtitle {
-  margin: 4px 0 0 0;
-  font-size: 0.78rem;
+  margin: 2px 0 0 0;
+  font-size: 0.75rem;
   color: #94a3b8;
   font-weight: 500;
 }
 
 .modalCloseBtn {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #94a3b8;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .modalCloseBtn:hover {
@@ -1187,24 +1196,37 @@
 }
 
 .modalBody {
-  padding: 22px 24px;
+  padding: 16px 20px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   flex: 1 1 auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16, 185, 129, 0.3) transparent;
+}
+
+.modalBody::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modalBody::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.3);
+  border-radius: 4px;
 }
 
 .modalFooter {
-  padding: 16px 24px;
+  padding: 12px 20px;
   border-top: 1px solid rgba(16, 185, 129, 0.18);
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  background: rgba(3, 14, 10, 0.95);
+  background: rgba(3, 14, 10, 0.98);
   flex-shrink: 0;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.25);
 }
 
 /* ==========================================================================
@@ -1213,28 +1235,28 @@
 .formGrid2Col {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 12px;
 }
 
 .imageUploadCard {
   background: rgba(3, 14, 10, 0.7);
   border: 1px solid rgba(16, 185, 129, 0.22);
-  border-radius: 14px;
-  padding: 16px;
+  border-radius: 12px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .imageDropzone {
   border: 1.5px dashed rgba(16, 185, 129, 0.35);
-  border-radius: 12px;
-  padding: 14px 18px;
+  border-radius: 10px;
+  padding: 10px 14px;
   text-align: left;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   background: rgba(16, 185, 129, 0.04);
   transition: all 0.2s ease;
   min-height: auto;

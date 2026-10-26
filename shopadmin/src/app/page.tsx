@@ -3020,7 +3020,7 @@ export default function ShopAdminDashboard() {
               </div>
             )}
 
-            <form onSubmit={handleAddProduce}>
+            <form onSubmit={handleAddProduce} className={styles.modalForm}>
               <div className={styles.modalBody}>
                 {/* 1. Product Name */}
                 <div className={styles.fieldGroup}>
@@ -3353,7 +3353,7 @@ export default function ShopAdminDashboard() {
               </div>
             )}
 
-            <form onSubmit={handleUpdateOffer}>
+            <form onSubmit={handleUpdateOffer} className={styles.modalForm}>
               <div className={styles.modalBody}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className={styles.fieldGroup}>
