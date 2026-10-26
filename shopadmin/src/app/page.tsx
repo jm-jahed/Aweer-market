@@ -23,16 +23,16 @@ import {
 import { ProductCategory, WholesaleUnit, getDefaultUnitWeightKg } from '@aweermarket/types';
 import styles from './Dashboard.module.css';
 
-// Pre-defined produce options with realistic local imagery
-const PRODUCE_IMAGE_PRESETS = [
-  { label: 'Fresh Apples', src: '/images/apple.jpg' },
-  { label: 'Cavendish Bananas', src: '/images/banana.jpg' },
-  { label: 'Vine Tomatoes', src: '/images/tomato.jpg' },
-  { label: 'Dutch Potatoes', src: '/images/potato.jpg' },
-  { label: 'Red Onions', src: '/images/onion.jpg' },
-  { label: 'Sweet Carrots', src: '/images/carrots.jpg' },
-  { label: 'Wholesale Basket', src: '/images/hero-basket.jpg' },
-  { label: 'Market Aisle', src: '/images/market-aisle.jpg' }
+// Pre-defined produce options with realistic local imagery & automated category mapping
+const PRODUCE_IMAGE_PRESETS: Array<{ label: string; src: string; category?: ProductCategory }> = [
+  { label: 'Fresh Apples', src: '/images/apple.jpg', category: ProductCategory.FRESH_FRUITS },
+  { label: 'Cavendish Bananas', src: '/images/banana.jpg', category: ProductCategory.FRESH_FRUITS },
+  { label: 'Vine Tomatoes', src: '/images/tomato.jpg', category: ProductCategory.FRESH_VEGETABLES },
+  { label: 'Dutch Potatoes', src: '/images/potato.jpg', category: ProductCategory.ROOT_VEGETABLES },
+  { label: 'Red Onions', src: '/images/onion.jpg', category: ProductCategory.ROOT_VEGETABLES },
+  { label: 'Sweet Carrots', src: '/images/carrots.jpg', category: ProductCategory.ROOT_VEGETABLES },
+  { label: 'Wholesale Basket', src: '/images/hero-basket.jpg', category: ProductCategory.FRESH_FRUITS },
+  { label: 'Market Aisle', src: '/images/market-aisle.jpg', category: ProductCategory.FRESH_VEGETABLES }
 ];
 
 // Configured marketplace platform commission rate (e.g. 5% standard wholesale rate)
@@ -2993,7 +2993,14 @@ export default function ShopAdminDashboard() {
         <div className={styles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="add-product-modal-title">
           <div className={styles.modalCard}>
             <div className={styles.modalHeader}>
-              <h3 id="add-product-modal-title" className={styles.modalTitle}>Add New Product</h3>
+              <div>
+                <h3 id="add-product-modal-title" className={styles.modalTitle}>
+                  🌿 Add New Produce Listing
+                </h3>
+                <p className={styles.modalSubtitle}>
+                  Publish fresh wholesale offers to Dubai Al Aweer marketplace buyers.
+                </p>
+              </div>
               <button
                 type="button"
                 className={styles.modalCloseBtn}
@@ -3101,6 +3108,49 @@ export default function ShopAdminDashboard() {
                       style={{ display: 'none' }}
                       onChange={handleImageFileChange}
                     />
+
+                    {/* Quick Produce Image Presets (1-Tap Select & Auto-Fill) */}
+                    <div className={styles.presetPickerContainer}>
+                      <div className={styles.presetPickerHeader}>
+                        <span className={styles.presetPickerLabel}>⚡ Quick Catalog Presets (1-Tap):</span>
+                        <span className={styles.presetPickerHint}>Auto-sets photo &amp; name</span>
+                      </div>
+                      <div className={styles.presetPillsRow}>
+                        {PRODUCE_IMAGE_PRESETS.map((img) => {
+                          const isSelected = prodImageUrl === img.src;
+                          return (
+                            <button
+                              key={img.src}
+                              type="button"
+                              className={`${styles.presetPill} ${isSelected ? styles.presetPillActive : ''}`}
+                              onClick={() => {
+                                if (draftUploadedKey) {
+                                  safeCleanupDraftImage(draftUploadedKey);
+                                  setDraftUploadedKey(null);
+                                }
+                                setProdImageUrl(img.src);
+                                setUploadPreviewUrl(null);
+                                setAddModalError(null);
+                                if (!prodName.trim()) {
+                                  setProdName(img.label);
+                                }
+                                if (img.category) {
+                                  setProdCategory(img.category);
+                                }
+                              }}
+                              disabled={isUploadingImage}
+                              title={`Select ${img.label}`}
+                            >
+                              <img src={img.src} alt={img.label} className={styles.presetPillImg} />
+                              <span className={styles.presetPillText}>{img.label}</span>
+                              {isSelected && <span className={styles.presetCheck}>✓</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Selected Image Preview or Compact Upload Dropzone */}
                     {(uploadPreviewUrl || prodImageUrl) ? (
                       <div className={styles.imagePreviewWrap}>
                         <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -3110,31 +3160,22 @@ export default function ShopAdminDashboard() {
                             className={styles.imagePreviewThumb}
                           />
                           {isUploadingImage && (
-                            <div style={{
-                              position: 'absolute',
-                              inset: 0,
-                              background: 'rgba(0, 0, 0, 0.7)',
-                              borderRadius: 8,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#34d399',
-                              fontSize: '0.78rem',
-                              fontWeight: 700
-                            }}>
+                            <div className={styles.uploadingOverlay}>
                               <span>☁️ Uploading to R2...</span>
                             </div>
                           )}
                         </div>
                         <div className={styles.imagePreviewMeta}>
-                          <span className={styles.imagePreviewTitle}>
-                            {isUploadingImage
-                              ? 'Uploading to Cloudflare R2...'
-                              : prodImageUrl.startsWith('http')
-                              ? 'Cloudflare R2 Image'
-                              : 'Produce Photo Selected'}
-                          </span>
+                          <div className={styles.imagePreviewStatus}>
+                            <span className={styles.imagePreviewBadge}>✓ Photo Selected</span>
+                            <span className={styles.imagePreviewTitle}>
+                              {isUploadingImage
+                                ? 'Uploading to Cloudflare R2...'
+                                : prodImageUrl.startsWith('http')
+                                ? 'Custom R2 Produce Photo'
+                                : 'Catalog Produce Photo'}
+                            </span>
+                          </div>
                           <div className={styles.imageActionButtons}>
                             <button
                               type="button"
@@ -3186,38 +3227,19 @@ export default function ShopAdminDashboard() {
                           }
                         }}
                       >
-                        <span className={styles.dropzoneIcon}>📷</span>
-                        <span className={styles.dropzoneMainText}>Tap or drag photo here to upload</span>
-                        <span className={styles.dropzoneSubText}>Supports JPG, PNG, WebP up to 5MB</span>
+                        <div className={styles.dropzoneIconWrap}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                          </svg>
+                        </div>
+                        <div className={styles.dropzoneTextWrap}>
+                          <span className={styles.dropzoneMainText}>Upload Custom Produce Photo</span>
+                          <span className={styles.dropzoneSubText}>Click to browse or drag file (JPG, PNG, WebP up to 5MB)</span>
+                        </div>
                       </div>
                     )}
-
-                    {/* Quick Produce Image Presets */}
-                    <div className={styles.presetPickerContainer}>
-                      <span className={styles.presetPickerLabel}>Or choose from catalog presets:</span>
-                      <div className={styles.presetPillsRow}>
-                        {PRODUCE_IMAGE_PRESETS.map((img) => (
-                          <button
-                            key={img.src}
-                            type="button"
-                            className={`${styles.presetPill} ${prodImageUrl === img.src ? styles.presetPillActive : ''}`}
-                            onClick={() => {
-                              if (draftUploadedKey) {
-                                safeCleanupDraftImage(draftUploadedKey);
-                                setDraftUploadedKey(null);
-                              }
-                              setProdImageUrl(img.src);
-                              setUploadPreviewUrl(null);
-                              setAddModalError(null);
-                            }}
-                            disabled={isUploadingImage}
-                          >
-                            <img src={img.src} alt={img.label} className={styles.presetPillImg} />
-                            <span>{img.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 </div>
 
@@ -3248,7 +3270,7 @@ export default function ShopAdminDashboard() {
                   {/* 6. Unit */}
                   <div className={styles.fieldGroup}>
                     <label className={styles.formLabel} htmlFor="field-prod-unit">
-                      Unit *
+                      Wholesale Unit *
                     </label>
                     <select
                       id="field-prod-unit"
@@ -3329,7 +3351,13 @@ export default function ShopAdminDashboard() {
                   disabled={isSubmittingProd || isUploadingImage}
                   id="save-product-btn"
                 >
-                  {isSubmittingProd ? 'Saving Product...' : isUploadingImage ? 'Uploading Image...' : 'Save Product'}
+                  {isSubmittingProd ? (
+                    'Publishing...'
+                  ) : isUploadingImage ? (
+                    'Uploading Image...'
+                  ) : (
+                    '✓ Publish Produce Listing'
+                  )}
                 </button>
               </div>
             </form>
