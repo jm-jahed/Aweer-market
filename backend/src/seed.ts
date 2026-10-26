@@ -1,6 +1,6 @@
 import { hashPassword } from './utils/crypto.js';
 import { createSuperAdminUser, createShopAdminUser, createBuyerUser, findUserByEmail } from './models/user.model.js';
-import { createShop } from './models/shop.model.js';
+import { createShop, updateShop } from './models/shop.model.js';
 import { createProduct } from './models/product.model.js';
 import { ProductCategory, WholesaleUnit } from '@aweermarket/types';
 
@@ -112,7 +112,7 @@ export async function seedDemoData(): Promise<void> {
     isActive: true
   });
 
-  await createShopAdminUser({
+  const userA = await createShopAdminUser({
     email: 'vendor@alaweer.ae',
     passwordHash: vendorPass,
     fullName: 'Ahmed Al Marzooqi',
@@ -121,6 +121,7 @@ export async function seedDemoData(): Promise<void> {
     phone: '+971505556677',
     tradeLicenseNumber: 'TL-554433'
   });
+  await updateShop(shopA.id, { ownerId: userA.id });
 
   // Stall B: Emirates Fresh Fruits & Veg Trading
   const shopB = await createShop({
@@ -133,7 +134,7 @@ export async function seedDemoData(): Promise<void> {
     isActive: true
   });
 
-  await createShopAdminUser({
+  const userB = await createShopAdminUser({
     email: 'emiratesfresh@alaweer.ae',
     passwordHash: vendorPass,
     fullName: 'Tariq Al Mansoori',
@@ -142,6 +143,7 @@ export async function seedDemoData(): Promise<void> {
     phone: '+971508889900',
     tradeLicenseNumber: 'TL-998877'
   });
+  await updateShop(shopB.id, { ownerId: userB.id });
 
   // 3. Registered Buyer
   const buyerPass = await hashPassword('Buyer123!');

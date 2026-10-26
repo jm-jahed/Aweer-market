@@ -265,5 +265,86 @@ export async function getCategories(): Promise<{ statusCode: number; categories:
   });
 }
 
+export interface UploadImageResponse {
+  statusCode: number;
+  message: string;
+  url: string;
+  key: string;
+  size: number;
+  mimeType: string;
+}
+
+export async function uploadProductImage(file: File): Promise<UploadImageResponse> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}/vendor/upload`;
+  const formData = new FormData();
+  formData.append('image', file);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'Network connection failure';
+    throw new ApiClientError(`Unable to connect to image upload endpoint (${errorMsg})`, 0, 'NETWORK_ERROR');
+  }
+
+  const text = await response.text();
+  let data: Record<string, unknown> = {};
+  if (text && text.trim().length > 0) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { message: text };
+    }
+  }
+
+  if (!response.ok) {
+    const message = (data.message as string) || 'Image upload failed. Please verify file type (JPEG, PNG, WebP) and size (< 5MB).';
+    throw new ApiClientError(message, response.status, data.code as string | undefined);
+  }
+  return data as unknown as UploadImageResponse;
+}
+
+export async function deleteProductImage(key: string): Promise<{ statusCode: number; message: string; key: string }> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}/vendor/upload`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ key }),
+      credentials: 'include'
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'Network connection failure';
+    throw new ApiClientError(`Unable to connect to image deletion endpoint (${errorMsg})`, 0, 'NETWORK_ERROR');
+  }
+
+  const text = await response.text();
+  let data: Record<string, unknown> = {};
+  if (text && text.trim().length > 0) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { message: text };
+    }
+  }
+
+  if (!response.ok) {
+    const message = (data.message as string) || 'Image deletion failed.';
+    throw new ApiClientError(message, response.status, data.code as string | undefined);
+  }
+
+  return data as unknown as { statusCode: number; message: string; key: string };
+}
+
 
 

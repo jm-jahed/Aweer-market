@@ -353,6 +353,7 @@ export async function findShopByOwnerId(ownerId: string): Promise<IShopDocument 
 
 export interface UpdateShopData {
   name?: string;
+  ownerId?: string;
   phone?: string;
   stallNumber?: string;
   tradeLicenseNumber?: string;
@@ -369,6 +370,9 @@ export async function updateShop(id: string, updates: UpdateShopData): Promise<I
   if (isDatabaseConnected()) {
     const safeUpdates: Record<string, unknown> = {};
     if (updates.name !== undefined) safeUpdates.name = updates.name.trim();
+    if (updates.ownerId !== undefined && updates.ownerId.trim().length > 0) {
+      safeUpdates.ownerId = updates.ownerId.trim();
+    }
     if (updates.phone !== undefined) safeUpdates.phone = updates.phone.trim();
     if (updates.stallNumber !== undefined) safeUpdates.stallNumber = updates.stallNumber.trim();
     if (updates.tradeLicenseNumber !== undefined) safeUpdates.tradeLicenseNumber = updates.tradeLicenseNumber.trim();
@@ -391,6 +395,9 @@ export async function updateShop(id: string, updates: UpdateShopData): Promise<I
   if (!shop) return null;
 
   if (updates.name !== undefined) shop.name = updates.name.trim();
+  if (updates.ownerId !== undefined && updates.ownerId.trim().length > 0) {
+    shop.ownerId = updates.ownerId.trim();
+  }
   if (updates.phone !== undefined) shop.phone = updates.phone.trim();
   if (updates.stallNumber !== undefined) shop.stallNumber = updates.stallNumber.trim();
   if (updates.tradeLicenseNumber !== undefined) shop.tradeLicenseNumber = updates.tradeLicenseNumber.trim();

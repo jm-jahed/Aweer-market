@@ -164,7 +164,7 @@ export const UpdateShopProfileSchema = z.object({
 
 export const ProductOfferSchema = z.object({
   unit: z.nativeEnum(WholesaleUnit),
-  unitWeightKg: z.number().positive(),
+  unitWeightKg: z.number().positive().default(1),
   priceAed: z.number().positive(),
   minOrderQuantity: z.number().int().positive().default(1),
   availableStock: z.number().int().nonnegative()

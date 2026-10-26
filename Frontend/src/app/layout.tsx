@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" style={{ overflowX: 'clip', width: '100%', maxWidth: '100vw' }}>
       <head>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -38,6 +38,10 @@ export default function RootLayout({
           backgroundColor: '#07130b',
           color: '#f8fafc',
           minHeight: '100vh',
+          width: '100%',
+          maxWidth: '100vw',
+          overflowX: 'clip',
+          position: 'relative',
           WebkitFontSmoothing: 'antialiased',
           MozOsxFontSmoothing: 'grayscale'
         }}

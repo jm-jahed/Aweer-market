@@ -13,11 +13,12 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { FastifyInstance } from 'fastify';
-import { buildServer } from './server.js';
+import { buildServer, parseTrustProxyConfig } from './server.js';
 import {
   configureAuthRateLimit,
   resetAuthRateLimitConfig,
-  resetAuthRateLimitStore
+  resetAuthRateLimitStore,
+  parsePositiveIntegerEnv
 } from './plugins/rate-limit.js';
 import {
   createBuyerUser,
@@ -337,6 +338,254 @@ describe('Phase 3.2: Authentication Rate Limiting', () => {
         url: '/'
       });
       assert.strictEqual(rootRes.statusCode, 200);
+    });
+  });
+
+  // ==========================================================================
+  // 7. TRUST_PROXY Configuration & Forwarded Header Security Tests
+  // ==========================================================================
+  describe('7. TRUST_PROXY Configuration & Forwarded Header Security', () => {
+    describe('7.1 parseTrustProxyConfig Unit Validation', () => {
+      it('defaults to false when unset, null, false, empty, or whitespace', () => {
+        assert.strictEqual(parseTrustProxyConfig(undefined), false);
+        assert.strictEqual(parseTrustProxyConfig(null as any), false);
+        assert.strictEqual(parseTrustProxyConfig(false), false);
+        assert.strictEqual(parseTrustProxyConfig(''), false);
+        assert.strictEqual(parseTrustProxyConfig('   '), false);
+        assert.strictEqual(parseTrustProxyConfig('false'), false);
+        assert.strictEqual(parseTrustProxyConfig('0'), false);
+      });
+
+      it('returns true on explicit boolean true or "true" / "1"', () => {
+        assert.strictEqual(parseTrustProxyConfig(true), true);
+        assert.strictEqual(parseTrustProxyConfig('true'), true);
+        assert.strictEqual(parseTrustProxyConfig('1'), true);
+      });
+
+      it('accepts valid IP addresses, supported aliases, and CIDRs', () => {
+        assert.strictEqual(parseTrustProxyConfig('127.0.0.1'), '127.0.0.1');
+        assert.strictEqual(parseTrustProxyConfig('::1'), '::1');
+        assert.strictEqual(parseTrustProxyConfig('loopback'), 'loopback');
+        assert.strictEqual(parseTrustProxyConfig('linklocal'), 'linklocal');
+        assert.strictEqual(parseTrustProxyConfig('uniquelocal'), 'uniquelocal');
+        assert.strictEqual(parseTrustProxyConfig('10.0.0.0/8'), '10.0.0.0/8');
+        assert.strictEqual(parseTrustProxyConfig('172.16.0.0/12'), '172.16.0.0/12');
+        assert.strictEqual(parseTrustProxyConfig('192.168.0.0/16'), '192.168.0.0/16');
+        assert.strictEqual(parseTrustProxyConfig('fd00::/8'), 'fd00::/8');
+        assert.deepStrictEqual(parseTrustProxyConfig('127.0.0.1, ::1'), ['127.0.0.1', '::1']);
+        assert.deepStrictEqual(parseTrustProxyConfig(['127.0.0.1', '10.0.0.0/8']), ['127.0.0.1', '10.0.0.0/8']);
+      });
+
+      it('rejects malformed IP addresses and unsupported strings with fail-closed error', () => {
+        assert.throws(
+          () => parseTrustProxyConfig('invalid_ip'),
+          /Security Configuration Error: Invalid TRUST_PROXY entry 'invalid_ip'/
+        );
+        assert.throws(
+          () => parseTrustProxyConfig('999.999.999.999'),
+          /Security Configuration Error: Invalid TRUST_PROXY entry '999.999.999.999'/
+        );
+        assert.throws(
+          () => parseTrustProxyConfig('127.0.0.1;10.0.0.1'),
+          /Security Configuration Error: Invalid TRUST_PROXY entry '127.0.0.1;10.0.0.1'/
+        );
+      });
+
+      it('rejects invalid CIDR masks with fail-closed error', () => {
+        assert.throws(
+          () => parseTrustProxyConfig('10.0.0.1/35'),
+          /IPv4 CIDR mask must be between 0 and 32/
+        );
+        assert.throws(
+          () => parseTrustProxyConfig('::1/130'),
+          /IPv6 CIDR mask must be between 0 and 128/
+        );
+        assert.throws(
+          () => parseTrustProxyConfig('10.0.0.1/abc'),
+          /Mask 'abc' must be an integer/
+        );
+      });
+    });
+
+    describe('7.2 Forwarded Header Trust & Isolation in Fastify', () => {
+      it('ignores X-Forwarded-For by default when proxy trust is disabled', async () => {
+        const defaultServer = await buildServer({ trustProxy: false });
+        await defaultServer.ready();
+        try {
+          const res = await defaultServer.inject({
+            method: 'GET',
+            url: '/api/v1/health',
+            headers: {
+              'x-forwarded-for': '203.0.113.195'
+            }
+          });
+          assert.strictEqual(res.statusCode, 200);
+        } finally {
+          await defaultServer.close();
+        }
+      });
+
+      it('resolves real client IP when request arrives from configured trusted proxy', async () => {
+        const trustedServer = await buildServer({ trustProxy: '127.0.0.1' });
+        await trustedServer.ready();
+        try {
+          configureAuthRateLimit({
+            windowMs: 60 * 1000,
+            maxIpAttempts: 2
+          });
+
+          const clientIp = '203.0.113.88';
+
+          // 1st request through trusted loopback proxy: allowed past IP limiter (401)
+          const res1 = await trustedServer.inject({
+            method: 'POST',
+            url: '/api/v1/auth/login',
+            remoteAddress: '127.0.0.1',
+            headers: { 'x-forwarded-for': clientIp },
+            payload: { email: 'test1@aweer.ae', password: 'WrongPassword123!' }
+          });
+          assert.strictEqual(res1.statusCode, 401);
+
+          // 2nd request through trusted loopback proxy: allowed past IP limiter (401)
+          const res2 = await trustedServer.inject({
+            method: 'POST',
+            url: '/api/v1/auth/login',
+            remoteAddress: '127.0.0.1',
+            headers: { 'x-forwarded-for': clientIp },
+            payload: { email: 'test2@aweer.ae', password: 'WrongPassword123!' }
+          });
+          assert.strictEqual(res2.statusCode, 401);
+
+          // 3rd request from same client IP exceeds maxIpAttempts (2): blocked with HTTP 429
+          const res3 = await trustedServer.inject({
+            method: 'POST',
+            url: '/api/v1/auth/login',
+            remoteAddress: '127.0.0.1',
+            headers: { 'x-forwarded-for': clientIp },
+            payload: { email: 'test3@aweer.ae', password: 'WrongPassword123!' }
+          });
+          assert.strictEqual(res3.statusCode, 429);
+          assert.strictEqual(res3.headers['x-ratelimit-remaining'], '0');
+          assert.ok(res3.headers['retry-after']);
+          assert.match(res3.json().message, /rate limit exceeded/i);
+        } finally {
+          await trustedServer.close();
+        }
+      });
+
+      it('rejects forwarded headers from untrusted socket sources (anti-spoofing)', async () => {
+        // Only trust 10.0.0.1 as proxy; socket 192.168.1.50 is untrusted
+        const proxyServer = await buildServer({ trustProxy: '10.0.0.1' });
+        await proxyServer.ready();
+        try {
+          configureAuthRateLimit({
+            windowMs: 60 * 1000,
+            maxIpAttempts: 2
+          });
+
+          // Attacker attempts to spoof various client IPs from untrusted socket 192.168.1.50
+          const res1 = await proxyServer.inject({
+            method: 'POST',
+            url: '/api/v1/auth/login',
+            remoteAddress: '192.168.1.50',
+            headers: { 'x-forwarded-for': '8.8.8.8' },
+            payload: { email: 'victim1@aweer.ae', password: 'WrongPassword123!' }
+          });
+          assert.strictEqual(res1.statusCode, 401);
+
+          // Attacker sends different spoofed header; because socket is untrusted,
+          // Fastify attributes both to socket IP 192.168.1.50!
+          const res2 = await proxyServer.inject({
+            method: 'POST',
+            url: '/api/v1/auth/login',
+            remoteAddress: '192.168.1.50',
+            headers: { 'x-forwarded-for': '9.9.9.9' },
+            payload: { email: 'victim2@aweer.ae', password: 'WrongPassword123!' }
+          });
+          assert.strictEqual(res2.statusCode, 401);
+
+          // 3rd attempt from untrusted socket is blocked despite changing X-Forwarded-For (spoofing failed)
+          const res3 = await proxyServer.inject({
+            method: 'POST',
+            url: '/api/v1/auth/login',
+            remoteAddress: '192.168.1.50',
+            headers: { 'x-forwarded-for': '1.1.1.1' },
+            payload: { email: 'victim3@aweer.ae', password: 'WrongPassword123!' }
+          });
+          assert.strictEqual(res3.statusCode, 429);
+          assert.strictEqual(res3.headers['x-ratelimit-remaining'], '0');
+        } finally {
+          await proxyServer.close();
+        }
+      });
+
+      it('isolates different clients behind the same trusted proxy without collateral blocking', async () => {
+        const trustedServer = await buildServer({ trustProxy: '127.0.0.1' });
+        await trustedServer.ready();
+        try {
+          configureAuthRateLimit({
+            windowMs: 60 * 1000,
+            maxIpAttempts: 2
+          });
+
+          const clientA = '203.0.113.10';
+          const clientB = '203.0.113.20';
+
+          // Client A uses up all their 2 attempts through the trusted proxy
+          for (let i = 0; i < 2; i++) {
+            const res = await trustedServer.inject({
+              method: 'POST',
+              url: '/api/v1/auth/login',
+              remoteAddress: '127.0.0.1',
+              headers: { 'x-forwarded-for': clientA },
+              payload: { email: `clientA_${i}@aweer.ae`, password: 'WrongPassword123!' }
+            });
+            assert.strictEqual(res.statusCode, 401);
+          }
+
+          // Client A attempt 3 is blocked (429)
+          const blockedA = await trustedServer.inject({
+            method: 'POST',
+            url: '/api/v1/auth/login',
+            remoteAddress: '127.0.0.1',
+            headers: { 'x-forwarded-for': clientA },
+            payload: { email: 'clientA_3@aweer.ae', password: 'WrongPassword123!' }
+          });
+          assert.strictEqual(blockedA.statusCode, 429);
+
+          // Client B through the SAME proxy is NOT blocked!
+          const allowedB = await trustedServer.inject({
+            method: 'POST',
+            url: '/api/v1/auth/login',
+            remoteAddress: '127.0.0.1',
+            headers: { 'x-forwarded-for': clientB },
+            payload: { email: 'clientB_1@aweer.ae', password: 'WrongPassword123!' }
+          });
+          assert.strictEqual(allowedB.statusCode, 401); // Allowed past rate limiter
+        } finally {
+          await trustedServer.close();
+        }
+      });
+    });
+
+    describe('7.3 parsePositiveIntegerEnv Unit Validation', () => {
+      it('returns parsed integer for valid positive integer strings', () => {
+        assert.strictEqual(parsePositiveIntegerEnv('20', 10), 20);
+        assert.strictEqual(parsePositiveIntegerEnv('100', 10), 100);
+        assert.strictEqual(parsePositiveIntegerEnv('  60000  ', 10), 60000);
+        assert.strictEqual(parsePositiveIntegerEnv('1', 10), 1);
+      });
+
+      it('safely falls back for non-numbers, negative, zero, floats, and empty strings', () => {
+        assert.strictEqual(parsePositiveIntegerEnv(undefined, 42), 42);
+        assert.strictEqual(parsePositiveIntegerEnv('', 42), 42);
+        assert.strictEqual(parsePositiveIntegerEnv('   ', 42), 42);
+        assert.strictEqual(parsePositiveIntegerEnv('0', 42), 42);
+        assert.strictEqual(parsePositiveIntegerEnv('-10', 42), 42);
+        assert.strictEqual(parsePositiveIntegerEnv('abc', 42), 42);
+        assert.strictEqual(parsePositiveIntegerEnv('12.34', 42), 42);
+        assert.strictEqual(parsePositiveIntegerEnv('NaN', 42), 42);
+      });
     });
   });
 });

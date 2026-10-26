@@ -47,7 +47,35 @@ export enum WholesaleUnit {
   CRATE = 'crate',
   PALLET = 'pallet',
   BOX = 'box',
-  SACK = 'sack'
+  SACK = 'sack',
+  PIECE = 'piece',
+  BUNCH = 'bunch'
+}
+
+/**
+ * Standard default physical weight in kg for each wholesale unit
+ */
+export function getDefaultUnitWeightKg(unit: WholesaleUnit | string): number {
+  switch (unit) {
+    case WholesaleUnit.KG:
+      return 1;
+    case WholesaleUnit.PIECE:
+      return 0.5;
+    case WholesaleUnit.BUNCH:
+      return 0.25;
+    case WholesaleUnit.BOX:
+      return 10;
+    case WholesaleUnit.CARTON:
+      return 10;
+    case WholesaleUnit.CRATE:
+      return 12;
+    case WholesaleUnit.SACK:
+      return 20;
+    case WholesaleUnit.PALLET:
+      return 500;
+    default:
+      return 1;
+  }
 }
 
 export enum ProductCategory {

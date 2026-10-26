@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCart, CartItem } from '@/lib/cart-context';
@@ -24,6 +24,9 @@ function MarketplaceContent() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams?.get('search') || '';
   const [mobileSearch, setMobileSearch] = useState(searchQuery);
+  const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
+  const [mobileSearchResults, setMobileSearchResults] = useState<ProductItem[]>([]);
+  const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
 
   const { addToCart, conflict, resolveConflict, totalItemsCount } = useCart();
   const { user } = useAuth();
@@ -41,6 +44,64 @@ function MarketplaceContent() {
     setMobileSearch(searchQuery);
   }, [searchQuery]);
 
+  // Live suggestions query for mobile search input with debounce (Guaranteed Lowest Price 1st)
+  useEffect(() => {
+    const trimmed = mobileSearch.trim();
+    if (trimmed.length > 0) {
+      const timer = setTimeout(() => {
+        getProducts({ search: trimmed, limit: 8 })
+          .then((res) => {
+            const prods = (res.products || []).sort(
+              (a, b) => (a.lowestPriceAedPerKg || 0) - (b.lowestPriceAedPerKg || 0)
+            );
+            if (prods.length > 0) {
+              setMobileSearchResults(prods);
+            } else {
+              // Fallback to loaded apiProducts in client memory
+              const q = trimmed.toLowerCase();
+              const clientMatches = apiProducts.filter((p) =>
+                p.name.toLowerCase().includes(q) ||
+                p.originCountry.toLowerCase().includes(q) ||
+                (p.category && p.category.toLowerCase().includes(q)) ||
+                (p.description && p.description.toLowerCase().includes(q)) ||
+                p.offers.some((o) => o.shopName.toLowerCase().includes(q))
+              );
+              setMobileSearchResults(clientMatches);
+            }
+            setIsMobileDropdownOpen(true);
+          })
+          .catch(() => {
+            const q = trimmed.toLowerCase();
+            const clientMatches = apiProducts.filter((p) =>
+              p.name.toLowerCase().includes(q) ||
+              p.originCountry.toLowerCase().includes(q) ||
+              (p.category && p.category.toLowerCase().includes(q))
+            );
+            setMobileSearchResults(clientMatches);
+            setIsMobileDropdownOpen(true);
+          });
+      }, 180);
+      return () => clearTimeout(timer);
+    } else {
+      setMobileSearchResults([]);
+      setIsMobileDropdownOpen(false);
+    }
+  }, [mobileSearch, apiProducts]);
+
+  // Close mobile suggestions on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        mobileSearchContainerRef.current &&
+        !mobileSearchContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsMobileDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const activeSearch = mobileSearch.trim() || searchQuery.trim();
   const backendCategory = useMemo(() => {
     const mapped = mapSlugToBackendCategory(selectedCategory);
@@ -54,7 +115,8 @@ function MarketplaceContent() {
   // Compute products list with CHEAP PRICE 1ST guarantee using real backend apiProducts
   const displayedProducts = useMemo(() => {
     let list: ProductItem[] = apiProducts;
-    if (backendCategory) {
+    // When searching actively, do not constrain by stale category so users find produce anywhere
+    if (backendCategory && !activeSearch) {
       list = list.filter(
         (p) =>
           p.category === backendCategory ||
@@ -67,6 +129,8 @@ function MarketplaceContent() {
         return (
           p.name.toLowerCase().includes(q) ||
           p.originCountry.toLowerCase().includes(q) ||
+          (p.category && p.category.toLowerCase().includes(q)) ||
+          (p.description && p.description.toLowerCase().includes(q)) ||
           p.offers.some((o) => o.shopName.toLowerCase().includes(q))
         );
       });
@@ -280,13 +344,22 @@ function MarketplaceContent() {
             CENTER MAIN AREA
            ================================================================= */}
         <main className={styles.centerContent}>
-          {/* Mobile Search Bar Component (Positioned at top of mobile screen) */}
-          <div className={styles.mobileSearchBarWrap}>
+          {/* Mobile Search Bar Component (Positioned at top of mobile screen - FIXED/STICKY) */}
+          <div ref={mobileSearchContainerRef} className={styles.mobileSearchBarWrap}>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (mobileSearch.trim()) {
-                  router.push(`/?search=${encodeURIComponent(mobileSearch.trim())}`);
+                setIsMobileDropdownOpen(false);
+                const trimmed = mobileSearch.trim();
+                if (trimmed) {
+                  setSelectedCategory('all');
+                  router.push(`/?search=${encodeURIComponent(trimmed)}#todays-prices`);
+                  const el = document.getElementById('todays-prices');
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth' });
+                  }
+                } else {
+                  router.push('/');
                 }
               }}
               className={styles.mobileSearchBox}
@@ -297,14 +370,26 @@ function MarketplaceContent() {
                 className={styles.mobileSearchInput}
                 placeholder="Search fruits, vegetables, herbs..."
                 value={mobileSearch}
-                onChange={(e) => setMobileSearch(e.target.value)}
+                onChange={(e) => {
+                  setMobileSearch(e.target.value);
+                  if (e.target.value.trim().length > 0) {
+                    setIsMobileDropdownOpen(true);
+                  }
+                }}
+                onFocus={() => {
+                  if (mobileSearch.trim().length > 0) {
+                    setIsMobileDropdownOpen(true);
+                  }
+                }}
                 autoComplete="off"
+                id="mobile-search-input"
               />
               {mobileSearch && (
                 <button
                   type="button"
                   onClick={() => {
                     setMobileSearch('');
+                    setIsMobileDropdownOpen(false);
                     if (searchQuery) router.push('/');
                   }}
                   className={styles.clearSearchBtn}
@@ -314,10 +399,10 @@ function MarketplaceContent() {
                 </button>
               )}
               <button
-                type="button"
+                type="submit"
                 className={styles.mobileSearchFilterBtn}
-                aria-label="Filter products"
-                title="Filter products"
+                aria-label="Submit search"
+                title="Search wholesale market"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="4" y1="21" x2="4" y2="14"></line>
@@ -332,6 +417,114 @@ function MarketplaceContent() {
                 </svg>
               </button>
             </form>
+
+            {/* Live Instant Search Suggestions Dropdown (Mobile) */}
+            {isMobileDropdownOpen && (
+              <div className={styles.mobileSearchDropdown}>
+                <div className={styles.dropdownHeader}>
+                  <span className={styles.dropdownHeaderTitle}>
+                    <span>🔍</span> Results for &ldquo;{mobileSearch}&rdquo;
+                  </span>
+                  <span className={styles.lowestPricePill}>
+                    ⚡ Lowest Price 1st
+                  </span>
+                </div>
+
+                {mobileSearchResults.length > 0 ? (
+                  <div className={styles.dropdownList}>
+                    {mobileSearchResults.map((prod, idx) => {
+                      const activeOffers = (prod.offers || []).filter((o) => o.availableStock > 0);
+                      const bestOffer = activeOffers[0] || prod.offers?.[0];
+                      const hasStock = Boolean(bestOffer && bestOffer.availableStock > 0);
+                      const img = resolveProduceImage(prod.name, prod.category);
+                      const priceDisplay =
+                        prod.lowestPriceAedPerKg > 0
+                          ? prod.lowestPriceAedPerKg.toFixed(2)
+                          : bestOffer?.equivalentPricePerKg
+                          ? bestOffer.equivalentPricePerKg.toFixed(2)
+                          : '—';
+
+                      return (
+                        <div
+                          key={prod.id}
+                          onClick={() => {
+                            setIsMobileDropdownOpen(false);
+                            router.push(`/products/${prod.id}`);
+                          }}
+                          className={styles.dropdownItem}
+                        >
+                          <div className={styles.dropdownItemLeft}>
+                            <img
+                              src={img}
+                              alt={prod.name}
+                              className={styles.dropdownItemImg}
+                            />
+                            <div className={styles.dropdownItemMeta}>
+                              <div className={styles.dropdownItemName}>
+                                <span>{prod.name}</span>
+                                {idx === 0 && (
+                                  <span className={styles.cheapestBadge}>
+                                    🏆 Cheapest
+                                  </span>
+                                )}
+                              </div>
+                              <span className={styles.dropdownItemVendor}>
+                                {bestOffer?.shopName || 'Al Aweer Stall'} • {prod.originCountry}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className={styles.dropdownItemRight}>
+                            <div className={styles.dropdownItemPrice}>
+                              <span className={styles.priceAed}>
+                                Dhs {priceDisplay}
+                              </span>
+                              <span className={styles.pricePerKg}>per kg</span>
+                            </div>
+                            {hasStock ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddApiProduct(prod);
+                                }}
+                                className={styles.dropdownAddBtn}
+                                title="Add to wholesale cart"
+                              >
+                                + Add
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Out of stock</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className={styles.dropdownEmpty}>
+                    No wholesale produce found matching &ldquo;{mobileSearch}&rdquo;. Try &ldquo;Orange&rdquo;, &ldquo;Tomato&rdquo;, or &ldquo;Banana&rdquo;.
+                  </div>
+                )}
+
+                {mobileSearchResults.length > 0 && (
+                  <div
+                    className={styles.dropdownFooter}
+                    onClick={() => {
+                      setIsMobileDropdownOpen(false);
+                      setSelectedCategory('all');
+                      router.push(`/?search=${encodeURIComponent(mobileSearch.trim())}#todays-prices`);
+                      const el = document.getElementById('todays-prices');
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }}
+                  >
+                    View all {mobileSearchResults.length} results sorted by lowest price →
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Hero Banner */}

@@ -7,7 +7,7 @@ import { buildServer } from './server.js';
 import { hashPassword, signSessionToken } from './utils/crypto.js';
 import { getSecretForRole } from './plugins/security.js';
 import { UserModel, createSuperAdminUser, createBuyerUser, resetInMemoryUsers, simulateUserCollision } from './models/user.model.js';
-import { resetInMemoryShops, findShopById, findShopBySlug } from './models/shop.model.js';
+import { resetInMemoryShops, findShopById, findShopBySlug, createShop, updateShop } from './models/shop.model.js';
 import { resetInMemoryProducts } from './models/product.model.js';
 import { resetInMemoryOrders } from './models/order.model.js';
 import {
@@ -1099,5 +1099,89 @@ describe('AweerMarket Super Admin — Reseller Persistence Safety & Integration 
       headers: { cookie: `aweer_session=${superAdminToken}` }
     });
     assert.strictEqual(ordersRes.statusCode, 200);
+  });
+
+  // ==========================================================================
+  // Case 17: updateShop persists ownerId and new vendor resolves associated shop
+  // ==========================================================================
+  it('17. updateShop persists ownerId and newly created vendor resolves associated shop', async () => {
+    setInMemoryResellerStoreAllowed(true);
+
+    // 1. Direct unit check: updateShop updates ownerId
+    const shopToUpdate = await createShop({
+      name: 'Owner Update Test Stall',
+      stallNumber: 'ST-OWN-01',
+      ownerId: 'temp_owner_before_update',
+      tradeLicenseNumber: 'TL-OWN-001',
+      phone: '+971501112233',
+      isApproved: true,
+      isActive: true
+    });
+    assert.strictEqual(shopToUpdate.ownerId, 'temp_owner_before_update');
+
+    const updatedShopDirect = await updateShop(shopToUpdate.id, { ownerId: 'verified_authoritative_owner_id' });
+    assert.ok(updatedShopDirect);
+    assert.strictEqual(updatedShopDirect.ownerId, 'verified_authoritative_owner_id');
+
+    // 2. Integration check: Admin creates vendor, and vendor logs in & resolves shop
+    const vendorEmail = 'new_vendor_stall@aweermarket.ae';
+    const vendorPassword = 'VendorPassword123!';
+
+    const createVendorRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/shops',
+      headers: { cookie: `aweer_session=${superAdminToken}` },
+      payload: {
+        name: 'Fresh Fruits Stall 42',
+        stallNumber: 'Block C, Stall 42',
+        ownerName: 'Rashid Stall Master',
+        email: vendorEmail,
+        password: vendorPassword,
+        phone: '+971509991122',
+        tradeLicenseNumber: 'TL-9991122'
+      }
+    });
+    assert.strictEqual(createVendorRes.statusCode, 201);
+    const createdShopData = JSON.parse(createVendorRes.payload).shop;
+    const createdVendorData = JSON.parse(createVendorRes.payload).vendor;
+
+    // Verify in storage that shop.ownerId matches createdVendorData.id
+    const persistedShop = await findShopById(createdShopData.id);
+    assert.ok(persistedShop);
+    assert.strictEqual(persistedShop.ownerId, createdVendorData.id);
+
+    // 3. Newly created vendor logs in to vendor portal
+    const loginRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/auth/vendor/login',
+      payload: {
+        email: vendorEmail,
+        password: vendorPassword
+      }
+    });
+    assert.strictEqual(loginRes.statusCode, 200);
+    const vendorCookie = loginRes.headers['set-cookie'];
+    assert.ok(vendorCookie);
+
+    // 4. Vendor accesses GET /api/v1/vendor/shop
+    const vendorShopRes = await server.inject({
+      method: 'GET',
+      url: '/api/v1/vendor/shop',
+      headers: { cookie: vendorCookie }
+    });
+    assert.strictEqual(vendorShopRes.statusCode, 200);
+    const resolvedShop = JSON.parse(vendorShopRes.payload).shop;
+    assert.strictEqual(resolvedShop.id, createdShopData.id);
+    assert.strictEqual(resolvedShop.name, 'Fresh Fruits Stall 42');
+
+    // 5. Vendor accesses GET /api/v1/vendor/products (resolves shop successfully without 404)
+    const vendorProductsRes = await server.inject({
+      method: 'GET',
+      url: '/api/v1/vendor/products',
+      headers: { cookie: vendorCookie }
+    });
+    assert.strictEqual(vendorProductsRes.statusCode, 200);
+    const productsPayload = JSON.parse(vendorProductsRes.payload);
+    assert.ok(Array.isArray(productsPayload.products));
   });
 });

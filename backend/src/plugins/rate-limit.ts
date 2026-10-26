@@ -23,6 +23,9 @@ export interface RateLimitConfig {
   maxAccountAttempts: number;
   registerMaxIpAttempts: number;
   registerMaxAccountAttempts: number;
+  uploadWindowMs: number;
+  uploadMaxAttempts: number;
+  uploadMaxIpAttempts: number;
 }
 
 interface RateLimitRecord {
@@ -41,24 +44,45 @@ function isTestEnvironment(): boolean {
   );
 }
 
+/**
+ * Safely parses an environment variable into a positive integer with fallback.
+ * Strictly rejects negative numbers, zero, NaN, floats, and non-numeric strings.
+ */
+export function parsePositiveIntegerEnv(val: string | undefined, fallback: number): number {
+  if (!val || typeof val !== 'string') return fallback;
+  const trimmed = val.trim();
+  if (!/^\d+$/.test(trimmed)) return fallback;
+  const parsed = Number(trimmed);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export function getActiveRateLimitConfig(): RateLimitConfig {
   const isTest = isTestEnvironment();
   return {
     windowMs:
       customConfig.windowMs ??
-      (Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000),
+      parsePositiveIntegerEnv(process.env.AUTH_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
     maxIpAttempts:
       customConfig.maxIpAttempts ??
-      (Number(process.env.AUTH_RATE_LIMIT_MAX_IP) || (isTest ? 1000 : 20)),
+      parsePositiveIntegerEnv(process.env.AUTH_RATE_LIMIT_MAX_IP, isTest ? 1000 : 20),
     maxAccountAttempts:
       customConfig.maxAccountAttempts ??
-      (Number(process.env.AUTH_RATE_LIMIT_MAX_ACCOUNT) || (isTest ? 500 : 5)),
+      parsePositiveIntegerEnv(process.env.AUTH_RATE_LIMIT_MAX_ACCOUNT, isTest ? 500 : 5),
     registerMaxIpAttempts:
       customConfig.registerMaxIpAttempts ??
-      (Number(process.env.AUTH_RATE_LIMIT_REGISTER_MAX_IP) || (isTest ? 1000 : 10)),
+      parsePositiveIntegerEnv(process.env.AUTH_RATE_LIMIT_REGISTER_MAX_IP, isTest ? 1000 : 10),
     registerMaxAccountAttempts:
       customConfig.registerMaxAccountAttempts ??
-      (Number(process.env.AUTH_RATE_LIMIT_REGISTER_MAX_ACCOUNT) || (isTest ? 500 : 3))
+      parsePositiveIntegerEnv(process.env.AUTH_RATE_LIMIT_REGISTER_MAX_ACCOUNT, isTest ? 500 : 3),
+    uploadWindowMs:
+      customConfig.uploadWindowMs ??
+      parsePositiveIntegerEnv(process.env.UPLOAD_RATE_LIMIT_WINDOW_MS, 60 * 1000),
+    uploadMaxAttempts:
+      customConfig.uploadMaxAttempts ??
+      parsePositiveIntegerEnv(process.env.UPLOAD_RATE_LIMIT_MAX_VENDOR, isTest ? 100 : 20),
+    uploadMaxIpAttempts:
+      customConfig.uploadMaxIpAttempts ??
+      parsePositiveIntegerEnv(process.env.UPLOAD_RATE_LIMIT_MAX_IP, isTest ? 200 : 100)
   };
 }
 
@@ -276,6 +300,74 @@ export async function rateLimitRegister(
   }
 
   setRateLimitHeaders(reply, ipResult);
+}
+
+/**
+ * PreHandler hook for Vendor Product Image Upload (POST /api/v1/vendor/upload).
+ * Enforces per-vendor account limits and per-IP safeguards against volumetric storage abuse.
+ *
+ * Isolation Architecture:
+ * 1. Authenticated Vendor User bucket (primary identity limit):
+ *    Ensures each vendor gets their own dedicated quota (e.g. 20 uploads/min).
+ *    If an authenticated vendor exceeds their quota, they are blocked with 429
+ *    WITHOUT consuming or polluting the shared IP bucket.
+ * 2. Shared IP safeguard bucket (volumetric abuse floor):
+ *    Prevents multi-account Sybil bot floods from consuming bucket capacity.
+ *    If the aggregate IP ceiling is reached, the user timestamp is rolled back
+ *    so the user is not charged for an unserved upload.
+ */
+export async function rateLimitUpload(
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> {
+  const config = getActiveRateLimitConfig();
+  const ip = getClientIp(request);
+  const userId = request.user?.userId;
+
+  // 1. Authenticated Vendor User bucket (primary quota check)
+  let userResult: CheckResult | null = null;
+  if (userId) {
+    userResult = checkBucket(
+      `upload:user:${userId}`,
+      config.uploadMaxAttempts,
+      config.uploadWindowMs
+    );
+    if (!userResult.allowed) {
+      sendRateLimitExceeded(
+        reply,
+        userResult,
+        `Rate limit exceeded: upload quota of ${config.uploadMaxAttempts} images per minute reached. Please wait a moment before uploading again.`
+      );
+      return;
+    }
+  }
+
+  // 2. Shared IP safeguard bucket (aggregate volumetric protection)
+  const ipResult = checkBucket(
+    `upload:ip:${ip}`,
+    config.uploadMaxIpAttempts,
+    config.uploadWindowMs
+  );
+  if (!ipResult.allowed) {
+    // Rollback user quota increment so the user is not charged for an IP-level block
+    if (userId) {
+      const userKey = `upload:user:${userId}`;
+      const record = rateLimitStore.get(userKey);
+      if (record && record.timestamps.length > 0) {
+        record.timestamps.pop();
+      }
+    }
+
+    sendRateLimitExceeded(
+      reply,
+      ipResult,
+      'Rate limit exceeded: too many aggregate upload requests from this IP address. Please wait a moment before trying again.'
+    );
+    return;
+  }
+
+  // Return vendor's personal quota in headers if authenticated; otherwise IP quota
+  setRateLimitHeaders(reply, userResult || ipResult);
 }
 
 // Background memory hygiene: periodically remove expired entries

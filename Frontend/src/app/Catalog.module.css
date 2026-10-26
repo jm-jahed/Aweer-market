@@ -1008,12 +1008,27 @@
    ========================================================================== */
 @media (max-width: 768px) {
   .pageWrapper {
-    padding: 10px 14px 90px !important;
+    padding: 106px 12px 90px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    overflow-x: clip !important;
   }
 
   .mainGrid {
-    grid-template-columns: 1fr !important;
-    gap: 12px !important;
+    grid-template-columns: 100% !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: clip !important;
+  }
+
+  .centerContent {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .sidebar {
@@ -1024,19 +1039,16 @@
     display: none !important;
   }
 
-  /* 1. Mobile Search Bar At Top */
+  /* 1. Mobile Search Bar is housed inside the sticky <Navbar /> header */
   .mobileSearchBarWrap {
-    display: block !important;
-    margin: 0 0 12px 0 !important;
-    position: relative !important;
-    width: 100% !important;
+    display: none !important;
   }
 
   .mobileSearchBox {
     display: flex !important;
     align-items: center !important;
     background: #06180e !important;
-    border: 1.5px solid rgba(34, 197, 94, 0.4) !important;
+    border: 1.5px solid rgba(34, 197, 94, 0.45) !important;
     border-radius: 9999px !important;
     padding: 8px 16px !important;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
@@ -1069,6 +1081,180 @@
     opacity: 0.9 !important;
   }
 
+  /* Mobile Search Instant Suggestions Dropdown */
+  .mobileSearchDropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background-color: #081a0e;
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    border-radius: 16px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.85), 0 0 20px rgba(34, 197, 94, 0.2);
+    z-index: 2000;
+    overflow: hidden;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    max-height: 380px;
+  }
+
+  .dropdownHeader {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 8px 14px !important;
+    background-color: rgba(21, 128, 61, 0.22) !important;
+    border-bottom: 1px solid rgba(34, 197, 94, 0.25) !important;
+  }
+
+  .dropdownHeaderTitle {
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    color: #86efac !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+
+  .lowestPricePill {
+    font-size: 0.70rem !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #16a34a, #22c55e) !important;
+    padding: 2px 8px !important;
+    border-radius: 9999px !important;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.4) !important;
+  }
+
+  .dropdownList {
+    max-height: 280px !important;
+    overflow-y: auto !important;
+    padding: 4px 0 !important;
+  }
+
+  .dropdownItem {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 8px 12px !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  }
+
+  .dropdownItem:hover {
+    background-color: rgba(34, 197, 94, 0.12) !important;
+  }
+
+  .dropdownItemLeft {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .dropdownItemImg {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 8px !important;
+    object-fit: cover !important;
+    background-color: #ffffff !important;
+    border: 1px solid rgba(34, 197, 94, 0.25) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .dropdownItemMeta {
+    display: flex !important;
+    flex-direction: column !important;
+    text-align: left !important;
+    min-width: 0 !important;
+  }
+
+  .dropdownItemName {
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .cheapestBadge {
+    font-size: 0.60rem !important;
+    font-weight: 800 !important;
+    color: #06110a !important;
+    background-color: #4ade80 !important;
+    padding: 2px 5px !important;
+    border-radius: 4px !important;
+    text-transform: uppercase !important;
+  }
+
+  .dropdownItemVendor {
+    font-size: 0.70rem !important;
+    color: #86efac !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .dropdownItemRight {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .dropdownItemPrice {
+    text-align: right !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .priceAed {
+    font-size: 0.88rem !important;
+    font-weight: 800 !important;
+    color: #4ade80 !important;
+  }
+
+  .pricePerKg {
+    font-size: 0.65rem !important;
+    color: #94a3b8 !important;
+  }
+
+  .dropdownAddBtn {
+    background: linear-gradient(135deg, #16a34a, #22c55e) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 5px 10px !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+  }
+
+  .dropdownEmpty {
+    padding: 18px 14px !important;
+    text-align: center !important;
+    font-size: 0.78rem !important;
+    color: #94a3b8 !important;
+  }
+
+  .dropdownFooter {
+    padding: 8px 14px !important;
+    text-align: center !important;
+    background-color: #051208 !important;
+    border-top: 1px solid rgba(34, 197, 94, 0.2) !important;
+    font-size: 0.76rem !important;
+    color: #86efac !important;
+    cursor: pointer !important;
+    font-weight: 600 !important;
+  }
+
   /* 2. Hero Banner */
   .heroBanner {
     display: flex !important;
@@ -1083,6 +1269,10 @@
     position: relative !important;
     margin-bottom: 12px !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 
   .heroTag {
@@ -1166,7 +1356,7 @@
     display: flex !important;
     position: absolute !important;
     bottom: -6px !important;
-    right: -4px !important;
+    right: 6px !important;
     width: 50px !important;
     height: 50px !important;
     border-radius: 50% !important;
@@ -1226,27 +1416,32 @@
     background: #334155 !important;
   }
 
-  /* 3. 4 Trust Badges Row */
+  /* 3. 4 Trust Badges Row - 100% Screen Fitted (No Horizontal Overflow) */
   .guaranteesBar {
     display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 8px !important;
-    margin: 12px 0 18px 0 !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+    margin: 10px 0 16px 0 !important;
     width: 100% !important;
+    max-width: 100% !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 
   .guaranteeItem {
     background: #06190e !important;
     border: 1px solid rgba(34, 197, 94, 0.18) !important;
     border-radius: 12px !important;
-    padding: 10px 4px !important;
+    padding: 8px 2px !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
     gap: 4px !important;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
   }
 
   .guaranteeIcon {
@@ -1262,24 +1457,32 @@
     flex-direction: column !important;
     align-items: center !important;
     gap: 1px !important;
+    width: 100% !important;
+    min-width: 0 !important;
   }
 
   .guaranteeTitle {
-    font-size: 0.65rem !important;
+    font-size: 0.58rem !important;
     font-weight: 800 !important;
     color: #ffffff !important;
-    line-height: 1.2 !important;
-    white-space: nowrap !important;
+    line-height: 1.15 !important;
+    white-space: normal !important;
+    text-align: center !important;
+    word-break: break-word !important;
+    width: 100% !important;
   }
 
   .guaranteeSub {
-    font-size: 0.58rem !important;
+    font-size: 0.50rem !important;
     color: #86efac !important;
-    line-height: 1.2 !important;
-    white-space: nowrap !important;
+    line-height: 1.15 !important;
+    white-space: normal !important;
+    text-align: center !important;
+    word-break: break-word !important;
+    width: 100% !important;
   }
 
-  /* 4. Shop by Category Section */
+  /* 4. Shop by Category Section - Smooth Horizontal Scroll (Contained Inside Container) */
   .categorySectionHeader {
     display: flex !important;
     align-items: center !important;
@@ -1296,30 +1499,39 @@
   }
 
   .categoriesBar {
-    display: grid !important;
-    grid-template-columns: repeat(5, 1fr) !important;
-    gap: 8px !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
     margin-bottom: 20px !important;
-    overflow: visible !important;
-    padding: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 4px 2px 8px 2px !important;
     width: 100% !important;
+    max-width: 100% !important;
     box-sizing: border-box !important;
+    scrollbar-width: none !important;
+  }
+
+  .categoriesBar::-webkit-scrollbar {
+    display: none !important;
   }
 
   .categoryCircleBtn {
     background: #071a10 !important;
     border: 1px solid rgba(34, 197, 94, 0.18) !important;
     border-radius: 14px !important;
-    padding: 10px 4px !important;
+    padding: 8px 4px !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 6px !important;
+    gap: 5px !important;
     cursor: pointer !important;
-    width: 100% !important;
+    flex: 0 0 auto !important;
+    width: 72px !important;
+    min-width: 72px !important;
     box-sizing: border-box !important;
-    min-width: unset !important;
     transition: all 0.2s ease !important;
   }
 

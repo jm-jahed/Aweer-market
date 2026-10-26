@@ -17,6 +17,8 @@ import {
   updateVendorOffer,
   getVendorOrders,
   updateVendorOrderStatus,
+  uploadProductImage,
+  deleteProductImage,
   ApiClientError
 } from '../src/lib/api-client.ts';
 
@@ -309,6 +311,56 @@ describe('Step 4: Shop Admin Portal API Client Tests', () => {
       assert.strictEqual(res.product.lowestPriceAedPerKg, 2.5);
     });
 
+    it('creates product using 8-field form structure with derived unitWeightKg and unit piece/bunch', async () => {
+      let capturedBody = null;
+      globalThis.fetch = async (url, options) => {
+        assert.ok(url.endsWith('/vendor/products'));
+        capturedBody = JSON.parse(options.body);
+        return new Response(
+          JSON.stringify({
+            statusCode: 201,
+            message: 'Produce offer added to catalog successfully',
+            product: {
+              id: 'prod_mint_003',
+              name: 'Fresh Spearmint Bunches',
+              category: 'leafy_greens',
+              originCountry: 'UAE',
+              description: 'Fresh Spearmint Bunches sourced directly from UAE.',
+              lowestPriceAedPerKg: 10.0,
+              offers: []
+            }
+          }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      // 8 approved fields: Name, Category, Origin, Image, Selling Price, Unit, MOQ, Stock
+      const res = await createVendorProduct({
+        name: 'Fresh Spearmint Bunches',
+        category: 'leafy_greens',
+        originCountry: 'UAE',
+        description: 'Fresh Spearmint Bunches sourced directly from UAE.',
+        imageUrl: '/images/hero-basket.jpg',
+        offer: {
+          unit: 'bunch',
+          unitWeightKg: 0.25, // derived for bunch
+          priceAed: 2.5,
+          minOrderQuantity: 10,
+          availableStock: 300
+        }
+      });
+
+      assert.strictEqual(res.statusCode, 201);
+      assert.strictEqual(capturedBody.name, 'Fresh Spearmint Bunches');
+      assert.strictEqual(capturedBody.category, 'leafy_greens');
+      assert.strictEqual(capturedBody.originCountry, 'UAE');
+      assert.strictEqual(capturedBody.imageUrl, '/images/hero-basket.jpg');
+      assert.strictEqual(capturedBody.offer.unit, 'bunch');
+      assert.strictEqual(capturedBody.offer.priceAed, 2.5);
+      assert.strictEqual(capturedBody.offer.minOrderQuantity, 10);
+      assert.strictEqual(capturedBody.offer.availableStock, 300);
+    });
+
     it('updates existing offer price and stock via PATCH /vendor/products/:id/offer', async () => {
       let capturedBody = null;
       globalThis.fetch = async (url, options) => {
@@ -456,5 +508,145 @@ describe('Step 4: Shop Admin Portal API Client Tests', () => {
       assert.strictEqual(grandTotal.toFixed(2), '105.00');
     });
   });
+
+  // 7. Cloudflare R2 Product Image Upload API Client
+  describe('Product Image Upload to Cloudflare R2 via Backend', () => {
+    it('uploads image via multipart form and receives public HTTPS URL', async () => {
+      let capturedUrl = '';
+      let capturedOptions = null;
+
+      globalThis.fetch = async (url, options) => {
+        capturedUrl = url;
+        capturedOptions = options;
+        return new Response(
+          JSON.stringify({
+            statusCode: 201,
+            message: 'Product image uploaded to Cloudflare R2 successfully',
+            url: 'https://images.aweermarket.ae/products/shop_stall_42/produce-123.jpg',
+            key: 'products/shop_stall_42/produce-123.jpg',
+            size: 20480,
+            mimeType: 'image/jpeg'
+          }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      // Mock File object
+      const mockFile = new Blob(['fake image bytes'], { type: 'image/jpeg' });
+      const res = await uploadProductImage(mockFile);
+
+      assert.strictEqual(res.statusCode, 201);
+      assert.strictEqual(res.url, 'https://images.aweermarket.ae/products/shop_stall_42/produce-123.jpg');
+      assert.strictEqual(res.key, 'products/shop_stall_42/produce-123.jpg');
+      assert.strictEqual(capturedOptions.method, 'POST');
+      assert.strictEqual(capturedOptions.credentials, 'include');
+      assert.ok(capturedUrl.endsWith('/vendor/upload'));
+    });
+
+    it('propagates ApiClientError when backend rejects invalid or oversized image', async () => {
+      globalThis.fetch = async () => {
+        return new Response(
+          JSON.stringify({
+            statusCode: 400,
+            error: 'Bad Request',
+            message: 'File size exceeds maximum allowed limit of 5 MiB.'
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const mockFile = new Blob(['oversized'], { type: 'image/jpeg' });
+      await assert.rejects(
+        async () => {
+          await uploadProductImage(mockFile);
+        },
+        (err) => {
+          assert.ok(err instanceof ApiClientError);
+          assert.strictEqual(err.statusCode, 400);
+          assert.match(err.message, /5 MiB/i);
+          return true;
+        }
+      );
+    });
+
+    it('propagates ApiClientError when R2 is not configured on server (503)', async () => {
+      globalThis.fetch = async () => {
+        return new Response(
+          JSON.stringify({
+            statusCode: 503,
+            error: 'Service Unavailable',
+            message: 'Cloudflare R2 storage credentials are not configured on server'
+          }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const mockFile = new Blob(['bytes'], { type: 'image/jpeg' });
+      await assert.rejects(
+        async () => {
+          await uploadProductImage(mockFile);
+        },
+        (err) => {
+          assert.ok(err instanceof ApiClientError);
+          assert.strictEqual(err.statusCode, 503);
+          assert.match(err.message, /Cloudflare R2 storage credentials are not configured/i);
+          return true;
+        }
+      );
+    });
+
+    it('deletes draft image successfully via DELETE /vendor/upload', async () => {
+      let capturedUrl = '';
+      let capturedOptions = null;
+
+      globalThis.fetch = async (url, options) => {
+        capturedUrl = url;
+        capturedOptions = options;
+        return new Response(
+          JSON.stringify({
+            statusCode: 200,
+            message: 'Product image deleted successfully from Cloudflare R2',
+            key: 'products/shop_stall_42/produce-uuid-123.jpg'
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      const res = await deleteProductImage('products/shop_stall_42/produce-uuid-123.jpg');
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(res.key, 'products/shop_stall_42/produce-uuid-123.jpg');
+      assert.strictEqual(capturedOptions.method, 'DELETE');
+      assert.strictEqual(capturedOptions.credentials, 'include');
+      assert.ok(capturedUrl.endsWith('/vendor/upload'));
+      assert.strictEqual(JSON.parse(capturedOptions.body).key, 'products/shop_stall_42/produce-uuid-123.jpg');
+    });
+
+    it('propagates ApiClientError when image deletion fails or key is unauthorized', async () => {
+      globalThis.fetch = async () => {
+        return new Response(
+          JSON.stringify({
+            statusCode: 403,
+            error: 'Forbidden',
+            message: 'Cannot delete image outside of your authorized shop namespace'
+          }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
+      await assert.rejects(
+        async () => {
+          await deleteProductImage('products/victim_shop/secret.jpg');
+        },
+        (err) => {
+          assert.ok(err instanceof ApiClientError);
+          assert.strictEqual(err.statusCode, 403);
+          assert.match(err.message, /outside of your authorized shop namespace/i);
+          return true;
+        }
+      );
+    });
+  });
 });
+
+
 

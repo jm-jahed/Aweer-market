@@ -8,9 +8,10 @@ import {
   ShopAdminLoginSchema, 
   SuperAdminLoginSchema, 
   MfaTokenSchema,
-  CreateOrderSchema
+  CreateOrderSchema,
+  CreateProductSchema
 } from '../dist/index.js';
-import { UserRole, isShopAdminRole, isSuperAdminRole, DeliveryType } from '../../types/dist/index.js';
+import { UserRole, WholesaleUnit, ProductCategory, isShopAdminRole, isSuperAdminRole, DeliveryType } from '../../types/dist/index.js';
 
 describe('Validation Contracts — Security & Integrity', () => {
   it('RegisterBuyerSchema accepts valid buyer input and normalizes email', () => {
@@ -258,5 +259,63 @@ describe('Validation Contracts — Security & Integrity', () => {
         isApproved: true
       });
     }, /unrecognized_keys/i);
+  });
+
+  it('CreateProductSchema validates 8-field form structure and defaults unitWeightKg to 1', () => {
+    // 8 fields: Name, Category, Origin, Image, Selling Price, Unit, MOQ, Stock
+    const valid8Fields = {
+      name: 'Organic Cavendish Bananas',
+      category: ProductCategory.EXOTIC_PRODUCE,
+      originCountry: 'Ecuador',
+      imageUrl: '/images/banana.jpg',
+      offer: {
+        unit: WholesaleUnit.BOX,
+        priceAed: 45.0,
+        minOrderQuantity: 2,
+        availableStock: 100
+      }
+    };
+
+    const parsed = CreateProductSchema.parse(valid8Fields);
+    assert.strictEqual(parsed.name, 'Organic Cavendish Bananas');
+    assert.strictEqual(parsed.offer.unitWeightKg, 1); // safely defaulted
+    assert.strictEqual(parsed.offer.priceAed, 45.0);
+    assert.strictEqual(parsed.offer.minOrderQuantity, 2);
+    assert.strictEqual(parsed.offer.availableStock, 100);
+
+    // Supports new units piece and bunch
+    const pieceProduct = CreateProductSchema.parse({
+      ...valid8Fields,
+      name: 'Watermelon Sugar Baby',
+      offer: {
+        unit: WholesaleUnit.PIECE,
+        priceAed: 15.0,
+        availableStock: 50
+      }
+    });
+    assert.strictEqual(pieceProduct.offer.unit, WholesaleUnit.PIECE);
+    assert.strictEqual(pieceProduct.offer.minOrderQuantity, 1);
+
+    // Rejects non-positive price
+    assert.throws(() => {
+      CreateProductSchema.parse({
+        ...valid8Fields,
+        offer: {
+          ...valid8Fields.offer,
+          priceAed: 0
+        }
+      });
+    }, /too_small|positive/i);
+
+    // Rejects negative stock
+    assert.throws(() => {
+      CreateProductSchema.parse({
+        ...valid8Fields,
+        offer: {
+          ...valid8Fields.offer,
+          availableStock: -5
+        }
+      });
+    }, /too_small|nonnegative/i);
   });
 });

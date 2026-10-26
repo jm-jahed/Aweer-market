@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, FormEvent, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, FormEvent, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useShopAdminAuth } from '../lib/auth-context';
@@ -14,11 +14,13 @@ import {
   getVendorOrders,
   updateVendorOrderStatus,
   getCategories,
+  uploadProductImage,
+  deleteProductImage,
   VendorProductItem,
   VendorOrderSummary,
   CategoryItem
 } from '../lib/api-client';
-import { ProductCategory, WholesaleUnit } from '@aweermarket/types';
+import { ProductCategory, WholesaleUnit, getDefaultUnitWeightKg } from '@aweermarket/types';
 import styles from './Dashboard.module.css';
 
 // Pre-defined produce options with realistic local imagery
@@ -176,20 +178,108 @@ export default function ShopAdminDashboard() {
     }
   ]);
 
-  // Add Produce Modal Form
+  // Add Product Modal Form (Strict 8-Field Specification)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [prodName, setProdName] = useState('');
   const [prodCategory, setProdCategory] = useState<ProductCategory>(ProductCategory.FRESH_FRUITS);
-  const [prodOrigin, setProdOrigin] = useState('UAE');
-  const [prodDescription, setProdDescription] = useState('');
+  const [prodOrigin, setProdOrigin] = useState('United Arab Emirates');
   const [prodImageUrl, setProdImageUrl] = useState('/images/apple.jpg');
-  const [prodUnit, setProdUnit] = useState<WholesaleUnit>(WholesaleUnit.BOX);
-  const [prodWeight, setProdWeight] = useState<number>(10);
   const [prodPrice, setProdPrice] = useState<number>(30);
+  const [prodUnit, setProdUnit] = useState<WholesaleUnit>(WholesaleUnit.BOX);
   const [prodMoq, setProdMoq] = useState<number>(1);
   const [prodStock, setProdStock] = useState<number>(50);
   const [isSubmittingProd, setIsSubmittingProd] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
+  const [draftUploadedKey, setDraftUploadedKey] = useState<string | null>(null);
   const [addModalError, setAddModalError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cleanedDraftKeysRef = useRef<Set<string>>(new Set());
+
+  // Non-blocking, safe cleanup helper for newly uploaded, unsaved draft images
+  const safeCleanupDraftImage = useCallback(async (keyToClean: string | null) => {
+    if (!keyToClean || typeof keyToClean !== 'string') return;
+    if (cleanedDraftKeysRef.current.has(keyToClean)) return;
+    cleanedDraftKeysRef.current.add(keyToClean);
+
+    try {
+      await deleteProductImage(keyToClean);
+    } catch (err: unknown) {
+      // Non-blocking: operational warning only, never break the UI
+      console.warn('Draft image cleanup notice:', err);
+    }
+  }, []);
+
+  const resetAddProductForm = () => {
+    // If a draft image was uploaded but form was canceled without saving, safely clean it up
+    if (draftUploadedKey) {
+      safeCleanupDraftImage(draftUploadedKey);
+      setDraftUploadedKey(null);
+    }
+    setProdName('');
+    setProdCategory(ProductCategory.FRESH_FRUITS);
+    setProdOrigin('United Arab Emirates');
+    setProdImageUrl('/images/apple.jpg');
+    setUploadPreviewUrl(null);
+    setIsUploadingImage(false);
+    setProdPrice(30);
+    setProdUnit(WholesaleUnit.BOX);
+    setProdMoq(1);
+    setProdStock(50);
+    setAddModalError(null);
+  };
+
+  const processImageFile = async (file: File) => {
+    if (!file) return;
+
+    if (!file.type.match(/^image\/(jpeg|png|webp)$/i)) {
+      setAddModalError('Please select a valid image file (JPEG, PNG, WebP).');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAddModalError('Image size exceeds 5MB limit. Please choose a smaller file.');
+      return;
+    }
+
+    // Clean up previous unsubmitted draft image if replacing
+    if (draftUploadedKey) {
+      safeCleanupDraftImage(draftUploadedKey);
+      setDraftUploadedKey(null);
+    }
+
+    // Immediate local preview while upload progresses
+    const objectUrl = URL.createObjectURL(file);
+    setUploadPreviewUrl(objectUrl);
+    setAddModalError(null);
+    setIsUploadingImage(true);
+
+    try {
+      const res = await uploadProductImage(file);
+      // Persist the stable public HTTPS URL and track draft key for safety
+      setProdImageUrl(res.url);
+      setDraftUploadedKey(res.key);
+      setUploadPreviewUrl(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Image upload failed';
+      setAddModalError(`Image Upload Failed: ${msg}`);
+      setUploadPreviewUrl(null);
+      setProdImageUrl('');
+      setDraftUploadedKey(null);
+    } finally {
+      setIsUploadingImage(false);
+      URL.revokeObjectURL(objectUrl);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processImageFile(file);
+    }
+  };
 
   // Edit Offer / Product Modal
   const [editingItem, setEditingItem] = useState<VendorProductItem | null>(null);
@@ -501,27 +591,29 @@ export default function ShopAdminDashboard() {
     });
   };
 
-  // Add Produce Offer
+  // Add Product (Strict 8-Field Specification)
   const executeAddProduce = async () => {
     setIsSubmittingProd(true);
     try {
+      const derivedUnitWeightKg = getDefaultUnitWeightKg(prodUnit);
       await createVendorProduct({
         name: prodName.trim(),
         category: prodCategory,
         originCountry: prodOrigin.trim(),
-        description: prodDescription.trim(),
-        imageUrl: prodImageUrl,
+        description: `${prodName.trim()} sourced directly from ${prodOrigin.trim()}. Fresh commercial produce.`,
+        imageUrl: prodImageUrl || '/images/apple.jpg',
         offer: {
           unit: prodUnit,
-          unitWeightKg: Number(prodWeight),
+          unitWeightKg: derivedUnitWeightKg,
           priceAed: Number(prodPrice),
-          minOrderQuantity: Number(prodMoq),
-          availableStock: Number(prodStock)
+          minOrderQuantity: Number(prodMoq) || 1,
+          availableStock: Number(prodStock) || 0
         }
       });
+      // Product successfully saved in MongoDB: image is now permanently active, not a draft!
+      setDraftUploadedKey(null);
       setIsAddModalOpen(false);
-      setProdName('');
-      setProdDescription('');
+      resetAddProductForm();
       await loadInventory();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create produce listing';
@@ -535,17 +627,49 @@ export default function ShopAdminDashboard() {
     e.preventDefault();
     setAddModalError(null);
 
-    if (!prodName.trim() || prodWeight <= 0 || prodPrice <= 0 || prodStock < 0) {
-      setAddModalError('Please ensure produce name, positive weight/price, and non-negative stock are set.');
+    if (!prodName.trim() || prodName.trim().length < 2) {
+      setAddModalError('Product Name is required (at least 2 characters).');
+      return;
+    }
+    if (!prodCategory) {
+      setAddModalError('Please select a valid Category.');
+      return;
+    }
+    if (!prodOrigin.trim() || prodOrigin.trim().length < 2) {
+      setAddModalError('Country of Origin is required (at least 2 characters).');
+      return;
+    }
+    if (isUploadingImage) {
+      setAddModalError('Please wait for product image upload to complete.');
+      return;
+    }
+    if (!prodImageUrl || prodImageUrl.startsWith('blob:') || prodImageUrl.startsWith('data:')) {
+      setAddModalError('Please upload or select a valid Product Image.');
+      return;
+    }
+    if (!prodPrice || Number(prodPrice) <= 0 || isNaN(Number(prodPrice))) {
+      setAddModalError('Selling Price must be a positive number greater than 0.');
+      return;
+    }
+    if (!prodUnit) {
+      setAddModalError('Please select a produce Unit.');
+      return;
+    }
+    if (!prodMoq || Number(prodMoq) < 1 || isNaN(Number(prodMoq))) {
+      setAddModalError('Minimum Order Quantity must be at least 1.');
+      return;
+    }
+    if (prodStock === undefined || prodStock === null || Number(prodStock) < 0 || isNaN(Number(prodStock))) {
+      setAddModalError('Available Stock cannot be negative.');
       return;
     }
 
     setConfirmDialog({
       isOpen: true,
-      title: 'Confirm Produce Listing',
-      message: `Are you sure you want to publish wholesale listing for "${prodName.trim()}"?`,
-      detail: `Category: ${prodCategory.replace(/_/g, ' ')} | Package: ${prodWeight}kg ${prodUnit} | Price: Dhs ${Number(prodPrice).toFixed(2)} | Stock: ${prodStock} units`,
-      confirmLabel: 'Confirm & Publish Listing',
+      title: 'Confirm Product Listing',
+      message: `Are you sure you want to save and publish listing for "${prodName.trim()}"?`,
+      detail: `Category: ${prodCategory.replace(/_/g, ' ')} | Price: AED ${Number(prodPrice).toFixed(2)} per ${prodUnit} | MOQ: ${prodMoq} | Available Stock: ${prodStock} ${prodUnit}`,
+      confirmLabel: 'Confirm & Save Product',
       variant: 'primary',
       onConfirm: async () => {
         await executeAddProduce();
@@ -2814,17 +2938,21 @@ export default function ShopAdminDashboard() {
       </div>
 
       {/* =====================================================================
-          MODAL: LIST NEW PRODUCE OFFER (with Visual Imagery Selector)
+          MODAL: ADD NEW PRODUCT (Strict 8-Field Specification)
          ===================================================================== */}
       {isAddModalOpen && (
-        <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
+        <div className={styles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="add-product-modal-title">
           <div className={styles.modalCard}>
             <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>List New Produce Offer</h3>
+              <h3 id="add-product-modal-title" className={styles.modalTitle}>Add New Product</h3>
               <button
                 type="button"
                 className={styles.modalCloseBtn}
-                onClick={() => setIsAddModalOpen(false)}
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  resetAddProductForm();
+                }}
+                aria-label="Close dialog"
               >
                 ✕
               </button>
@@ -2838,42 +2966,36 @@ export default function ShopAdminDashboard() {
 
             <form onSubmit={handleAddProduce}>
               <div className={styles.modalBody}>
-                {/* Visual Image Preset Selector */}
+                {/* 1. Product Name */}
                 <div className={styles.fieldGroup}>
-                  <label className={styles.formLabel}>Select Produce Thumbnail *</label>
-                  <div className={styles.producePickerGrid}>
-                    {PRODUCE_IMAGE_PRESETS.map((img) => (
-                      <div
-                        key={img.src}
-                        className={`${styles.producePickerOption} ${prodImageUrl === img.src ? styles.producePickerSelected : ''}`}
-                        onClick={() => setProdImageUrl(img.src)}
-                      >
-                        <img src={img.src} alt={img.label} className={styles.producePickerImg} />
-                        <span className={styles.producePickerLabel}>{img.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className={styles.fieldGroup}>
-                  <label className={styles.formLabel}>Produce Name *</label>
+                  <label className={styles.formLabel} htmlFor="field-prod-name">
+                    Product Name *
+                  </label>
                   <input
+                    id="field-prod-name"
                     type="text"
                     className={styles.formInput}
                     placeholder="e.g. Valencia Oranges, Cavendish Bananas, Vine Tomatoes"
                     value={prodName}
                     onChange={(e) => setProdName(e.target.value)}
                     required
+                    autoComplete="off"
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {/* 2. Category & 3. Country of Origin */}
+                <div className={styles.formGrid2Col}>
+                  {/* 2. Category */}
                   <div className={styles.fieldGroup}>
-                    <label className={styles.formLabel}>Marketplace Category *</label>
+                    <label className={styles.formLabel} htmlFor="field-prod-category">
+                      Category *
+                    </label>
                     <select
+                      id="field-prod-category"
                       className={styles.formSelect}
                       value={prodCategory}
                       onChange={(e) => setProdCategory(e.target.value as ProductCategory)}
+                      required
                     >
                       <option value={ProductCategory.FRESH_FRUITS}>Fresh Fruits</option>
                       <option value={ProductCategory.FRESH_VEGETABLES}>Fresh Vegetables</option>
@@ -2885,84 +3007,255 @@ export default function ShopAdminDashboard() {
                     </select>
                   </div>
 
+                  {/* 3. Country of Origin */}
                   <div className={styles.fieldGroup}>
-                    <label className={styles.formLabel}>Origin Country *</label>
+                    <label className={styles.formLabel} htmlFor="field-prod-origin">
+                      Country of Origin *
+                    </label>
                     <input
+                      id="field-prod-origin"
                       type="text"
+                      list="country-origins-list"
                       className={styles.formInput}
-                      placeholder="e.g. Egypt, UAE, India, Spain"
+                      placeholder="e.g. United Arab Emirates, Egypt, India, Spain"
                       value={prodOrigin}
                       onChange={(e) => setProdOrigin(e.target.value)}
                       required
+                      autoComplete="country-name"
                     />
+                    <datalist id="country-origins-list">
+                      <option value="United Arab Emirates" />
+                      <option value="Egypt" />
+                      <option value="India" />
+                      <option value="Pakistan" />
+                      <option value="Spain" />
+                      <option value="South Africa" />
+                      <option value="Turkey" />
+                      <option value="Netherlands" />
+                      <option value="Australia" />
+                      <option value="United States" />
+                    </datalist>
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {/* 4. Product Image */}
+                <div className={styles.fieldGroup}>
+                  <label className={styles.formLabel}>
+                    Product Image *
+                  </label>
+                  <div className={styles.imageUploadCard}>
+                    <input
+                      ref={fileInputRef}
+                      id="field-prod-image-file"
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp"
+                      style={{ display: 'none' }}
+                      onChange={handleImageFileChange}
+                    />
+                    {(uploadPreviewUrl || prodImageUrl) ? (
+                      <div className={styles.imagePreviewWrap}>
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                          <img
+                            src={uploadPreviewUrl || prodImageUrl}
+                            alt={prodName || 'Product Preview'}
+                            className={styles.imagePreviewThumb}
+                          />
+                          {isUploadingImage && (
+                            <div style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: 'rgba(0, 0, 0, 0.7)',
+                              borderRadius: 8,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#34d399',
+                              fontSize: '0.78rem',
+                              fontWeight: 700
+                            }}>
+                              <span>☁️ Uploading to R2...</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className={styles.imagePreviewMeta}>
+                          <span className={styles.imagePreviewTitle}>
+                            {isUploadingImage
+                              ? 'Uploading to Cloudflare R2...'
+                              : prodImageUrl.startsWith('http')
+                              ? 'Cloudflare R2 Image'
+                              : 'Produce Photo Selected'}
+                          </span>
+                          <div className={styles.imageActionButtons}>
+                            <button
+                              type="button"
+                              className={styles.imageActionBtn}
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={isUploadingImage}
+                            >
+                              📷 Change Photo
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.imageRemoveBtn}
+                              onClick={() => {
+                                if (draftUploadedKey) {
+                                  safeCleanupDraftImage(draftUploadedKey);
+                                  setDraftUploadedKey(null);
+                                }
+                                setProdImageUrl('');
+                                setUploadPreviewUrl(null);
+                              }}
+                              disabled={isUploadingImage}
+                            >
+                              ✕ Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className={styles.imageDropzone}
+                        onClick={() => fileInputRef.current?.click()}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const droppedFile = e.dataTransfer.files?.[0];
+                          if (droppedFile) {
+                            processImageFile(droppedFile);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            fileInputRef.current?.click();
+                          }
+                        }}
+                      >
+                        <span className={styles.dropzoneIcon}>📷</span>
+                        <span className={styles.dropzoneMainText}>Tap or drag photo here to upload</span>
+                        <span className={styles.dropzoneSubText}>Supports JPG, PNG, WebP up to 5MB</span>
+                      </div>
+                    )}
+
+                    {/* Quick Produce Image Presets */}
+                    <div className={styles.presetPickerContainer}>
+                      <span className={styles.presetPickerLabel}>Or choose from catalog presets:</span>
+                      <div className={styles.presetPillsRow}>
+                        {PRODUCE_IMAGE_PRESETS.map((img) => (
+                          <button
+                            key={img.src}
+                            type="button"
+                            className={`${styles.presetPill} ${prodImageUrl === img.src ? styles.presetPillActive : ''}`}
+                            onClick={() => {
+                              if (draftUploadedKey) {
+                                safeCleanupDraftImage(draftUploadedKey);
+                                setDraftUploadedKey(null);
+                              }
+                              setProdImageUrl(img.src);
+                              setUploadPreviewUrl(null);
+                              setAddModalError(null);
+                            }}
+                            disabled={isUploadingImage}
+                          >
+                            <img src={img.src} alt={img.label} className={styles.presetPillImg} />
+                            <span>{img.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Selling Price & 6. Unit */}
+                <div className={styles.formGrid2Col}>
+                  {/* 5. Selling Price */}
                   <div className={styles.fieldGroup}>
-                    <label className={styles.formLabel}>Packaging Unit *</label>
+                    <label className={styles.formLabel} htmlFor="field-prod-price">
+                      Selling Price (AED) *
+                    </label>
+                    <div className={styles.inputWithAddon}>
+                      <span className={styles.inputAddonPrefix}>AED</span>
+                      <input
+                        id="field-prod-price"
+                        type="number"
+                        step="0.25"
+                        min="0.01"
+                        inputMode="decimal"
+                        className={styles.formInputAddon}
+                        placeholder="e.g. 35.00"
+                        value={prodPrice === 0 ? '' : prodPrice}
+                        onChange={(e) => setProdPrice(e.target.value === '' ? 0 : Number(e.target.value))}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* 6. Unit */}
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.formLabel} htmlFor="field-prod-unit">
+                      Unit *
+                    </label>
                     <select
+                      id="field-prod-unit"
                       className={styles.formSelect}
                       value={prodUnit}
                       onChange={(e) => setProdUnit(e.target.value as WholesaleUnit)}
-                    >
-                      <option value={WholesaleUnit.BOX}>Box</option>
-                      <option value={WholesaleUnit.CRATE}>Crate</option>
-                      <option value={WholesaleUnit.CARTON}>Carton</option>
-                      <option value={WholesaleUnit.SACK}>Sack</option>
-                      <option value={WholesaleUnit.PALLET}>Pallet</option>
-                      <option value={WholesaleUnit.KG}>Kilogram (kg)</option>
-                    </select>
-                  </div>
-
-                  <div className={styles.fieldGroup}>
-                    <label className={styles.formLabel}>Unit Weight (kg) *</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      className={styles.formInput}
-                      value={prodWeight}
-                      onChange={(e) => setProdWeight(Number(e.target.value))}
                       required
-                    />
+                    >
+                      <option value={WholesaleUnit.BOX}>Box (Standard wholesale box)</option>
+                      <option value={WholesaleUnit.CRATE}>Crate (Plastic/wood produce crate)</option>
+                      <option value={WholesaleUnit.CARTON}>Carton (Corrugated commercial carton)</option>
+                      <option value={WholesaleUnit.KG}>Kilogram (kg - Bulk produce weight)</option>
+                      <option value={WholesaleUnit.SACK}>Sack (Mesh produce sack)</option>
+                      <option value={WholesaleUnit.PALLET}>Pallet (Full wholesale dock pallet)</option>
+                      <option value={WholesaleUnit.PIECE}>Piece (Per piece / melon)</option>
+                      <option value={WholesaleUnit.BUNCH}>Bunch (Fresh herbs &amp; greens)</option>
+                    </select>
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                {/* 7. Minimum Order Quantity & 8. Available Stock */}
+                <div className={styles.formGrid2Col}>
+                  {/* 7. Minimum Order Quantity */}
                   <div className={styles.fieldGroup}>
-                    <label className={styles.formLabel}>Wholesale Price (Dhs) *</label>
+                    <label className={styles.formLabel} htmlFor="field-prod-moq">
+                      Minimum Order Quantity (MOQ) *
+                    </label>
                     <input
-                      type="number"
-                      step="0.5"
-                      min="0.1"
-                      className={styles.formInput}
-                      value={prodPrice}
-                      onChange={(e) => setProdPrice(Number(e.target.value))}
-                      required
-                    />
-                  </div>
-
-                  <div className={styles.fieldGroup}>
-                    <label className={styles.formLabel}>Available Stock *</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className={styles.formInput}
-                      value={prodStock}
-                      onChange={(e) => setProdStock(Number(e.target.value))}
-                      required
-                    />
-                  </div>
-
-                  <div className={styles.fieldGroup}>
-                    <label className={styles.formLabel}>MOQ *</label>
-                    <input
+                      id="field-prod-moq"
                       type="number"
                       min="1"
+                      step="1"
+                      inputMode="numeric"
                       className={styles.formInput}
-                      value={prodMoq}
-                      onChange={(e) => setProdMoq(Number(e.target.value))}
+                      placeholder="e.g. 1"
+                      value={prodMoq === 0 ? '' : prodMoq}
+                      onChange={(e) => setProdMoq(e.target.value === '' ? 1 : Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      required
+                    />
+                  </div>
+
+                  {/* 8. Available Stock */}
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.formLabel} htmlFor="field-prod-stock">
+                      Available Stock *
+                    </label>
+                    <input
+                      id="field-prod-stock"
+                      type="number"
+                      min="0"
+                      step="1"
+                      inputMode="numeric"
+                      className={styles.formInput}
+                      placeholder="e.g. 50"
+                      value={prodStock === 0 ? '' : prodStock}
+                      onChange={(e) => setProdStock(e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0))}
                       required
                     />
                   </div>
@@ -2973,7 +3266,10 @@ export default function ShopAdminDashboard() {
                 <button
                   type="button"
                   className={styles.confirmCancelBtn}
-                  onClick={() => setIsAddModalOpen(false)}
+                  onClick={() => {
+                    setIsAddModalOpen(false);
+                    resetAddProductForm();
+                  }}
                   disabled={isSubmittingProd}
                 >
                   Cancel
@@ -2981,9 +3277,10 @@ export default function ShopAdminDashboard() {
                 <button
                   type="submit"
                   className={styles.saveBtn}
-                  disabled={isSubmittingProd}
+                  disabled={isSubmittingProd || isUploadingImage}
+                  id="save-product-btn"
                 >
-                  {isSubmittingProd ? 'Publishing...' : 'Publish Produce Offer'}
+                  {isSubmittingProd ? 'Saving Product...' : isUploadingImage ? 'Uploading Image...' : 'Save Product'}
                 </button>
               </div>
             </form>

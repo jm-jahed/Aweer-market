@@ -273,7 +273,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       // Update shop with authoritative owner ID
-      await updateShop(createdShop.id, { ownerId: vendorUser.id } as any);
+      await updateShop(createdShop.id, { ownerId: vendorUser.id });
       if (createdShop.ownerId !== undefined) {
         createdShop.ownerId = vendorUser.id;
       }

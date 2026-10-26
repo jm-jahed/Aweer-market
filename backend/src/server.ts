@@ -1,6 +1,8 @@
+import net from 'node:net';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import dotenv from 'dotenv';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
@@ -17,10 +19,121 @@ dotenv.config();
 const port = Number(process.env.PORT) || 4000;
 const host = process.env.HOST || '0.0.0.0';
 
-export async function buildServer() {
+const VALID_PROXY_ALIASES = new Set(['loopback', 'linklocal', 'uniquelocal']);
+
+/**
+ * Validates and normalizes trustProxy configuration for Fastify.
+ * Rejects arbitrary strings, malformed IPs, and invalid CIDR masks with fail-closed security.
+ */
+export function parseTrustProxyConfig(val?: string | boolean | string[]): boolean | string | string[] {
+  if (val === undefined || val === null || val === false) {
+    return false;
+  }
+  if (val === true) {
+    return true;
+  }
+
+  const rawEntries: string[] = Array.isArray(val)
+    ? val
+    : String(val).split(',').map((s) => s.trim()).filter(Boolean);
+
+  if (rawEntries.length === 0) {
+    return false;
+  }
+
+  // Handle single boolean-like strings
+  if (rawEntries.length === 1) {
+    const single = rawEntries[0].toLowerCase();
+    if (single === 'false' || single === '0') return false;
+    if (single === 'true' || single === '1') return true;
+  }
+
+  const validatedEntries: string[] = [];
+
+  for (const entry of rawEntries) {
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+
+    const lower = trimmed.toLowerCase();
+    if (VALID_PROXY_ALIASES.has(lower)) {
+      validatedEntries.push(lower);
+      continue;
+    }
+
+    // Check if it's a CIDR notation: <ip>/<mask>
+    if (trimmed.includes('/')) {
+      const parts = trimmed.split('/');
+      if (parts.length !== 2) {
+        throw new Error(
+          `Security Configuration Error: Invalid TRUST_PROXY entry '${trimmed}'. Malformed CIDR notation.`
+        );
+      }
+      const [ipPart, maskPart] = parts;
+      const ipVersion = net.isIP(ipPart);
+      if (ipVersion === 0) {
+        throw new Error(
+          `Security Configuration Error: Invalid TRUST_PROXY entry '${trimmed}'. '${ipPart}' is not a valid IP address.`
+        );
+      }
+      if (!/^\d+$/.test(maskPart)) {
+        throw new Error(
+          `Security Configuration Error: Invalid TRUST_PROXY entry '${trimmed}'. Mask '${maskPart}' must be an integer.`
+        );
+      }
+      const mask = Number(maskPart);
+      if (ipVersion === 4 && (mask < 0 || mask > 32)) {
+        throw new Error(
+          `Security Configuration Error: Invalid TRUST_PROXY entry '${trimmed}'. IPv4 CIDR mask must be between 0 and 32.`
+        );
+      }
+      if (ipVersion === 6 && (mask < 0 || mask > 128)) {
+        throw new Error(
+          `Security Configuration Error: Invalid TRUST_PROXY entry '${trimmed}'. IPv6 CIDR mask must be between 0 and 128.`
+        );
+      }
+      validatedEntries.push(trimmed);
+      continue;
+    }
+
+    // Check single IP (IPv4 or IPv6)
+    const ipVersion = net.isIP(trimmed);
+    if (ipVersion !== 0) {
+      validatedEntries.push(trimmed);
+      continue;
+    }
+
+    throw new Error(
+      `Security Configuration Error: Invalid TRUST_PROXY entry '${trimmed}'. Must be a valid IP address, CIDR subnet, or supported alias ('loopback', 'linklocal', 'uniquelocal').`
+    );
+  }
+
+  if (validatedEntries.length === 0) {
+    return false;
+  }
+  return validatedEntries.length === 1 ? validatedEntries[0] : validatedEntries;
+}
+
+export interface BuildServerOptions {
+  trustProxy?: boolean | string | string[];
+}
+
+export async function buildServer(options?: BuildServerOptions) {
+  const resolvedTrustProxy = options && options.trustProxy !== undefined
+    ? (typeof options.trustProxy === 'boolean' ? options.trustProxy : parseTrustProxyConfig(options.trustProxy))
+    : parseTrustProxyConfig(process.env.TRUST_PROXY);
+
   const server = Fastify({
+    trustProxy: resolvedTrustProxy,
     logger: {
       level: process.env.NODE_ENV === 'test' ? 'silent' : 'info'
+    }
+  });
+
+  // Multipart support for image uploads (enforce 5 MiB ceiling)
+  await server.register(multipart, {
+    limits: {
+      fileSize: 5 * 1024 * 1024,
+      files: 1
     }
   });
 
