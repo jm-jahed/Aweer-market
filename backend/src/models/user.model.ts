@@ -189,6 +189,17 @@ export function resetInMemoryUsers(): void {
   idCounter = 1;
 }
 
+/**
+ * Simulates a mid-flight email collision / race-condition during unit testing.
+ * Gated strictly to test environment.
+ */
+export function simulateUserCollision(email: string): void {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new DatabaseUnavailableError('User collision simulation is only permitted in test environment');
+  }
+  inMemoryUsersByEmail.set(email.toLowerCase().trim(), 'ghost_user_collision_id');
+}
+
 export interface CreateBuyerData {
   email: string;
   passwordHash: string;
@@ -538,6 +549,7 @@ export interface CreateShopAdminData {
   passwordHash: string;
   fullName: string;
   shopId: string;
+  resellerId?: string;
   businessName?: string;
   phone?: string;
   tradeLicenseNumber?: string;
@@ -553,6 +565,7 @@ export async function createShopAdminUser(data: CreateShopAdminData): Promise<IU
       fullName: data.fullName.trim(),
       role: UserRole.SHOP_ADMIN,
       shopId: data.shopId,
+      resellerId: data.resellerId?.trim() || undefined,
       businessName: data.businessName?.trim(),
       phone: data.phone?.trim(),
       tradeLicenseNumber: data.tradeLicenseNumber?.trim(),
@@ -580,6 +593,7 @@ export async function createShopAdminUser(data: CreateShopAdminData): Promise<IU
     fullName: data.fullName.trim(),
     role: UserRole.SHOP_ADMIN,
     shopId: data.shopId,
+    resellerId: data.resellerId?.trim() || undefined,
     businessName: data.businessName?.trim(),
     phone: data.phone?.trim(),
     tradeLicenseNumber: data.tradeLicenseNumber?.trim(),
@@ -594,10 +608,16 @@ export async function createShopAdminUser(data: CreateShopAdminData): Promise<IU
   return record;
 }
 
-export async function listAllUsers(filter?: { role?: UserRole }): Promise<Array<IUserDocument | UserRecord>> {
+export async function listAllUsers(filter?: { role?: UserRole; resellerId?: string; shopIds?: string[] }): Promise<Array<IUserDocument | UserRecord>> {
   if (isDatabaseConnected()) {
     const q: Record<string, unknown> = {};
     if (filter?.role) q.role = filter.role;
+    if (filter?.resellerId || filter?.shopIds?.length) {
+      const orClauses: Array<Record<string, unknown>> = [];
+      if (filter.resellerId) orClauses.push({ resellerId: filter.resellerId });
+      if (filter.shopIds?.length) orClauses.push({ shopId: { $in: filter.shopIds } });
+      q.$or = orClauses;
+    }
     return await UserModel.find(q).sort({ createdAt: -1 }).exec();
   }
 
@@ -609,10 +629,48 @@ export async function listAllUsers(filter?: { role?: UserRole }): Promise<Array<
   if (filter?.role) {
     list = list.filter((u) => u.role === filter.role);
   }
+  if (filter?.resellerId || filter?.shopIds?.length) {
+    list = list.filter((u) => {
+      const matchReseller = filter.resellerId && u.resellerId === filter.resellerId;
+      const matchShop = filter.shopIds && u.shopId && filter.shopIds.includes(u.shopId);
+      return matchReseller || matchShop;
+    });
+  }
   return list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-export async function countUsers(): Promise<{ total: number; buyers: number; shopAdmins: number; superAdmins: number }> {
+export async function countUsers(filter?: { resellerId?: string; shopIds?: string[] }): Promise<{ total: number; buyers: number; shopAdmins: number; superAdmins: number }> {
+  if (filter?.resellerId || filter?.shopIds?.length) {
+    if (isDatabaseConnected()) {
+      const orClauses: Array<Record<string, unknown>> = [];
+      if (filter.resellerId) orClauses.push({ resellerId: filter.resellerId });
+      if (filter.shopIds?.length) orClauses.push({ shopId: { $in: filter.shopIds } });
+      const scopeQuery = { $or: orClauses };
+
+      const [total, shopAdmins] = await Promise.all([
+        UserModel.countDocuments(scopeQuery),
+        UserModel.countDocuments({ ...scopeQuery, role: UserRole.SHOP_ADMIN })
+      ]);
+      return { total, buyers: 0, shopAdmins, superAdmins: 0 };
+    }
+
+    if (!isInMemoryUserStoreAllowed()) {
+      throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+    }
+
+    const all = Array.from(inMemoryUsersById.values()).filter((u) => {
+      const matchReseller = filter.resellerId && u.resellerId === filter.resellerId;
+      const matchShop = filter.shopIds && u.shopId && filter.shopIds.includes(u.shopId);
+      return matchReseller || matchShop;
+    });
+    return {
+      total: all.length,
+      buyers: 0,
+      shopAdmins: all.filter((u) => u.role === UserRole.SHOP_ADMIN).length,
+      superAdmins: 0
+    };
+  }
+
   if (isDatabaseConnected()) {
     const [total, buyers, shopAdmins, superAdmins] = await Promise.all([
       UserModel.countDocuments(),

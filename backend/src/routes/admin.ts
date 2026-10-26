@@ -17,6 +17,7 @@ import {
   countShops,
   createShop,
   updateShop,
+  deleteShop,
   setShopApproval,
   setShopActiveStatus,
   findShopById
@@ -56,7 +57,8 @@ import {
   UpdateCategorySchema,
   CreateResellerSchema,
   UpdateResellerSchema,
-  CreateShopByAdminSchema
+  CreateShopByAdminSchema,
+  UpdateShopByAdminSchema
 } from '@aweermarket/validation';
 
 
@@ -99,7 +101,7 @@ export async function requireActiveAdmin(request: FastifyRequest, reply: Fastify
     return reply.status(403).send({
       statusCode: 403,
       error: 'Forbidden',
-      message: 'Access denied: insufficient administrative permissions'
+      message: 'Access denied: insufficient permissions'
     });
   }
 }
@@ -113,8 +115,44 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * GET /api/v1/admin/overview
    * Real platform metrics and counters across users, stalls, products, and orders.
+   * Strictly scopes metrics to owned stalls for RESELLER, while preserving platform-wide overview for SUPER_ADMIN.
    */
-  fastify.get('/overview', async (_request: FastifyRequest, reply: FastifyReply) => {
+  fastify.get('/overview', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.user?.role === UserRole.RESELLER) {
+      const resellerId = request.user.resellerId;
+      const myShops = await listAllShops({ resellerId });
+      const shopIds = myShops.map((s) => s.id);
+
+      const [userCounts, shopCounts, productCounts, orderCount, financials] = await Promise.all([
+        countUsers({ resellerId, shopIds }),
+        countShops({ resellerId }),
+        countProducts({ shopIds }),
+        countOrders({ shopIds }),
+        getOrderFinancialMetrics({ shopIds })
+      ]);
+
+      return reply.status(200).send({
+        statusCode: 200,
+        metrics: {
+          totalUsers: userCounts.total,
+          buyers: userCounts.buyers,
+          shopAdmins: userCounts.shopAdmins,
+          superAdmins: userCounts.superAdmins,
+          totalShops: shopCounts.total,
+          approvedShops: shopCounts.approved,
+          pendingShops: shopCounts.pending,
+          totalProducts: productCounts.total,
+          activeProducts: productCounts.active,
+          inactiveProducts: productCounts.inactive,
+          totalOrders: orderCount,
+          totalResellers: 0,
+          approvedResellers: 0,
+          pendingResellers: 0,
+          financials
+        }
+      });
+    }
+
     const [userCounts, shopCounts, productCounts, orderCount, financials, resellerCounts] = await Promise.all([
       countUsers(),
       countShops(),
@@ -210,9 +248,10 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     // Multi-tenant isolation tag: If created by Reseller, associate with resellerId
     const resellerId = request.user?.role === UserRole.RESELLER ? request.user.resellerId : undefined;
 
+    let createdShop: any = null;
     try {
       const tempOwnerId = `pending_owner_${Date.now()}`;
-      const shop = await createShop({
+      createdShop = await createShop({
         name,
         stallNumber,
         ownerId: tempOwnerId,
@@ -228,23 +267,33 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         passwordHash,
         fullName: ownerName,
         phone,
-        shopId: shop.id,
+        shopId: createdShop.id,
+        resellerId,
         tradeLicenseNumber
       });
 
       // Update shop with authoritative owner ID
-      await updateShop(shop.id, { ownerId: vendorUser.id } as any);
-      if ((shop as any).ownerId !== undefined) {
-        (shop as any).ownerId = vendorUser.id;
+      await updateShop(createdShop.id, { ownerId: vendorUser.id } as any);
+      if (createdShop.ownerId !== undefined) {
+        createdShop.ownerId = vendorUser.id;
       }
 
       return reply.status(201).send({
         statusCode: 201,
         message: 'Vendor stall and portal login registered successfully',
-        shop: shop.toPublicSummary(),
+        shop: createdShop.toPublicSummary(),
         vendor: vendorUser.toUserSummary()
       });
     } catch (err: any) {
+      // Compensating rollback: Clean up orphaned shop if vendor user creation failed
+      if (createdShop?.id) {
+        try {
+          await deleteShop(createdShop.id);
+        } catch (cleanupErr) {
+          request.log.error({ cleanupErr, shopId: createdShop.id }, 'Failed to rollback orphaned shop after vendor creation failure');
+        }
+      }
+
       if (err.statusCode === 409 || err.code === 11000) {
         return reply.status(409).send({
           statusCode: 409,
@@ -257,6 +306,59 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           statusCode: 503,
           error: 'Service Unavailable',
           message: 'Database storage is unavailable. Stall creation rejected.'
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * PUT /api/v1/admin/shops/:id
+   * Admin or Reseller updates authorized stall metadata.
+   * Enforces server-side tenant isolation: Resellers can only edit their own stalls.
+   */
+  fastify.put('/shops/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const parseResult = UpdateShopByAdminSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: parseResult.error.errors[0]?.message || 'Invalid shop update payload'
+      });
+    }
+
+    const shop = await findShopById(id);
+    if (!shop) {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Shop not found'
+      });
+    }
+
+    // Security: Enforce reseller tenant isolation
+    if (request.user?.role === UserRole.RESELLER && shop.resellerId !== request.user.resellerId) {
+      return reply.status(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Access denied: You cannot edit vendor stalls belonging to another reseller'
+      });
+    }
+
+    try {
+      const updated = await updateShop(id, parseResult.data);
+      return reply.status(200).send({
+        statusCode: 200,
+        message: 'Shop metadata updated successfully',
+        shop: updated ? updated.toPublicSummary() : null
+      });
+    } catch (err: any) {
+      if (err instanceof DatabaseUnavailableError || err.statusCode === 503) {
+        return reply.status(503).send({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: 'Database storage is unavailable. Stall update rejected.'
         });
       }
       throw err;
@@ -476,12 +578,19 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       statusFilter = query.status as OrderStatus;
     }
 
+    let scopedShopIds: string[] | undefined;
+    if (request.user?.role === UserRole.RESELLER) {
+      const myShops = await listAllShops({ resellerId: request.user.resellerId });
+      scopedShopIds = myShops.map((s) => s.id);
+    }
+
     const [orders, financials] = await Promise.all([
       listAllOrdersAdmin({
         status: statusFilter,
-        shopId: query.shopId?.trim()
+        shopId: query.shopId?.trim(),
+        shopIds: scopedShopIds
       }),
-      getOrderFinancialMetrics()
+      getOrderFinancialMetrics(scopedShopIds ? { shopIds: scopedShopIds } : undefined)
     ]);
 
     const formattedOrders = orders.map((o) => {

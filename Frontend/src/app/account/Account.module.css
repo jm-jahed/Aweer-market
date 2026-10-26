@@ -1005,6 +1005,8 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modalCard {
@@ -1013,8 +1015,8 @@
   border-radius: 16px;
   width: 100%;
   max-width: 680px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
@@ -1027,6 +1029,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .modalTitle {
@@ -1055,6 +1058,9 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
 }
 
 .modalFooter {
@@ -1064,6 +1070,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 /* Timeline progress for order status */

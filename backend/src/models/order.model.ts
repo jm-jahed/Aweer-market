@@ -229,13 +229,19 @@ export async function findOrdersByBuyerId(buyerId: string): Promise<Array<IOrder
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-export async function countOrders(): Promise<number> {
+export async function countOrders(filter?: { shopIds?: string[] }): Promise<number> {
   if (isDatabaseConnected()) {
-    return await OrderModel.countDocuments();
+    const q: Record<string, unknown> = {};
+    if (filter?.shopIds?.length) q.shopId = { $in: filter.shopIds };
+    return await OrderModel.countDocuments(q);
   }
 
   if (!isInMemoryOrderStoreAllowed()) {
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  if (filter?.shopIds?.length) {
+    return Array.from(inMemoryOrders.values()).filter((o) => filter.shopIds!.includes(o.shopId)).length;
   }
 
   return inMemoryOrders.size;
@@ -286,11 +292,16 @@ export interface OrderFinancialMetrics {
 export async function listAllOrdersAdmin(filter?: {
   status?: OrderStatus;
   shopId?: string;
+  shopIds?: string[];
 }): Promise<Array<IOrderDocument | OrderRecord>> {
   if (isDatabaseConnected()) {
     const q: Record<string, unknown> = {};
     if (filter?.status) q.status = filter.status;
-    if (filter?.shopId) q.shopId = filter.shopId;
+    if (filter?.shopId) {
+      q.shopId = filter.shopId;
+    } else if (filter?.shopIds?.length) {
+      q.shopId = { $in: filter.shopIds };
+    }
     return await OrderModel.find(q).sort({ createdAt: -1 }).exec();
   }
 
@@ -304,12 +315,14 @@ export async function listAllOrdersAdmin(filter?: {
   }
   if (filter?.shopId) {
     list = list.filter((o) => o.shopId === filter.shopId);
+  } else if (filter?.shopIds?.length) {
+    list = list.filter((o) => filter.shopIds!.includes(o.shopId));
   }
   return list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-export async function getOrderFinancialMetrics(): Promise<OrderFinancialMetrics> {
-  const orders = await listAllOrdersAdmin();
+export async function getOrderFinancialMetrics(filter?: { shopIds?: string[] }): Promise<OrderFinancialMetrics> {
+  const orders = await listAllOrdersAdmin(filter?.shopIds?.length ? { shopIds: filter.shopIds } : undefined);
 
   let totalGmvAed = 0;
   let deliveredGmvAed = 0;

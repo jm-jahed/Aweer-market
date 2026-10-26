@@ -1604,6 +1604,8 @@
   justify-content: center;
   z-index: 1200;
   padding: 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modalBox {
@@ -1613,6 +1615,9 @@
   padding: 24px;
   max-width: 440px;
   width: 100%;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   gap: 16px;

@@ -7,6 +7,7 @@ import {
   getAdminOverview,
   getAdminShops,
   createAdminShop,
+  updateAdminShop,
   setAdminShopApproval,
   getAdminUsers,
   setAdminUserStatus,
@@ -154,6 +155,19 @@ export default function SuperAdminDashboard() {
   const [shopFormError, setShopFormError] = useState<string | null>(null);
   const [isSubmittingShop, setIsSubmittingShop] = useState<boolean>(false);
 
+  // Edit Vendor Stall Modal State
+  const [isEditShopModalOpen, setIsEditShopModalOpen] = useState<boolean>(false);
+  const [editingShop, setEditingShop] = useState<AdminShopItem | null>(null);
+  const [editShopName, setEditShopName] = useState<string>('');
+  const [editShopStallNumber, setEditShopStallNumber] = useState<string>('');
+  const [editShopPhone, setEditShopPhone] = useState<string>('');
+  const [editShopTradeLicense, setEditShopTradeLicense] = useState<string>('');
+  const [editShopLocation, setEditShopLocation] = useState<string>('Al Aweer Central Wholesale Market');
+  const [editShopDescription, setEditShopDescription] = useState<string>('');
+  const [editShopOpeningHours, setEditShopOpeningHours] = useState<string>('');
+  const [editShopFormError, setEditShopFormError] = useState<string | null>(null);
+  const [isSubmittingEditShop, setIsSubmittingEditShop] = useState<boolean>(false);
+
   // Critical Action & Edit Confirmation Popup Modal State
   interface ConfirmationModalConfig {
     isOpen: boolean;
@@ -193,11 +207,13 @@ export default function SuperAdminDashboard() {
         getAdminUsers(),
         getAdminProducts(),
         getAdminOrders(),
-        getAdminResellers().catch((err) => {
-          const msg = err instanceof Error ? err.message : 'Failed to fetch resellers';
-          setResellersError(msg);
-          return { statusCode: 500, resellers: [] as AdminResellerItem[] };
-        })
+        user?.role === 'reseller'
+          ? Promise.resolve({ statusCode: 200, resellers: [] as AdminResellerItem[] })
+          : getAdminResellers().catch((err) => {
+              const msg = err instanceof Error ? err.message : 'Failed to fetch resellers';
+              setResellersError(msg);
+              return { statusCode: 500, resellers: [] as AdminResellerItem[] };
+            })
       ]);
       setMetrics(overviewRes.metrics);
       setShops(shopsRes.shops);
@@ -212,7 +228,7 @@ export default function SuperAdminDashboard() {
     } finally {
       setIsLoadingData(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -462,6 +478,61 @@ export default function SuperAdminDashboard() {
       setShopFormError(msg);
     } finally {
       setIsSubmittingShop(false);
+    }
+  };
+
+  const handleOpenEditShop = (shop: AdminShopItem) => {
+    setEditingShop(shop);
+    setEditShopName(shop.name || '');
+    setEditShopStallNumber(shop.stallNumber || '');
+    setEditShopPhone(shop.phone || '');
+    setEditShopTradeLicense((shop as any).tradeLicenseNumber || '');
+    setEditShopLocation((shop as any).marketLocation || 'Al Aweer Central Wholesale Market');
+    setEditShopDescription((shop as any).description || '');
+    setEditShopOpeningHours((shop as any).openingHours || '');
+    setEditShopFormError(null);
+    setIsEditShopModalOpen(true);
+  };
+
+  const handleSaveEditShop = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editingShop) return;
+    setEditShopFormError(null);
+
+    if (!editShopName.trim()) {
+      setEditShopFormError('Stall / Shop name is required.');
+      return;
+    }
+    if (!editShopStallNumber.trim()) {
+      setEditShopFormError('Al Aweer stall number is required.');
+      return;
+    }
+    if (!editShopPhone.trim()) {
+      setEditShopFormError('Contact phone number is required.');
+      return;
+    }
+
+    setIsSubmittingEditShop(true);
+    try {
+      const res = await updateAdminShop(editingShop.id, {
+        name: editShopName.trim(),
+        stallNumber: editShopStallNumber.trim(),
+        phone: editShopPhone.trim(),
+        tradeLicenseNumber: editShopTradeLicense.trim() || undefined,
+        marketLocation: editShopLocation.trim() || undefined,
+        description: editShopDescription.trim() || undefined,
+        openingHours: editShopOpeningHours.trim() || undefined
+      });
+
+      setShops((prev) => prev.map((s) => (s.id === editingShop.id ? res.shop : s)));
+      showCatSuccess(`Stall '${editShopName.trim()}' details updated successfully.`);
+      setIsEditShopModalOpen(false);
+      setEditingShop(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update stall details';
+      setEditShopFormError(msg);
+    } finally {
+      setIsSubmittingEditShop(false);
     }
   };
 
@@ -2329,6 +2400,14 @@ export default function SuperAdminDashboard() {
                           <td>
                             <div className={styles.actionBtnGroup}>
                               <button
+                                className={styles.actionBtn}
+                                disabled={processingId === shop.id}
+                                onClick={() => handleOpenEditShop(shop)}
+                                title="Edit Stall Details"
+                              >
+                                ✏️ Edit
+                              </button>
+                              <button
                                 className={`${styles.actionBtn} ${shop.isApproved ? styles.actionBtnRevoke : styles.actionBtnApprove}`}
                                 disabled={processingId === shop.id}
                                 onClick={() => requestToggleShopApproval(shop)}
@@ -4138,6 +4217,160 @@ export default function SuperAdminDashboard() {
                   disabled={isSubmittingShop}
                 >
                   {isSubmittingShop ? 'Provisioning...' : 'Register Vendor Stall'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL 4: EDIT VENDOR STALL DETAILS (Admin & Reseller)
+         ===================================================================== */}
+      {isEditShopModalOpen && editingShop && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true">
+          <div className={styles.modalCard}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Edit Vendor Stall Details</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditShopModalOpen(false);
+                  setEditingShop(null);
+                }}
+                className={styles.modalCloseBtn}
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditShop}>
+              <div className={styles.modalBody}>
+                {editShopFormError && (
+                  <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#fca5a5', padding: '8px 12px', borderRadius: 8, fontSize: '0.82rem' }}>
+                    {editShopFormError}
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="edit-shop-name-input" className={styles.formLabel}>
+                      Stall / Business Name *
+                    </label>
+                    <input
+                      id="edit-shop-name-input"
+                      type="text"
+                      className={styles.formInput}
+                      value={editShopName}
+                      onChange={(e) => setEditShopName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="edit-shop-stallnum-input" className={styles.formLabel}>
+                      Al Aweer Stall Number *
+                    </label>
+                    <input
+                      id="edit-shop-stallnum-input"
+                      type="text"
+                      className={styles.formInput}
+                      value={editShopStallNumber}
+                      onChange={(e) => setEditShopStallNumber(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="edit-shop-phone-input" className={styles.formLabel}>
+                      Contact Phone *
+                    </label>
+                    <input
+                      id="edit-shop-phone-input"
+                      type="text"
+                      className={styles.formInput}
+                      value={editShopPhone}
+                      onChange={(e) => setEditShopPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="edit-shop-license-input" className={styles.formLabel}>
+                      UAE Trade License #
+                    </label>
+                    <input
+                      id="edit-shop-license-input"
+                      type="text"
+                      className={styles.formInput}
+                      value={editShopTradeLicense}
+                      onChange={(e) => setEditShopTradeLicense(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="edit-shop-location-input" className={styles.formLabel}>
+                    Market Location
+                  </label>
+                  <input
+                    id="edit-shop-location-input"
+                    type="text"
+                    className={styles.formInput}
+                    value={editShopLocation}
+                    onChange={(e) => setEditShopLocation(e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="edit-shop-hours-input" className={styles.formLabel}>
+                    Opening Hours
+                  </label>
+                  <input
+                    id="edit-shop-hours-input"
+                    type="text"
+                    className={styles.formInput}
+                    placeholder="e.g. 05:00 AM - 08:00 PM (Daily Wholesale)"
+                    value={editShopOpeningHours}
+                    onChange={(e) => setEditShopOpeningHours(e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="edit-shop-desc-input" className={styles.formLabel}>
+                    Stall Description / Notes
+                  </label>
+                  <textarea
+                    id="edit-shop-desc-input"
+                    className={styles.formTextarea}
+                    rows={2}
+                    value={editShopDescription}
+                    onChange={(e) => setEditShopDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.modalFooter}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditShopModalOpen(false);
+                    setEditingShop(null);
+                  }}
+                  className={styles.formCancelBtn}
+                  disabled={isSubmittingEditShop}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.formSubmitBtn}
+                  disabled={isSubmittingEditShop}
+                >
+                  {isSubmittingEditShop ? 'Saving Changes...' : 'Save Stall Details'}
                 </button>
               </div>
             </form>

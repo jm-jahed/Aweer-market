@@ -1123,6 +1123,8 @@
   justify-content: center;
   z-index: 1000;
   padding: 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modalCard {
@@ -1132,6 +1134,9 @@
   width: 100%;
   max-width: 520px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -1141,6 +1146,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .modalTitle {
@@ -1164,6 +1170,9 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
 }
 
 .modalFooter {
@@ -1174,6 +1183,7 @@
   justify-content: flex-end;
   gap: 10px;
   background: #041610;
+  flex-shrink: 0;
 }
 
 .formGroup {
@@ -1292,7 +1302,13 @@
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: none;
     overflow-y: auto;
-    padding: 16px 14px 40px;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px 14px 90px;
+  }
+
+  .navGroup {
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   .sidebarOpen {
@@ -1541,7 +1557,7 @@
   }
 
   .mainContent {
-    padding: 10px 8px 30px;
+    padding: 10px 8px 95px !important;
     gap: 12px;
   }
 
@@ -1607,7 +1623,11 @@
   width: 100%;
   max-width: 480px;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.75);
-  overflow: hidden;
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   animation: confirmFadeIn 0.2s ease-out;
 }
 

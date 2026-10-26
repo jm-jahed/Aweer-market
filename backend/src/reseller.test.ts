@@ -6,8 +6,8 @@ import { UserRole } from '@aweermarket/types';
 import { buildServer } from './server.js';
 import { hashPassword, signSessionToken } from './utils/crypto.js';
 import { getSecretForRole } from './plugins/security.js';
-import { UserModel, createSuperAdminUser, createBuyerUser, resetInMemoryUsers } from './models/user.model.js';
-import { resetInMemoryShops } from './models/shop.model.js';
+import { UserModel, createSuperAdminUser, createBuyerUser, resetInMemoryUsers, simulateUserCollision } from './models/user.model.js';
+import { resetInMemoryShops, findShopById, findShopBySlug } from './models/shop.model.js';
 import { resetInMemoryProducts } from './models/product.model.js';
 import { resetInMemoryOrders } from './models/order.model.js';
 import {
@@ -766,5 +766,338 @@ describe('AweerMarket Super Admin — Reseller Persistence Safety & Integration 
     });
     assert.strictEqual(rivalForbiddenPatch.statusCode, 403);
     assert.strictEqual(JSON.parse(rivalForbiddenPatch.payload).error, 'Forbidden');
+  });
+
+  // ==========================================================================
+  // Case 13: Reseller Overview Metrics Isolation vs Super Admin Global Access
+  // ==========================================================================
+  it('13. Reseller Overview Metrics Isolation vs Super Admin Global Access', async () => {
+    setInMemoryResellerStoreAllowed(true);
+
+    // Provision Reseller Alpha
+    const regResA = await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/resellers',
+      headers: { cookie: `aweer_session=${superAdminToken}` },
+      payload: {
+        businessName: 'Reseller Alpha LLC',
+        contactPerson: 'Alpha Admin',
+        email: 'alpha@reseller.ae',
+        password: 'AlphaPassword123!',
+        phone: '+971501110001',
+        tradeLicenseNumber: 'TL-ALPHA-01'
+      }
+    });
+    assert.strictEqual(regResA.statusCode, 201);
+
+    // Login as Reseller Alpha
+    const loginA = await server.inject({
+      method: 'POST',
+      url: '/api/v1/auth/super-admin/login',
+      payload: { email: 'alpha@reseller.ae', password: 'AlphaPassword123!' }
+    });
+    const setCookieA = loginA.headers['set-cookie'];
+    assert.ok(setCookieA);
+    const cookieHeaderA = Array.isArray(setCookieA) ? setCookieA[0] : setCookieA;
+    assert.ok(cookieHeaderA);
+    const matchA = cookieHeaderA.match(/aweer_session=([^;]+)/);
+    assert.ok(matchA);
+    const tokenA = matchA[1];
+
+    // Reseller Alpha creates 2 stalls
+    for (let i = 1; i <= 2; i++) {
+      const shopRes = await server.inject({
+        method: 'POST',
+        url: '/api/v1/admin/shops',
+        headers: { cookie: `aweer_session=${tokenA}` },
+        payload: {
+          name: `Alpha Stall ${i}`,
+          stallNumber: `A-0${i}`,
+          ownerName: `Vendor A${i}`,
+          email: `vendor_a${i}@alpha.ae`,
+          password: 'VendorPassword123!',
+          phone: `+97150000000${i}`
+        }
+      });
+      assert.strictEqual(shopRes.statusCode, 201);
+    }
+
+    // Super Admin creates a direct stall (not belonging to Reseller Alpha)
+    const shopAdminRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/shops',
+      headers: { cookie: `aweer_session=${superAdminToken}` },
+      payload: {
+        name: 'Direct Admin Stall',
+        stallNumber: 'DIR-01',
+        ownerName: 'Direct Vendor',
+        email: 'vendor_direct@aweer.ae',
+        password: 'VendorPassword123!',
+        phone: '+971509999999'
+      }
+    });
+    assert.strictEqual(shopAdminRes.statusCode, 201);
+
+    // Reseller Alpha requests GET /api/v1/admin/overview
+    const overviewResA = await server.inject({
+      method: 'GET',
+      url: '/api/v1/admin/overview',
+      headers: { cookie: `aweer_session=${tokenA}` }
+    });
+    assert.strictEqual(overviewResA.statusCode, 200);
+    const metricsA = JSON.parse(overviewResA.payload).metrics;
+
+    // Reseller Alpha must see only their own 2 shops, 0 resellers, and 0 global buyers
+    assert.strictEqual(metricsA.totalShops, 2);
+    assert.strictEqual(metricsA.approvedShops, 2);
+    assert.strictEqual(metricsA.totalResellers, 0, 'Reseller cannot see other resellers count');
+    assert.strictEqual(metricsA.buyers, 0, 'Reseller must not see platform-wide buyers');
+    assert.strictEqual(metricsA.shopAdmins, 2, 'Reseller sees only their own shop admins');
+
+    // Super Admin requests GET /api/v1/admin/overview -> sees platform-wide stalls & resellers
+    const overviewResSA = await server.inject({
+      method: 'GET',
+      url: '/api/v1/admin/overview',
+      headers: { cookie: `aweer_session=${superAdminToken}` }
+    });
+    assert.strictEqual(overviewResSA.statusCode, 200);
+    const metricsSA = JSON.parse(overviewResSA.payload).metrics;
+    assert.strictEqual(metricsSA.totalShops, 3, 'Super Admin sees platform-wide stalls');
+    assert.ok(metricsSA.totalResellers >= 1, 'Super Admin sees platform-wide resellers');
+  });
+
+  // ==========================================================================
+  // Case 14: Secure Shop Metadata Editing (PUT /api/v1/admin/shops/:id)
+  // ==========================================================================
+  it('14. Secure Shop Metadata Editing (PUT /api/v1/admin/shops/:id) and Tenant Isolation', async () => {
+    setInMemoryResellerStoreAllowed(true);
+
+    // 1. Super Admin registers Reseller Apex
+    const regRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/resellers',
+      headers: { cookie: `aweer_session=${superAdminToken}` },
+      payload: {
+        businessName: 'Apex Grocers LLC',
+        contactPerson: 'Apex Manager',
+        email: 'mgr@apexgrocers.ae',
+        password: 'ApexSecretPass123!',
+        phone: '+971501234567',
+        tradeLicenseNumber: 'TL-APEX-099'
+      }
+    });
+    assert.strictEqual(regRes.statusCode, 201);
+
+    // Reseller Apex logs in
+    const loginRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/auth/super-admin/login',
+      payload: { email: 'mgr@apexgrocers.ae', password: 'ApexSecretPass123!' }
+    });
+    const setCookieApex = loginRes.headers['set-cookie'];
+    assert.ok(setCookieApex);
+    const cookieHeaderApex = Array.isArray(setCookieApex) ? setCookieApex[0] : setCookieApex;
+    assert.ok(cookieHeaderApex);
+    const matchApex = cookieHeaderApex.match(/aweer_session=([^;]+)/);
+    assert.ok(matchApex);
+    const apexToken = matchApex[1];
+
+    // Apex creates a stall
+    const stallRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/shops',
+      headers: { cookie: `aweer_session=${apexToken}` },
+      payload: {
+        name: 'Apex Veg Stall',
+        stallNumber: 'AV-10',
+        ownerName: 'Apex Vendor 1',
+        email: 'stall1@apexgrocers.ae',
+        password: 'Password123!',
+        phone: '+971501112233'
+      }
+    });
+    assert.strictEqual(stallRes.statusCode, 201);
+    const stall = JSON.parse(stallRes.payload).shop;
+
+    // 2. Apex edits their own stall metadata
+    const editRes = await server.inject({
+      method: 'PUT',
+      url: `/api/v1/admin/shops/${stall.id}`,
+      headers: { cookie: `aweer_session=${apexToken}` },
+      payload: {
+        name: 'Apex Premium Veg Stall',
+        stallNumber: 'AV-10-REVISED',
+        phone: '+971509990000',
+        description: 'Updated premium organic vegetables dock',
+        marketLocation: 'Block B Central Market'
+      }
+    });
+    assert.strictEqual(editRes.statusCode, 200);
+    const updatedStall = JSON.parse(editRes.payload).shop;
+    assert.strictEqual(updatedStall.name, 'Apex Premium Veg Stall');
+    assert.strictEqual(updatedStall.stallNumber, 'AV-10-REVISED');
+
+    // 3. Register Rival Reseller
+    await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/resellers',
+      headers: { cookie: `aweer_session=${superAdminToken}` },
+      payload: {
+        businessName: 'Beta Trading LLC',
+        contactPerson: 'Beta Manager',
+        email: 'mgr@betatrading.ae',
+        password: 'BetaSecretPass123!',
+        phone: '+971508887766',
+        tradeLicenseNumber: 'TL-BETA-099'
+      }
+    });
+    const loginBeta = await server.inject({
+      method: 'POST',
+      url: '/api/v1/auth/super-admin/login',
+      payload: { email: 'mgr@betatrading.ae', password: 'BetaSecretPass123!' }
+    });
+    const setCookieBeta = loginBeta.headers['set-cookie'];
+    assert.ok(setCookieBeta);
+    const cookieHeaderBeta = Array.isArray(setCookieBeta) ? setCookieBeta[0] : setCookieBeta;
+    assert.ok(cookieHeaderBeta);
+    const matchBeta = cookieHeaderBeta.match(/aweer_session=([^;]+)/);
+    assert.ok(matchBeta);
+    const betaToken = matchBeta[1];
+
+    // Rival attempts to edit Apex's stall -> MUST BE 403 FORBIDDEN
+    const rivalEditRes = await server.inject({
+      method: 'PUT',
+      url: `/api/v1/admin/shops/${stall.id}`,
+      headers: { cookie: `aweer_session=${betaToken}` },
+      payload: {
+        name: 'Hacked Stall Name'
+      }
+    });
+    assert.strictEqual(rivalEditRes.statusCode, 403);
+    assert.strictEqual(JSON.parse(rivalEditRes.payload).error, 'Forbidden');
+
+    // 4. Super Admin can edit any stall
+    const saEditRes = await server.inject({
+      method: 'PUT',
+      url: `/api/v1/admin/shops/${stall.id}`,
+      headers: { cookie: `aweer_session=${superAdminToken}` },
+      payload: {
+        description: 'Super Admin compliance audited description'
+      }
+    });
+    assert.strictEqual(saEditRes.statusCode, 200);
+
+    // 5. Protected fields cannot be injected or modified via metadata PUT
+    const injectRes = await server.inject({
+      method: 'PUT',
+      url: `/api/v1/admin/shops/${stall.id}`,
+      headers: { cookie: `aweer_session=${apexToken}` },
+      payload: {
+        ownerId: 'injected_owner_id',
+        resellerId: 'injected_reseller_id'
+      } as any
+    });
+    assert.strictEqual(injectRes.statusCode, 400, 'Zod strict schema rejects unknown protected keys');
+  });
+
+  // ==========================================================================
+  // Case 15: Atomic Rollback on Registration Failure
+  // ==========================================================================
+  it('15. Atomic Rollback of Orphaned Shop on Vendor User Creation Failure', async () => {
+    setInMemoryResellerStoreAllowed(true);
+
+    // 1. Create a buyer user first
+    const existingBuyerEmail = 'registered_buyer@aweermarket.ae';
+    const pwHash = await hashPassword('BuyerSecurePassword123!');
+    await createBuyerUser({
+      fullName: 'Existing Customer',
+      email: existingBuyerEmail,
+      passwordHash: pwHash,
+      phone: '+971501112299'
+    });
+
+    // 2. Attempt to register a stall with this duplicate email
+    // Pre-validation findUserByEmail rejects it with 409
+    const dupRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/shops',
+      headers: { cookie: `aweer_session=${superAdminToken}` },
+      payload: {
+        name: 'Attempted Duplicate Stall',
+        stallNumber: 'ST-DUP-01',
+        ownerName: 'Dup Owner',
+        email: existingBuyerEmail,
+        password: 'ValidPassword123!',
+        phone: '+971508889900'
+      }
+    });
+    assert.strictEqual(dupRes.statusCode, 409);
+    assert.strictEqual(await findShopBySlug('attempted-duplicate-stall'), null, 'No shop created on 409 email conflict');
+
+    // 3. Test compensating rollback when user creation fails post-shop-creation:
+    const testStallName = 'Rollback Validation Produce LLC';
+    const testSlug = 'rollback-validation-produce-llc';
+    const crashEmail = 'crash_test@aweermarket.ae';
+
+    // Verify stall does not exist beforehand
+    assert.strictEqual(await findShopBySlug(testSlug), null);
+
+    // Simulate mid-flight email collision where pre-check passed but insert collided:
+    simulateUserCollision(crashEmail);
+
+    const failedRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/shops',
+      headers: { cookie: `aweer_session=${superAdminToken}` },
+      payload: {
+        name: testStallName,
+        stallNumber: 'ST-CRASH-01',
+        ownerName: 'Crash Owner',
+        email: crashEmail,
+        password: 'ValidPassword123!',
+        phone: '+971507776655'
+      }
+    });
+    // Original error is reported
+    assert.strictEqual(failedRes.statusCode, 409);
+
+    // CRITICAL ASSERTION: The orphaned shop created before failure MUST BE DELETED
+    const orphanedShop = await findShopBySlug(testSlug);
+    assert.strictEqual(orphanedShop, null, 'Orphaned shop record must be cleanly rolled back and deleted');
+  });
+
+  // ==========================================================================
+  // Case 16: Preserved Super Admin Global Access
+  // ==========================================================================
+  it('16. Preserved Super Admin Global Access and Unfiltered Oversight', async () => {
+    setInMemoryResellerStoreAllowed(true);
+
+    const overviewRes = await server.inject({
+      method: 'GET',
+      url: '/api/v1/admin/overview',
+      headers: { cookie: `aweer_session=${superAdminToken}` }
+    });
+    assert.strictEqual(overviewRes.statusCode, 200);
+
+    const shopsRes = await server.inject({
+      method: 'GET',
+      url: '/api/v1/admin/shops',
+      headers: { cookie: `aweer_session=${superAdminToken}` }
+    });
+    assert.strictEqual(shopsRes.statusCode, 200);
+
+    const resellersRes = await server.inject({
+      method: 'GET',
+      url: '/api/v1/admin/resellers',
+      headers: { cookie: `aweer_session=${superAdminToken}` }
+    });
+    assert.strictEqual(resellersRes.statusCode, 200);
+
+    const ordersRes = await server.inject({
+      method: 'GET',
+      url: '/api/v1/admin/orders',
+      headers: { cookie: `aweer_session=${superAdminToken}` }
+    });
+    assert.strictEqual(ordersRes.statusCode, 200);
   });
 });

@@ -258,5 +258,25 @@
   .offersTable {
     display: block;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 480px) {
+  .mainGrid {
+    padding: 14px 10px 40px;
+    gap: 16px;
+  }
+
+  .productTitle {
+    font-size: 1.35rem;
+  }
+
+  .priceBanner {
+    padding: 12px 14px;
+  }
+
+  .priceVal {
+    font-size: 1.5rem;
   }
 }

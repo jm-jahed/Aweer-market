@@ -181,6 +181,24 @@ export async function setAdminShopStatus(shopId: string, isActive: boolean): Pro
   });
 }
 
+export interface UpdateAdminShopPayload {
+  name?: string;
+  stallNumber?: string;
+  phone?: string;
+  tradeLicenseNumber?: string;
+  marketLocation?: string;
+  description?: string;
+  openingHours?: string;
+  address?: string;
+}
+
+export async function updateAdminShop(shopId: string, payload: UpdateAdminShopPayload): Promise<{ statusCode: number; message: string; shop: AdminShopItem }> {
+  return await request<{ statusCode: number; message: string; shop: AdminShopItem }>(`/admin/shops/${shopId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function getAdminUsers(role?: UserRole): Promise<{ statusCode: number; users: UserSummary[] }> {
   const query = role ? `?role=${role}` : '';
   return await request<{ statusCode: number; users: UserSummary[] }>(`/admin/users${query}`, {

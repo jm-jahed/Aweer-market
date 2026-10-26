@@ -9,6 +9,7 @@ export interface IShopDocument extends Document {
   resellerId?: string;
   tradeLicenseNumber: string;
   phone: string;
+  description?: string;
   logoUrl?: string;
   coverImageUrl?: string;
   address?: string;
@@ -30,6 +31,7 @@ export interface ShopPublicSummary {
   ownerId?: string;
   resellerId?: string;
   phone: string;
+  description?: string;
   logoUrl?: string;
   coverImageUrl?: string;
   address?: string;
@@ -82,6 +84,7 @@ const ShopSchema = new Schema<IShopDocument>(
       required: [true, 'Contact phone is required'],
       trim: true
     },
+    description: { type: String, trim: true, default: '' },
     logoUrl: { type: String, trim: true, default: '' },
     coverImageUrl: { type: String, trim: true, default: '' },
     address: { type: String, trim: true, default: '' },
@@ -113,6 +116,7 @@ ShopSchema.methods.toPublicSummary = function (): ShopPublicSummary {
     ownerId: this.ownerId,
     resellerId: this.resellerId || undefined,
     phone: this.phone,
+    description: this.description || '',
     logoUrl: this.logoUrl || '',
     coverImageUrl: this.coverImageUrl || '',
     address: this.address || '',
@@ -141,6 +145,7 @@ export interface ShopRecord {
   resellerId?: string;
   tradeLicenseNumber: string;
   phone: string;
+  description?: string;
   logoUrl?: string;
   coverImageUrl?: string;
   address?: string;
@@ -170,6 +175,7 @@ function createInMemoryShopRecord(data: Omit<ShopRecord, 'toPublicSummary'>): Sh
         ownerId: this.ownerId,
         resellerId: this.resellerId || undefined,
         phone: this.phone,
+        description: this.description || '',
         logoUrl: this.logoUrl || '',
         coverImageUrl: this.coverImageUrl || '',
         address: this.address || '',
@@ -349,6 +355,8 @@ export interface UpdateShopData {
   name?: string;
   phone?: string;
   stallNumber?: string;
+  tradeLicenseNumber?: string;
+  description?: string;
   logoUrl?: string;
   coverImageUrl?: string;
   address?: string;
@@ -363,6 +371,8 @@ export async function updateShop(id: string, updates: UpdateShopData): Promise<I
     if (updates.name !== undefined) safeUpdates.name = updates.name.trim();
     if (updates.phone !== undefined) safeUpdates.phone = updates.phone.trim();
     if (updates.stallNumber !== undefined) safeUpdates.stallNumber = updates.stallNumber.trim();
+    if (updates.tradeLicenseNumber !== undefined) safeUpdates.tradeLicenseNumber = updates.tradeLicenseNumber.trim();
+    if (updates.description !== undefined) safeUpdates.description = updates.description.trim();
     if (updates.logoUrl !== undefined) safeUpdates.logoUrl = updates.logoUrl.trim();
     if (updates.coverImageUrl !== undefined) safeUpdates.coverImageUrl = updates.coverImageUrl.trim();
     if (updates.address !== undefined) safeUpdates.address = updates.address.trim();
@@ -383,6 +393,8 @@ export async function updateShop(id: string, updates: UpdateShopData): Promise<I
   if (updates.name !== undefined) shop.name = updates.name.trim();
   if (updates.phone !== undefined) shop.phone = updates.phone.trim();
   if (updates.stallNumber !== undefined) shop.stallNumber = updates.stallNumber.trim();
+  if (updates.tradeLicenseNumber !== undefined) shop.tradeLicenseNumber = updates.tradeLicenseNumber.trim();
+  if (updates.description !== undefined) shop.description = updates.description.trim();
   if (updates.logoUrl !== undefined) shop.logoUrl = updates.logoUrl.trim();
   if (updates.coverImageUrl !== undefined) shop.coverImageUrl = updates.coverImageUrl.trim();
   if (updates.address !== undefined) shop.address = updates.address.trim();
@@ -392,6 +404,27 @@ export async function updateShop(id: string, updates: UpdateShopData): Promise<I
   shop.updatedAt = new Date();
 
   return shop;
+}
+
+/**
+ * Deletes a shop record and frees its unique slug.
+ * Used for compensating rollbacks when vendor creation fails.
+ */
+export async function deleteShop(id: string): Promise<boolean> {
+  if (isDatabaseConnected()) {
+    const res = await ShopModel.deleteOne({ _id: id }).exec();
+    return (res.deletedCount ?? 0) > 0;
+  }
+
+  if (!isInMemoryShopStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const shop = inMemoryShopsById.get(id);
+  if (!shop) return false;
+  inMemoryShopsById.delete(id);
+  inMemoryShopsBySlug.delete(shop.slug);
+  return true;
 }
 
 export async function listAllShops(filter?: { isApproved?: boolean; resellerId?: string }): Promise<Array<IShopDocument | ShopRecord>> {

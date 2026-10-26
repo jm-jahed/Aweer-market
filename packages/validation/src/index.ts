@@ -128,6 +128,20 @@ export const CreateShopByAdminSchema = z.object({
   openingHours: z.string().trim().optional()
 }).strict();
 
+export const UpdateShopByAdminSchema = z.object({
+  name: z.string().trim().min(2, 'Stall name must be at least 2 characters').max(100).optional(),
+  stallNumber: z.string().trim().min(1, 'Stall number cannot be empty').optional(),
+  phone: z.string().trim().min(7, 'Phone number must be at least 7 digits').optional(),
+  tradeLicenseNumber: z.string().trim().min(2).optional(),
+  marketLocation: z.string().trim().optional(),
+  description: z.string().trim().max(500).optional(),
+  openingHours: z.string().trim().optional(),
+  address: z.string().trim().optional(),
+  logoUrl: z.string().trim().optional(),
+  coverImageUrl: z.string().trim().optional(),
+  weeklySchedule: z.string().trim().optional()
+}).strict();
+
 /**
  * Shop Admin Stall Profile Update Schema.
  * Vendors can update their shop contact details, but CANNOT self-approve (isApproved forbidden).
@@ -293,3 +307,4 @@ export type UpdateCategoryInput = z.infer<typeof UpdateCategorySchema>;
 export type CreateResellerInput = z.infer<typeof CreateResellerSchema>;
 export type UpdateResellerInput = z.infer<typeof UpdateResellerSchema>;
 export type CreateShopByAdminInput = z.infer<typeof CreateShopByAdminSchema>;
+export type UpdateShopByAdminInput = z.infer<typeof UpdateShopByAdminSchema>;

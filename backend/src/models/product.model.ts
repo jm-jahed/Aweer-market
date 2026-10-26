@@ -370,12 +370,16 @@ export async function listAllProductsAdmin(): Promise<Array<IProductDocument | P
   return Array.from(inMemoryProducts.values()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-export async function countProducts(): Promise<{ total: number; active: number; inactive: number }> {
+export async function countProducts(filter?: { shopIds?: string[] }): Promise<{ total: number; active: number; inactive: number }> {
   if (isDatabaseConnected()) {
+    const scopeQuery: Record<string, unknown> = {};
+    if (filter?.shopIds?.length) {
+      scopeQuery['offers.shopId'] = { $in: filter.shopIds };
+    }
     const [total, active, inactive] = await Promise.all([
-      ProductModel.countDocuments(),
-      ProductModel.countDocuments({ isActive: true }),
-      ProductModel.countDocuments({ isActive: false })
+      ProductModel.countDocuments(scopeQuery),
+      ProductModel.countDocuments({ ...scopeQuery, isActive: true }),
+      ProductModel.countDocuments({ ...scopeQuery, isActive: false })
     ]);
     return { total, active, inactive };
   }
@@ -384,7 +388,10 @@ export async function countProducts(): Promise<{ total: number; active: number; 
     throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
   }
 
-  const all = Array.from(inMemoryProducts.values());
+  let all = Array.from(inMemoryProducts.values());
+  if (filter?.shopIds?.length) {
+    all = all.filter((p) => p.offers.some((o) => filter.shopIds!.includes(o.shopId)));
+  }
   return {
     total: all.length,
     active: all.filter((p) => p.isActive).length,

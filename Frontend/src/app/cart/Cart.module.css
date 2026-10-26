@@ -399,3 +399,9 @@
     width: fit-content;
   }
 }
+
+@media (max-width: 480px) {
+  .container {
+    padding: 16px 12px 60px 12px;
+  }
+}
