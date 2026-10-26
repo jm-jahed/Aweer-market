@@ -73,7 +73,7 @@ export function CategoryView({
   const backendCategory = useMemo(() => {
     const mapped = mapSlugToBackendCategory(normSlug);
     if (mapped) return mapped;
-    if (normSlug && normSlug !== 'all') return normSlug;
+    if (normSlug && normSlug !== 'all' && normSlug !== 'search') return normSlug;
     return undefined;
   }, [normSlug]);
 
