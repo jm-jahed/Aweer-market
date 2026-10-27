@@ -32,7 +32,8 @@ import {
 import {
   countOrders,
   listAllOrdersAdmin,
-  getOrderFinancialMetrics
+  getOrderFinancialMetrics,
+  findOrderById
 } from '../models/order.model.js';
 import {
   listAllCategories,
@@ -569,9 +570,16 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * GET /api/v1/admin/orders
    * Platform-wide wholesale transaction oversight and marketplace commission tracking.
+   * Scoped to affiliated stalls for Reseller; comprehensive marketplace access for Super Admin.
    */
   fastify.get('/orders', async (request: FastifyRequest, reply: FastifyReply) => {
-    const query = request.query as { status?: string; shopId?: string };
+    const query = request.query as {
+      status?: string;
+      shopId?: string;
+      search?: string;
+      startDate?: string;
+      endDate?: string;
+    };
     let statusFilter: OrderStatus | undefined;
 
     if (query.status && (Object.values(OrderStatus) as string[]).includes(query.status)) {
@@ -593,22 +601,55 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       getOrderFinancialMetrics(scopedShopIds ? { shopIds: scopedShopIds } : undefined)
     ]);
 
+    // Batch resolve buyer personal information for authorized view
+    const buyerIds = Array.from(new Set(orders.map((o) => o.buyerId).filter(Boolean)));
+    const buyerMap = new Map<string, { fullName: string; phone: string; email: string }>();
+    await Promise.all(
+      buyerIds.map(async (bId) => {
+        try {
+          const user = await findUserById(bId);
+          if (user) {
+            buyerMap.set(bId, {
+              fullName: user.fullName || 'Wholesale Buyer',
+              phone: user.phone || '',
+              email: user.email || ''
+            });
+          }
+        } catch {
+          // Ignore resolution failure and fall back safely
+        }
+      })
+    );
+
     const formattedOrders = orders.map((o) => {
       const gmv = o.totalAmountAed;
       const commissionAed = Math.round(gmv * 0.05 * 100) / 100;
+      const buyer = buyerMap.get(o.buyerId);
+      const subtotalAed = Math.round((gmv / 1.05) * 100) / 100;
+      const vatAed = Math.round((gmv - subtotalAed) * 100) / 100;
 
       return {
-        id: o.id,
+        id: o.id || (o as any)._id?.toString(),
         orderNumber: o.orderNumber,
         buyerId: o.buyerId,
+        buyerName: buyer?.fullName || 'Wholesale Buyer',
+        buyerPhone: buyer?.phone || '',
+        buyerEmail: buyer?.email || '',
         shopId: o.shopId,
         shopName: o.shopName,
         stallNumber: o.stallNumber || '—',
         deliveryType: o.deliveryType,
-        deliveryAddress: o.deliveryAddress,
-        pickupTime: o.pickupTime,
+        deliveryAddress: o.deliveryAddress || '',
+        pickupTime: o.pickupTime || '',
         status: o.status,
+        paymentMethod: (o.deliveryType?.toLowerCase().includes('delivery')) ? 'Cash on Delivery (COD)' : 'Stall Pickup Payment',
+        paymentStatus: o.status === OrderStatus.DELIVERED ? 'PAID' : (o.status === OrderStatus.CANCELLED ? 'CANCELLED' : 'PENDING'),
         totalAmountAed: gmv,
+        subtotalAed,
+        vatAed,
+        vatRatePercent: 5,
+        discountAed: 0,
+        deliveryChargeAed: 0,
         commissionAed,
         commissionRatePercent: 5,
         items: o.items.map((it) => ({
@@ -625,10 +666,144 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       };
     });
 
+    let finalOrders = formattedOrders;
+    if (query.search && query.search.trim()) {
+      const q = query.search.trim().toLowerCase();
+      finalOrders = finalOrders.filter((o) =>
+        o.orderNumber.toLowerCase().includes(q) ||
+        o.buyerName.toLowerCase().includes(q) ||
+        o.buyerPhone.toLowerCase().includes(q) ||
+        o.shopName.toLowerCase().includes(q)
+      );
+    }
+
+    if (query.startDate) {
+      const start = new Date(query.startDate).getTime();
+      if (!isNaN(start)) {
+        finalOrders = finalOrders.filter((o) => new Date(o.createdAt).getTime() >= start);
+      }
+    }
+    if (query.endDate) {
+      const end = new Date(query.endDate).getTime();
+      if (!isNaN(end)) {
+        finalOrders = finalOrders.filter((o) => new Date(o.createdAt).getTime() <= end);
+      }
+    }
+
     return reply.status(200).send({
       statusCode: 200,
       financials,
-      orders: formattedOrders
+      orders: finalOrders
+    });
+  });
+
+  /**
+   * GET /api/v1/admin/orders/:id
+   * Complete, RBAC-protected wholesale order detail inspection.
+   * - Super Admin: Global audit oversight across all marketplace orders.
+   * - Reseller: Strictly scoped to orders fulfilling items from their own authorized shops.
+   * - Unauthenticated: 401 Unauthorized.
+   * - Unauthorized roles or cross-reseller access attempts (IDOR/BOLA): 403 Forbidden.
+   */
+  fastify.get('/orders/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    if (!id || id === 'undefined' || id.trim() === '') {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Invalid order identifier provided'
+      });
+    }
+
+    const order = await findOrderById(id);
+    if (!order) {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Order not found'
+      });
+    }
+
+    // Role-based authorization & Reseller ownership check (IDOR / BOLA defense)
+    if (request.user?.role === UserRole.RESELLER) {
+      const resellerId = request.user.resellerId;
+      if (!resellerId) {
+        return reply.status(403).send({
+          statusCode: 403,
+          error: 'Forbidden',
+          message: 'Access denied: Reseller account has no assigned reseller ID'
+        });
+      }
+
+      const myShops = await listAllShops({ resellerId });
+      const allowedShopIds = new Set(myShops.map((s) => s.id));
+      if (!allowedShopIds.has(order.shopId)) {
+        return reply.status(403).send({
+          statusCode: 403,
+          error: 'Forbidden',
+          message: 'Access denied: You do not have permission to view orders from this stall'
+        });
+      }
+    }
+
+    // Resolve buyer contact information
+    let buyerName = 'Wholesale Buyer';
+    let buyerPhone = '';
+    let buyerEmail = '';
+    try {
+      const buyer = await findUserById(order.buyerId);
+      if (buyer) {
+        buyerName = buyer.fullName || 'Wholesale Buyer';
+        buyerPhone = buyer.phone || '';
+        buyerEmail = buyer.email || '';
+      }
+    } catch {
+      // Safe fallback
+    }
+
+    const gmv = order.totalAmountAed;
+    const subtotalAed = Math.round((gmv / 1.05) * 100) / 100;
+    const vatAed = Math.round((gmv - subtotalAed) * 100) / 100;
+    const commissionAed = Math.round(gmv * 0.05 * 100) / 100;
+
+    return reply.status(200).send({
+      statusCode: 200,
+      order: {
+        id: order.id || (order as any)._id?.toString(),
+        orderNumber: order.orderNumber,
+        buyerId: order.buyerId,
+        buyerName,
+        buyerPhone,
+        buyerEmail,
+        shopId: order.shopId,
+        shopName: order.shopName,
+        stallNumber: order.stallNumber || '—',
+        deliveryType: order.deliveryType,
+        deliveryAddress: order.deliveryAddress || '',
+        pickupTime: order.pickupTime || '',
+        status: order.status,
+        paymentMethod: (order.deliveryType?.toLowerCase().includes('delivery')) ? 'Cash on Delivery (COD)' : 'Stall Pickup Payment',
+        paymentStatus: order.status === OrderStatus.DELIVERED ? 'PAID' : (order.status === OrderStatus.CANCELLED ? 'CANCELLED' : 'PENDING'),
+        totalAmountAed: gmv,
+        subtotalAed,
+        vatAed,
+        vatRatePercent: 5,
+        discountAed: 0,
+        deliveryChargeAed: 0,
+        commissionAed,
+        commissionRatePercent: 5,
+        items: order.items.map((it) => ({
+          productId: it.productId,
+          name: it.name,
+          unit: it.unit,
+          unitWeightKg: it.unitWeightKg,
+          quantity: it.quantity,
+          unitPriceAed: it.unitPriceAed,
+          lineTotalAed: Math.round(it.quantity * it.unitPriceAed * 100) / 100
+        })),
+        createdAt: order.createdAt.toISOString(),
+        updatedAt: order.updatedAt.toISOString()
+      }
     });
   });
 

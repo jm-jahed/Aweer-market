@@ -28,9 +28,11 @@ export function Navbar() {
       const timer = setTimeout(() => {
         getProducts({ search: trimmed, limit: 8 })
           .then((res) => {
-            const prods = (res.products || []).sort(
-              (a, b) => (a.lowestPriceAedPerKg || 0) - (b.lowestPriceAedPerKg || 0)
-            );
+            const prods = (res.products || [])
+              .filter((p) => (p.offers || []).some((o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0))
+              .sort(
+                (a, b) => (a.lowestPriceAedPerKg || 0) - (b.lowestPriceAedPerKg || 0)
+              );
             setSearchResults(prods);
             setIsDropdownOpen(true);
           })

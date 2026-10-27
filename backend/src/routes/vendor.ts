@@ -336,10 +336,26 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const orders = await findOrdersByShopId(shopId);
+    const mappedOrders = orders.map((o: any) => ({
+      id: o.id || o._id?.toString(),
+      orderNumber: o.orderNumber,
+      buyerId: o.buyerId,
+      shopId: o.shopId,
+      shopName: o.shopName,
+      stallNumber: o.stallNumber,
+      deliveryType: o.deliveryType,
+      deliveryAddress: o.deliveryAddress,
+      pickupTime: o.pickupTime,
+      status: o.status,
+      totalAmountAed: o.totalAmountAed,
+      items: o.items,
+      createdAt: o.createdAt,
+      updatedAt: o.updatedAt
+    }));
 
     return reply.status(200).send({
       statusCode: 200,
-      orders
+      orders: mappedOrders
     });
   });
 
@@ -349,6 +365,15 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
    * If cancelled, automatically rolls back reserved offer stock.
    */
   fastify.patch('/orders/:id/status', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    const { id: orderId } = request.params;
+    if (!orderId || orderId === 'undefined' || orderId.trim() === '') {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Invalid order identifier provided'
+      });
+    }
+
     const parseResult = UpdateOrderStatusSchema.safeParse(request.body);
     if (!parseResult.success) {
       return reply.status(400).send({
@@ -367,7 +392,6 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    const { id: orderId } = request.params;
     const order = await findOrderById(orderId);
     if (!order) {
       return reply.status(404).send({
@@ -398,10 +422,15 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
 
+    const formattedOrder = updated ? {
+      ...(typeof (updated as any).toObject === 'function' ? (updated as any).toObject() : updated),
+      id: updated.id || (updated as any)._id?.toString()
+    } : null;
+
     return reply.status(200).send({
       statusCode: 200,
       message: `Order status updated to ${newStatus}`,
-      order: updated
+      order: formattedOrder
     });
   });
 

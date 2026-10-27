@@ -100,15 +100,19 @@ export function CategoryView({
     loadProducts();
   }, [loadProducts]);
 
-  // Client-side sort on fetched products
+  // Client-side sort on fetched products (filter out unavailable products)
   const sortedProducts = useMemo(() => {
-    return [...products].sort((a, b) => {
-      const priceA = a.lowestPriceAedPerKg || 0;
-      const priceB = b.lowestPriceAedPerKg || 0;
-      if (sortBy === 'lowest_price') return priceA - priceB;
-      if (sortBy === 'highest_price') return priceB - priceA;
-      return a.name.localeCompare(b.name);
-    });
+    return products
+      .filter((p) =>
+        (p.offers || []).some((o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0)
+      )
+      .sort((a, b) => {
+        const priceA = a.lowestPriceAedPerKg || 0;
+        const priceB = b.lowestPriceAedPerKg || 0;
+        if (sortBy === 'lowest_price') return priceA - priceB;
+        if (sortBy === 'highest_price') return priceB - priceA;
+        return a.name.localeCompare(b.name);
+      });
   }, [products, sortBy]);
 
   const handleAddToCart = (product: ProductItem, offer: ProductOfferSummary) => {

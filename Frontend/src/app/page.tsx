@@ -49,34 +49,39 @@ function MarketplaceContent() {
     const trimmed = mobileSearch.trim();
     if (trimmed.length > 0) {
       const timer = setTimeout(() => {
-        getProducts({ search: trimmed, limit: 8 })
+        getProducts({ search: trimmed, limit: 12 })
           .then((res) => {
-            const prods = (res.products || []).sort(
-              (a, b) => (a.lowestPriceAedPerKg || 0) - (b.lowestPriceAedPerKg || 0)
-            );
-            if (prods.length > 0) {
-              setMobileSearchResults(prods);
+            const availableProds = (res.products || [])
+              .filter((p) => (p.offers || []).some((o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0))
+              .sort((a, b) => (a.lowestPriceAedPerKg || 0) - (b.lowestPriceAedPerKg || 0));
+
+            if (availableProds.length > 0) {
+              setMobileSearchResults(availableProds);
             } else {
               // Fallback to loaded apiProducts in client memory
               const q = trimmed.toLowerCase();
-              const clientMatches = apiProducts.filter((p) =>
-                p.name.toLowerCase().includes(q) ||
-                p.originCountry.toLowerCase().includes(q) ||
-                (p.category && p.category.toLowerCase().includes(q)) ||
-                (p.description && p.description.toLowerCase().includes(q)) ||
-                p.offers.some((o) => o.shopName.toLowerCase().includes(q))
-              );
+              const clientMatches = apiProducts
+                .filter((p) => (p.offers || []).some((o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0))
+                .filter((p) =>
+                  p.name.toLowerCase().includes(q) ||
+                  p.originCountry.toLowerCase().includes(q) ||
+                  (p.category && p.category.toLowerCase().includes(q)) ||
+                  (p.description && p.description.toLowerCase().includes(q)) ||
+                  p.offers.some((o) => o.shopName.toLowerCase().includes(q))
+                );
               setMobileSearchResults(clientMatches);
             }
             setIsMobileDropdownOpen(true);
           })
           .catch(() => {
             const q = trimmed.toLowerCase();
-            const clientMatches = apiProducts.filter((p) =>
-              p.name.toLowerCase().includes(q) ||
-              p.originCountry.toLowerCase().includes(q) ||
-              (p.category && p.category.toLowerCase().includes(q))
-            );
+            const clientMatches = apiProducts
+              .filter((p) => (p.offers || []).some((o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0))
+              .filter((p) =>
+                p.name.toLowerCase().includes(q) ||
+                p.originCountry.toLowerCase().includes(q) ||
+                (p.category && p.category.toLowerCase().includes(q))
+              );
             setMobileSearchResults(clientMatches);
             setIsMobileDropdownOpen(true);
           });
@@ -114,7 +119,10 @@ function MarketplaceContent() {
 
   // Compute products list with CHEAP PRICE 1ST guarantee using real backend apiProducts
   const displayedProducts = useMemo(() => {
-    let list: ProductItem[] = apiProducts;
+    // Only display products that have active offers in stock (filter out unavailable products)
+    let list: ProductItem[] = apiProducts.filter((p) =>
+      (p.offers || []).some((o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0)
+    );
     // When searching actively, do not constrain by stale category so users find produce anywhere
     if (backendCategory && !activeSearch) {
       list = list.filter(

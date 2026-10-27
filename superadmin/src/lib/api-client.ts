@@ -248,6 +248,9 @@ export interface AdminOrderItem {
   id: string;
   orderNumber: string;
   buyerId: string;
+  buyerName?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
   shopId: string;
   shopName: string;
   stallNumber: string;
@@ -255,7 +258,14 @@ export interface AdminOrderItem {
   deliveryAddress?: string;
   pickupTime?: string;
   status: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
   totalAmountAed: number;
+  subtotalAed?: number;
+  vatAed?: number;
+  vatRatePercent?: number;
+  discountAed?: number;
+  deliveryChargeAed?: number;
   commissionAed: number;
   commissionRatePercent: number;
   items: Array<{
@@ -271,7 +281,7 @@ export interface AdminOrderItem {
   updatedAt: string;
 }
 
-export async function getAdminOrders(status?: string, shopId?: string): Promise<{
+export async function getAdminOrders(status?: string, shopId?: string, search?: string): Promise<{
   statusCode: number;
   financials: OrderFinancialMetrics;
   orders: AdminOrderItem[];
@@ -279,12 +289,25 @@ export async function getAdminOrders(status?: string, shopId?: string): Promise<
   const params = new URLSearchParams();
   if (status) params.set('status', status);
   if (shopId) params.set('shopId', shopId);
+  if (search) params.set('search', search);
   const query = params.toString() ? `?${params.toString()}` : '';
   return await request<{
     statusCode: number;
     financials: OrderFinancialMetrics;
     orders: AdminOrderItem[];
   }>(`/admin/orders${query}`, {
+    method: 'GET'
+  });
+}
+
+export async function getAdminOrderById(orderId: string): Promise<{
+  statusCode: number;
+  order: AdminOrderItem;
+}> {
+  return await request<{
+    statusCode: number;
+    order: AdminOrderItem;
+  }>(`/admin/orders/${orderId}`, {
     method: 'GET'
   });
 }

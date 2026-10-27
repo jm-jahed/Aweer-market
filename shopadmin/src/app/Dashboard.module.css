@@ -66,10 +66,12 @@
 .drawerBackdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(3px);
-  z-index: 190;
-  animation: drawerFadeIn 0.2s ease-out;
+  background-color: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 1100;
+  animation: drawerFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  touch-action: none;
 }
 
 @keyframes drawerFadeIn {
@@ -86,38 +88,58 @@
   display: none;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 6px 14px;
-  border-bottom: 1px solid rgba(16, 185, 129, 0.15);
-  margin-bottom: 14px;
+  padding: 16px 18px;
+  background: rgba(4, 22, 16, 0.95);
+  border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+  flex-shrink: 0;
 }
 
 .mobileDrawerBrand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   color: #ffffff;
+  letter-spacing: -0.01em;
 }
 
-.mobileDrawerCloseBtn {
-  background: #061e16;
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  color: #94a3b8;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+.mobileDrawerBrandIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  font-size: 1.15rem;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+  flex-shrink: 0;
 }
 
-.mobileDrawerCloseBtn:hover {
-  background: #0b2f22;
-  color: #ffffff;
+.mobileDrawerCloseBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #cbd5e1;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.mobileDrawerCloseBtn:hover,
+.mobileDrawerCloseBtn:active {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  transform: scale(0.96);
 }
 
 .headerBrand {
@@ -358,127 +380,226 @@
    LEFT SIDEBAR NAVIGATION
    ========================================================================== */
 .sidebar {
-  width: 240px;
-  min-width: 240px;
-  background-color: #04140e;
+  width: 250px;
+  min-width: 250px;
+  background: #04140e;
   border-right: 1px solid rgba(16, 185, 129, 0.15);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 16px 12px;
+  position: sticky;
+  top: 61px;
+  height: calc(100vh - 61px);
+  overflow: hidden;
+  padding: 0;
+}
+
+.sidebarScrollArea {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding: 14px 12px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebarScrollArea::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebarScrollArea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebarScrollArea::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.22);
+  border-radius: 9999px;
+}
+
+.sidebarScrollArea::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.45);
 }
 
 .sidebarCard {
-  background: #061e16;
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  border-radius: 12px;
-  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(6, 35, 25, 0.9) 0%, rgba(3, 20, 14, 0.95) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 14px;
+  padding: 13px 15px;
   margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .sidebarCardAvatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: #092e20;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.3) 0%, rgba(4, 25, 18, 0.95) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.38);
   color: #10b981;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+.sidebarCardInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
 }
 
 .sidebarCardTitle {
-  font-size: 0.85rem;
+  font-size: 0.94rem;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 145px;
+  letter-spacing: -0.01em;
 }
 
 .sidebarCardSub {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   color: #34d399;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 145px;
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 2px 8px;
+  border-radius: 6px;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .navGroup {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .navItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 12px;
-  border-radius: 10px;
+  padding: 11px 14px;
+  min-height: 46px;
+  border-radius: 12px;
   color: #cbd5e1;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   font-weight: 600;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   width: 100%;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   text-align: left;
+  user-select: none;
 }
 
 .navItem:hover {
-  background: #07251b;
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.2);
   color: #ffffff;
+  transform: translateX(3px);
+}
+
+.navItem:active {
+  transform: scale(0.98);
 }
 
 .navItemActive {
-  background: #00b87c !important;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
   color: #ffffff !important;
-  font-weight: 700;
-  box-shadow: 0 4px 12px rgba(0, 184, 124, 0.35);
+  font-weight: 700 !important;
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
 }
 
 .navItemLeft {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+}
+
+.navItemIcon {
+  font-size: 1.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.navItemText {
+  white-space: nowrap;
 }
 
 .navBadge {
-  background: #061f16;
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  color: #10b981;
-  font-size: 0.68rem;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  font-size: 0.74rem;
   font-weight: 700;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 9999px;
+  line-height: 1.2;
 }
 
 .navItemActive .navBadge {
-  background: rgba(0, 0, 0, 0.25);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.35);
   color: #ffffff;
 }
 
+.navStockLowBadge {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+  font-weight: 800;
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  line-height: 1.2;
+}
+
 .sidebarFooter {
-  padding: 12px;
-  border-top: 1px solid rgba(16, 185, 129, 0.12);
+  padding: 16px 14px 4px;
+  margin-top: auto;
+  border-top: 1px solid rgba(16, 185, 129, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.74rem;
+  color: #64748b;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.sidebarFooterStatus {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.72rem;
-  color: #64748b;
-  font-weight: 600;
+  color: #94a3b8;
+}
+
+.sidebarFooterVersion {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
 }
 
 /* ==========================================================================
@@ -2230,6 +2351,12 @@
 
   .mobileDrawerHeader {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(16, 185, 129, 0.22);
+    background: rgba(4, 22, 16, 0.95);
+    flex-shrink: 0;
   }
 
   .sidebar {
@@ -2237,23 +2364,81 @@
     top: 0;
     left: 0;
     bottom: 0;
-    width: 280px;
-    max-width: 85vw;
+    width: 325px;
+    max-width: 88vw;
     height: 100vh;
-    z-index: 200;
-    background-color: #04140e;
-    border-right: 1px solid rgba(16, 185, 129, 0.25);
+    height: 100dvh;
+    max-height: 100dvh;
+    z-index: 1200;
+    background: linear-gradient(180deg, #051a13 0%, #020c08 100%);
+    border-right: 1px solid rgba(16, 185, 129, 0.28);
     transform: translateX(-100%);
-    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: none;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 16px 14px 90px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
   }
 
   .sidebarOpen {
     transform: translateX(0);
-    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.85);
+    box-shadow: 20px 0 60px rgba(0, 0, 0, 0.92), 4px 0 24px rgba(16, 185, 129, 0.12);
+  }
+
+  .sidebarScrollArea {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding: 14px 14px 50px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .sidebarCard {
+    padding: 14px 16px;
+    margin-bottom: 4px;
+    border-radius: 14px;
+  }
+
+  .sidebarCardTitle {
+    font-size: 0.96rem;
+    max-width: 210px;
+  }
+
+  .sidebarCardSub {
+    font-size: 0.78rem;
+    max-width: 210px;
+  }
+
+  .navGroup {
+    gap: 6px;
+  }
+
+  .navItem {
+    padding: 12px 14px;
+    min-height: 48px;
+    font-size: 0.95rem;
+    border-radius: 12px;
+  }
+
+  .navItemLeft {
+    gap: 12px;
+  }
+
+  .navItemIcon {
+    font-size: 1.25rem;
+  }
+
+  .navBadge {
+    font-size: 0.76rem;
+    padding: 2px 9px;
   }
 
   .mainContent {
@@ -2581,10 +2766,32 @@
     padding: 10px 12px;
     font-size: 0.76rem;
   }
+
+  .sidebar {
+    width: 310px;
+    max-width: 88vw;
+  }
 }
 
 /* Ultra Narrow Devices (<= 380px: 320px - 360px) */
 @media (max-width: 380px) {
+  .sidebar {
+    width: 90vw;
+  }
+
+  .sidebarCardTitle {
+    max-width: 165px;
+  }
+
+  .sidebarCardSub {
+    max-width: 165px;
+  }
+
+  .navItem {
+    padding: 11px 12px;
+    font-size: 0.9rem;
+  }
+
   .kpiGrid {
     grid-template-columns: 1fr;
   }

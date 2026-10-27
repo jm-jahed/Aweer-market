@@ -8,7 +8,7 @@ import { getShopById, ShopPublicSummary, ShopStorefrontProduct } from '@/lib/api
 import { resolveProduceImage } from '@/lib/catalog-utils';
 import styles from './Storefront.module.css';
 
-type StorefrontTab = 'products' | 'info' | 'reviews' | 'location' | 'policies';
+type StorefrontTab = 'products' | 'info' | 'reviews' | 'location';
 
 export default function ShopStorefrontPage() {
   const params = useParams();
@@ -220,16 +220,7 @@ export default function ShopStorefrontPage() {
                 <span>{isFollowing ? 'Following' : 'Follow'}</span>
               </button>
 
-              <a
-                href={`https://wa.me/${(shop.phone || '').replace(/[^0-9]/g, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.messageBtn}
-                title="Contact vendor on WhatsApp"
-              >
-                <span>✉</span>
-                <span>Message</span>
-              </a>
+
             </div>
           </div>
         </div>
@@ -280,13 +271,7 @@ export default function ShopStorefrontPage() {
         >
           Location
         </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('policies')}
-          className={`${styles.tabBtn} ${activeTab === 'policies' ? styles.tabBtnActive : ''}`}
-        >
-          Policies
-        </button>
+
       </nav>
 
       {/* ===================================================================
@@ -527,10 +512,7 @@ export default function ShopStorefrontPage() {
               <div className={styles.infoLabel}>Trade License</div>
               <div className={styles.infoValue}>{shop.tradeLicenseNumber || 'Verified by Super Admin'}</div>
             </div>
-            <div className={styles.infoItem}>
-              <div className={styles.infoLabel}>Contact / WhatsApp</div>
-              <div className={styles.infoValue}>{shop.phone || '+971 4 333 0000'}</div>
-            </div>
+
             <div className={styles.infoItem}>
               <div className={styles.infoLabel}>Operational Hours</div>
               <div className={styles.infoValue}>05:00 AM – 03:00 PM (GST) Daily</div>
@@ -618,28 +600,7 @@ export default function ShopStorefrontPage() {
         </section>
       )}
 
-      {/* ===================================================================
-          TAB 5: POLICIES
-         =================================================================== */}
-      {activeTab === 'policies' && (
-        <section className={styles.tabPanelCard} aria-label="Shop Policies">
-          <h2 className={styles.panelTitle}>📋 Wholesale Terms &amp; Conditions</h2>
-          <div className={styles.infoGrid}>
-            <div className={styles.infoItem}>
-              <div className={styles.infoLabel}>Minimum Order Policy (MOQ)</div>
-              <div className={styles.infoValue}>Strictly enforced per crate/carton to maintain wholesale pricing.</div>
-            </div>
-            <div className={styles.infoItem}>
-              <div className={styles.infoLabel}>Single-Stall Cart Rule</div>
-              <div className={styles.infoValue}>All items in an order must be fulfilled from this stall for logistics dispatch.</div>
-            </div>
-            <div className={styles.infoItem}>
-              <div className={styles.infoLabel}>Inspection &amp; Quality</div>
-              <div className={styles.infoValue}>Produce is subject to temperature-controlled storage and inspection upon receipt.</div>
-            </div>
-          </div>
-        </section>
-      )}
+
     </main>
   );
 }

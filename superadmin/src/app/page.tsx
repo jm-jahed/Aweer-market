@@ -14,6 +14,7 @@ import {
   getAdminProducts,
   setAdminProductModeration,
   getAdminOrders,
+  getAdminOrderById,
   setAdminShopStatus,
   getAdminCategories,
   createAdminCategory,
@@ -182,6 +183,11 @@ export default function SuperAdminDashboard() {
   }
   const [confirmModal, setConfirmModal] = useState<ConfirmationModalConfig | null>(null);
   const [isExecutingConfirm, setIsExecutingConfirm] = useState<boolean>(false);
+
+  // Order Details Inspection Modal State
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<AdminOrderItem | null>(null);
+  const [isLoadingOrderDetails, setIsLoadingOrderDetails] = useState<boolean>(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
 
   // Auth Guard
   useEffect(() => {
@@ -897,16 +903,41 @@ export default function SuperAdminDashboard() {
     );
   }, [products, searchQuery]);
 
+  const handleViewOrderDetails = async (orderId: string) => {
+    setIsLoadingOrderDetails(true);
+    try {
+      const res = await getAdminOrderById(orderId);
+      setSelectedOrderDetails(res.order);
+    } catch {
+      const fallback = orders.find((o) => o.id === orderId);
+      if (fallback) {
+        setSelectedOrderDetails(fallback);
+      } else {
+        alert('Could not retrieve order details');
+      }
+    } finally {
+      setIsLoadingOrderDetails(false);
+    }
+  };
+
   const filteredOrders = useMemo(() => {
-    if (!searchQuery.trim()) return orders;
+    let list = orders;
+    if (orderStatusFilter !== 'all') {
+      list = list.filter((o) => o.status.toLowerCase() === orderStatusFilter.toLowerCase());
+    }
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
-    return orders.filter((o) =>
+    return list.filter((o) =>
       o.orderNumber.toLowerCase().includes(q) ||
+      (o.buyerName && o.buyerName.toLowerCase().includes(q)) ||
+      (o.buyerPhone && o.buyerPhone.toLowerCase().includes(q)) ||
+      (o.buyerEmail && o.buyerEmail.toLowerCase().includes(q)) ||
       o.shopName.toLowerCase().includes(q) ||
       (o.stallNumber && o.stallNumber.toLowerCase().includes(q)) ||
+      (o.paymentStatus && o.paymentStatus.toLowerCase().includes(q)) ||
       o.status.toLowerCase().includes(q)
     );
-  }, [orders, searchQuery]);
+  }, [orders, searchQuery, orderStatusFilter]);
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users;
@@ -2573,10 +2604,37 @@ export default function SuperAdminDashboard() {
             <section className={styles.tableSection}>
               <div className={styles.tableHeaderBar}>
                 <div>
-                  <h3 className={styles.tableTitle}>Platform-Wide Wholesale Orders</h3>
+                  <h3 className={styles.tableTitle}>
+                    {user?.role === 'reseller' ? 'Your Stalls Wholesale Orders' : 'Platform-Wide Wholesale Orders'}
+                  </h3>
                   <p className={styles.tableSubtitle}>
-                    Central oversight of all wholesale transactions, single-vendor orders, and 5% marketplace commissions.
+                    {user?.role === 'reseller'
+                      ? 'Detailed transaction tracking, buyer verification, and item breakdown for your affiliated stalls.'
+                      : 'Central oversight of all wholesale transactions, single-vendor orders, and 5% marketplace commissions.'}
                   </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <select
+                    value={orderStatusFilter}
+                    onChange={(e) => setOrderStatusFilter(e.target.value)}
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.8)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      color: '#f8fafc',
+                      borderRadius: 8,
+                      padding: '8px 12px',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    <option value="all">All Order Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="preparing">Preparing / Packed</option>
+                    <option value="ready_for_pickup">Ready for Pickup</option>
+                    <option value="out_for_delivery">Out for Delivery</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
                 </div>
               </div>
               <div className={styles.tableWrapper}>
@@ -2584,42 +2642,113 @@ export default function SuperAdminDashboard() {
                   <thead>
                     <tr>
                       <th>Order #</th>
-                      <th>Stall Name</th>
-                      <th>Delivery Type</th>
-                      <th>Status</th>
-                      <th>Total (Dhs)</th>
-                      <th>Commission (5%)</th>
-                      <th>Order Date</th>
+                      <th>Date</th>
+                      <th>Buyer</th>
+                      <th>Mobile</th>
+                      <th>Items</th>
+                      <th>Quantity</th>
+                      <th>Total Amount</th>
+                      <th>Payment Status</th>
+                      <th>Order Status</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className={styles.emptyState}>
-                          {isLoadingData ? 'Loading orders...' : 'No orders recorded on the platform yet.'}
+                        <td colSpan={10} className={styles.emptyState}>
+                          {isLoadingData ? 'Loading orders...' : 'No orders found matching the criteria.'}
                         </td>
                       </tr>
                     ) : (
-                      filteredOrders.map((ord) => (
-                        <tr key={ord.id}>
-                          <td><strong>#{ord.orderNumber}</strong></td>
-                          <td>
-                            {ord.shopName}
-                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{ord.stallNumber}</div>
-                          </td>
-                          <td><span style={{ textTransform: 'capitalize' }}>{ord.deliveryType}</span></td>
-                          <td>
-                            <span className={`${styles.statusPill} ${styles.statusActive}`}>
-                              {ord.status}
-                            </span>
-                          </td>
-                          <td><strong>Dhs {ord.totalAmountAed.toFixed(2)}</strong></td>
-                          <td style={{ color: '#34d399' }}>Dhs {ord.commissionAed.toFixed(2)}</td>
-                          <td style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                            {new Date(ord.createdAt).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))
+                      filteredOrders.map((ord) => {
+                        const totalUnits = ord.items.reduce((sum, it) => sum + (it.quantity || 0), 0);
+                        const isDelivered = ord.status.toLowerCase() === 'delivered';
+                        const isCancelled = ord.status.toLowerCase() === 'cancelled';
+                        const paymentStatusLabel = ord.paymentStatus || (isDelivered ? 'PAID' : (isCancelled ? 'CANCELLED' : 'PENDING'));
+
+                        return (
+                          <tr key={ord.id}>
+                            <td>
+                              <strong>#{ord.orderNumber}</strong>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                {ord.shopName} {ord.stallNumber ? `(${ord.stallNumber})` : ''}
+                              </div>
+                            </td>
+                            <td style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                              {new Date(ord.createdAt).toLocaleDateString([], {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </td>
+                            <td>
+                              <strong style={{ color: '#e2e8f0' }}>{ord.buyerName || 'Wholesale Buyer'}</strong>
+                              {ord.buyerEmail && (
+                                <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{ord.buyerEmail}</div>
+                              )}
+                            </td>
+                            <td style={{ fontSize: '0.82rem', color: '#38bdf8', whiteSpace: 'nowrap' }}>
+                              {ord.buyerPhone || '—'}
+                            </td>
+                            <td>
+                              <span style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
+                                {ord.items.length} line{ord.items.length !== 1 ? 's' : ''}
+                              </span>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f1f5f9' }}>
+                                {totalUnits} units
+                              </span>
+                            </td>
+                            <td>
+                              <strong style={{ color: '#ffffff' }}>Dhs {ord.totalAmountAed.toFixed(2)}</strong>
+                            </td>
+                            <td>
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  padding: '3px 8px',
+                                  borderRadius: 6,
+                                  fontWeight: 700,
+                                  background: paymentStatusLabel === 'PAID' ? 'rgba(52, 211, 153, 0.15)' : (paymentStatusLabel === 'CANCELLED' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)'),
+                                  color: paymentStatusLabel === 'PAID' ? '#34d399' : (paymentStatusLabel === 'CANCELLED' ? '#ef4444' : '#fbbf24'),
+                                  border: `1px solid ${paymentStatusLabel === 'PAID' ? 'rgba(52, 211, 153, 0.3)' : (paymentStatusLabel === 'CANCELLED' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)')}`
+                                }}
+                              >
+                                {paymentStatusLabel}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`${styles.statusPill} ${ord.status === 'delivered' ? styles.statusActive : (ord.status === 'cancelled' ? styles.statusDanger : styles.statusWarning)}`}>
+                                {ord.status.replace(/_/g, ' ')}
+                              </span>
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                onClick={() => handleViewOrderDetails(ord.id)}
+                                disabled={isLoadingOrderDetails}
+                                style={{
+                                  background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                                  border: 'none',
+                                  color: '#ffffff',
+                                  padding: '5px 12px',
+                                  borderRadius: 6,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                View Details
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -4374,6 +4503,201 @@ export default function SuperAdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          ORDER DETAILS INSPECTION MODAL (Super Admin & Reseller Authorized View)
+         ===================================================================== */}
+      {selectedOrderDetails && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true">
+          <div className={styles.confirmModalCard} style={{ maxWidth: 780, maxHeight: '90vh' }}>
+            <div className={styles.modalHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className={styles.confirmIconWrapPrimary} style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                  📦
+                </div>
+                <div>
+                  <h3 className={styles.modalTitle} style={{ margin: 0 }}>
+                    Order #{selectedOrderDetails.orderNumber}
+                  </h3>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 2 }}>
+                    Placed on {new Date(selectedOrderDetails.createdAt).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedOrderDetails(null)}
+                className={styles.modalCloseBtn}
+                aria-label="Close order details modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className={styles.modalBody} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Order Meta Header Pills */}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)', padding: '12px 16px', borderRadius: 10, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                  Status: <strong style={{ color: '#f8fafc', textTransform: 'capitalize' }}>{selectedOrderDetails.status.replace(/_/g, ' ')}</strong>
+                </div>
+                <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                  Payment: <strong style={{ color: '#34d399' }}>{selectedOrderDetails.paymentStatus || (selectedOrderDetails.status === 'delivered' ? 'PAID' : 'PENDING')}</strong>
+                </div>
+                <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                  Method: <strong style={{ color: '#e2e8f0' }}>{selectedOrderDetails.paymentMethod || 'Cash on Delivery (COD)'}</strong>
+                </div>
+                <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
+                <div style={{ fontSize: '0.8rem', color: '#38bdf8', textTransform: 'capitalize' }}>
+                  Delivery: <strong>{selectedOrderDetails.deliveryType}</strong>
+                </div>
+              </div>
+
+              {/* Two Column Section: Buyer & Stall Info */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                {/* Buyer Card */}
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: '14px 18px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#10b981', fontWeight: 700, marginBottom: 8 }}>
+                    👤 Buyer Information
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#ffffff', fontWeight: 600 }}>
+                    {selectedOrderDetails.buyerName || 'Wholesale Buyer'}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#38bdf8', marginTop: 4 }}>
+                    📞 {selectedOrderDetails.buyerPhone || 'Not provided'}
+                  </div>
+                  {selectedOrderDetails.buyerEmail && (
+                    <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: 2 }}>
+                      ✉️ {selectedOrderDetails.buyerEmail}
+                    </div>
+                  )}
+                  {selectedOrderDetails.deliveryAddress && (
+                    <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginTop: 6, lineHeight: 1.4, borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: 6 }}>
+                      📍 <strong>Address:</strong> {selectedOrderDetails.deliveryAddress}
+                    </div>
+                  )}
+                  {selectedOrderDetails.pickupTime && (
+                    <div style={{ fontSize: '0.82rem', color: '#38bdf8', marginTop: 4 }}>
+                      ⏰ <strong>Pickup Time:</strong> {selectedOrderDetails.pickupTime}
+                    </div>
+                  )}
+                </div>
+
+                {/* Stall Card */}
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: '14px 18px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#10b981', fontWeight: 700, marginBottom: 8 }}>
+                    🏪 Stall &amp; Vendor
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#ffffff', fontWeight: 600 }}>
+                    {selectedOrderDetails.shopName}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: 4 }}>
+                    Stall Number: <strong style={{ color: '#f1f5f9' }}>{selectedOrderDetails.stallNumber || '—'}</strong>
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: 2 }}>
+                    Market: Al Aweer Central Fruit &amp; Vegetable Market
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginTop: 6, borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: 6 }}>
+                    Fulfillment: {selectedOrderDetails.deliveryType === 'delivery' ? 'Direct Stall Delivery' : 'Wholesale Stall Pickup'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Itemized Lines Table */}
+              <div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f1f5f9', marginBottom: 8 }}>
+                  Ordered Produce &amp; Quantities ({selectedOrderDetails.items.length} item{selectedOrderDetails.items.length !== 1 ? 's' : ''})
+                </div>
+                <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(15, 23, 42, 0.9)', color: '#94a3b8', textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                        <th style={{ padding: '8px 12px' }}>Product</th>
+                        <th style={{ padding: '8px 12px' }}>Selling Unit</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Unit Selling Price</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Quantity</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Item Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedOrderDetails.items.map((it, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#e2e8f0' }}>
+                          <td style={{ padding: '10px 12px', fontWeight: 600 }}>{it.name}</td>
+                          <td style={{ padding: '10px 12px', color: '#cbd5e1' }}>
+                            {it.unit ? `${it.unit} (${it.unitWeightKg}kg)` : `${it.unitWeightKg}kg`}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right' }}>Dhs {Number(it.unitPriceAed || 0).toFixed(2)}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#38bdf8' }}>{it.quantity}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#ffffff' }}>
+                            Dhs {Number(it.lineTotalAed || (it.quantity * it.unitPriceAed)).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Financial Breakdown */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ width: '100%', maxWidth: 340, background: 'rgba(15, 23, 42, 0.6)', padding: '14px 18px', borderRadius: 10, border: '1px solid rgba(16, 185, 129, 0.25)', display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                    <span>Item Subtotal:</span>
+                    <span style={{ color: '#e2e8f0', fontWeight: 600 }}>
+                      Dhs {Number(selectedOrderDetails.subtotalAed || (selectedOrderDetails.totalAmountAed / 1.05)).toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                    <span>Discount:</span>
+                    <span style={{ color: '#e2e8f0' }}>Dhs 0.00</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                    <span>Delivery Charge:</span>
+                    <span style={{ color: '#e2e8f0' }}>Dhs 0.00</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                    <span>VAT (5%):</span>
+                    <span style={{ color: '#e2e8f0', fontWeight: 600 }}>
+                      Dhs {Number(selectedOrderDetails.vatAed || (selectedOrderDetails.totalAmountAed - (selectedOrderDetails.totalAmountAed / 1.05))).toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{ height: 1, background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', fontWeight: 800 }}>
+                    <span style={{ color: '#ffffff' }}>Grand Total:</span>
+                    <span style={{ color: '#34d399' }}>Dhs {selectedOrderDetails.totalAmountAed.toFixed(2)}</span>
+                  </div>
+                  {user?.role === 'super_admin' && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', marginTop: 4 }}>
+                      <span>Platform Commission (5%):</span>
+                      <span style={{ color: '#38bdf8', fontWeight: 600 }}>Dhs {Number(selectedOrderDetails.commissionAed || (selectedOrderDetails.totalAmountAed * 0.05)).toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: '1px solid rgba(255,255,255,0.08)', padding: '14px 20px' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedOrderDetails(null)}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  color: '#ffffff',
+                  padding: '8px 18px',
+                  borderRadius: 8,
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Close Details
+              </button>
+            </div>
           </div>
         </div>
       )}

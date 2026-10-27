@@ -194,11 +194,6 @@ export default function ShopsDirectoryPage() {
                 )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.8rem', color: '#94a3b8' }}>
-                <div>License: <strong style={{ color: '#cbd5e1' }}>{s.tradeLicenseNumber || 'TL-AWEER'}</strong></div>
-                <div>Phone: <strong style={{ color: '#cbd5e1' }}>{s.phone || 'Available on request'}</strong></div>
-              </div>
-
               <Link
                 href={`/shops/${s.id}`}
                 style={{

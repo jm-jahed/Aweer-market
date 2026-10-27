@@ -225,6 +225,7 @@ export default function ShopAdminDashboard() {
   const [prodImageUrl, setProdImageUrl] = useState('');
   const [prodPrice, setProdPrice] = useState<number>(0);
   const [prodUnit, setProdUnit] = useState<string>('box');
+  const [prodWeight, setProdWeight] = useState<number>(0);
   const [prodMoq, setProdMoq] = useState<number>(1);
   const [prodStock, setProdStock] = useState<number>(50);
   const [isSubmittingProd, setIsSubmittingProd] = useState(false);
@@ -267,6 +268,7 @@ export default function ShopAdminDashboard() {
     setIsUploadingImage(false);
     setProdPrice(0);
     setProdUnit('box');
+    setProdWeight(0);
     setProdMoq(1);
     setProdStock(50);
     setAddModalError(null);
@@ -467,12 +469,19 @@ export default function ShopAdminDashboard() {
 
   // Status progression with real-time sync with buyer portal
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+    if (!orderId || orderId === 'undefined') {
+      alert('Unable to process order: Invalid order identifier. Please refresh your page.');
+      return;
+    }
     setUpdatingOrderId(orderId);
     try {
       const res = await updateVendorOrderStatus(orderId, newStatus);
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? res.order : o)));
-      if (selectedOrderForInvoice && selectedOrderForInvoice.id === orderId) {
-        setSelectedOrderForInvoice(res.order);
+      const updatedOrder = res.order ? { ...res.order, id: res.order.id || (res.order as any)._id } : null;
+      if (updatedOrder) {
+        setOrders((prev) => prev.map((o) => ((o.id || (o as any)._id) === orderId ? updatedOrder : o)));
+        if (selectedOrderForInvoice && ((selectedOrderForInvoice.id || (selectedOrderForInvoice as any)._id) === orderId)) {
+          setSelectedOrderForInvoice(updatedOrder);
+        }
       }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to update order status');
@@ -658,7 +667,10 @@ export default function ShopAdminDashboard() {
   const executeAddProduce = async () => {
     setIsSubmittingProd(true);
     try {
-      const derivedUnitWeightKg = getDefaultUnitWeightKg(prodUnit);
+      const isPackaged = ['box', 'ctn', 'pkt'].includes(prodUnit.toLowerCase());
+      const derivedUnitWeightKg = isPackaged && Number(prodWeight) > 0
+        ? Number(prodWeight)
+        : getDefaultUnitWeightKg(prodUnit);
       await createVendorProduct({
         name: prodName.trim(),
         category: prodCategory,
@@ -719,6 +731,11 @@ export default function ShopAdminDashboard() {
       setAddModalError('Please select a produce Unit.');
       return;
     }
+    const isPackaged = ['box', 'ctn', 'pkt'].includes(prodUnit.toLowerCase());
+    if (isPackaged && (!prodWeight || Number(prodWeight) <= 0 || isNaN(Number(prodWeight)))) {
+      setAddModalError(`Please enter a valid Weight (KG) for ${prodUnit.toUpperCase()}.`);
+      return;
+    }
     if (!prodMoq || Number(prodMoq) < 1 || isNaN(Number(prodMoq))) {
       setAddModalError('Minimum Order Quantity must be at least 1.');
       return;
@@ -732,7 +749,7 @@ export default function ShopAdminDashboard() {
       isOpen: true,
       title: 'Confirm Product Listing',
       message: `Are you sure you want to save and publish listing for "${prodName.trim()}"?`,
-      detail: `Category: ${prodCategory.replace(/_/g, ' ')} | Price: AED ${Number(prodPrice).toFixed(2)} per ${prodUnit} | MOQ: ${prodMoq} | Available Stock: ${prodStock} ${prodUnit}`,
+      detail: `Category: ${prodCategory.replace(/_/g, ' ')} | Price: AED ${Number(prodPrice).toFixed(2)} per ${prodUnit}${isPackaged ? ` (${prodWeight} kg)` : ''} | MOQ: ${prodMoq} | Available Stock: ${prodStock} ${prodUnit}`,
       confirmLabel: 'Confirm & Save Product',
       variant: 'primary',
       onConfirm: async () => {
@@ -1077,7 +1094,7 @@ export default function ShopAdminDashboard() {
           {/* Mobile Drawer Top Header with Close Button */}
           <div className={styles.mobileDrawerHeader}>
             <div className={styles.mobileDrawerBrand}>
-              <span>🌿</span>
+              <span className={styles.mobileDrawerBrandIcon}>🌿</span>
               <span>Al Aweer Vendor</span>
             </div>
             <button
@@ -1090,12 +1107,12 @@ export default function ShopAdminDashboard() {
             </button>
           </div>
 
-          <div>
+          <div className={styles.sidebarScrollArea}>
             {/* Stall Profile Mini Card */}
             <div className={styles.sidebarCard}>
               <div className={styles.sidebarCardAvatar}>🏪</div>
-              <div>
-                <div className={styles.sidebarCardTitle}>
+              <div className={styles.sidebarCardInfo}>
+                <div className={styles.sidebarCardTitle} title={shop?.name || user?.businessName || 'Wholesale Stall'}>
                   {shop?.name || user?.businessName || 'Wholesale Stall'}
                 </div>
                 <div className={styles.sidebarCardSub} title={shop?.stallNumber || 'Al Aweer Market'}>
@@ -1114,8 +1131,8 @@ export default function ShopAdminDashboard() {
                 id="tab-dashboard-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>📊</span>
-                  <span>1. Dashboard</span>
+                  <span className={styles.navItemIcon}>📊</span>
+                  <span className={styles.navItemText}>1. Dashboard</span>
                 </div>
               </button>
 
@@ -1127,8 +1144,8 @@ export default function ShopAdminDashboard() {
                 id="tab-products-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>🍎</span>
-                  <span>2. Products</span>
+                  <span className={styles.navItemIcon}>🍎</span>
+                  <span className={styles.navItemText}>2. Products</span>
                 </div>
                 <span className={styles.navBadge}>{products.length}</span>
               </button>
@@ -1141,8 +1158,8 @@ export default function ShopAdminDashboard() {
                 id="tab-orders-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>🛒</span>
-                  <span>3. Orders</span>
+                  <span className={styles.navItemIcon}>🛒</span>
+                  <span className={styles.navItemText}>3. Orders</span>
                 </div>
                 {pendingOrdersCount > 0 ? (
                   <span className={styles.badgeCountRed}>{pendingOrdersCount}</span>
@@ -1159,8 +1176,8 @@ export default function ShopAdminDashboard() {
                 id="tab-invoice-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>🧾</span>
-                  <span>4. Invoice</span>
+                  <span className={styles.navItemIcon}>🧾</span>
+                  <span className={styles.navItemText}>4. Invoice</span>
                 </div>
               </button>
 
@@ -1172,11 +1189,11 @@ export default function ShopAdminDashboard() {
                 id="tab-inventory-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>📦</span>
-                  <span>5. Inventory &amp; Stock</span>
+                  <span className={styles.navItemIcon}>📦</span>
+                  <span className={styles.navItemText}>5. Inventory &amp; Stock</span>
                 </div>
                 {lowStockItems.length > 0 && (
-                  <span style={{ background: '#f59e0b', color: '#030d0a', fontWeight: 800, fontSize: '0.65rem', padding: '1px 6px', borderRadius: 9999 }}>
+                  <span className={styles.navStockLowBadge}>
                     {lowStockItems.length} low
                   </span>
                 )}
@@ -1190,8 +1207,8 @@ export default function ShopAdminDashboard() {
                 id="tab-sales-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>📈</span>
-                  <span>6. Sales &amp; Reports</span>
+                  <span className={styles.navItemIcon}>📈</span>
+                  <span className={styles.navItemText}>6. Sales &amp; Reports</span>
                 </div>
               </button>
 
@@ -1203,8 +1220,8 @@ export default function ShopAdminDashboard() {
                 id="tab-payouts-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>💳</span>
-                  <span>7. Payouts</span>
+                  <span className={styles.navItemIcon}>💳</span>
+                  <span className={styles.navItemText}>7. Payouts</span>
                 </div>
               </button>
 
@@ -1216,8 +1233,8 @@ export default function ShopAdminDashboard() {
                 id="tab-profile-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>🏪</span>
-                  <span>8. Shop Profile</span>
+                  <span className={styles.navItemIcon}>🏪</span>
+                  <span className={styles.navItemText}>8. Shop Profile</span>
                 </div>
               </button>
 
@@ -1229,8 +1246,8 @@ export default function ShopAdminDashboard() {
                 id="tab-customers-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>👥</span>
-                  <span>9. Customers</span>
+                  <span className={styles.navItemIcon}>👥</span>
+                  <span className={styles.navItemText}>9. Customers</span>
                 </div>
                 <span className={styles.navBadge}>{uniqueBuyers.length}</span>
               </button>
@@ -1243,8 +1260,8 @@ export default function ShopAdminDashboard() {
                 id="tab-reviews-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>⭐</span>
-                  <span>10. Reviews &amp; Ratings</span>
+                  <span className={styles.navItemIcon}>⭐</span>
+                  <span className={styles.navItemText}>10. Reviews &amp; Ratings</span>
                 </div>
                 <span className={styles.navBadge}>{reviews.length}</span>
               </button>
@@ -1257,8 +1274,8 @@ export default function ShopAdminDashboard() {
                 id="tab-notifications-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>🔔</span>
-                  <span>11. Notifications</span>
+                  <span className={styles.navItemIcon}>🔔</span>
+                  <span className={styles.navItemText}>11. Notifications</span>
                 </div>
                 {lowStockItems.length > 0 && <span className={styles.badgeCountRed}>!</span>}
               </button>
@@ -1271,17 +1288,20 @@ export default function ShopAdminDashboard() {
                 id="tab-settings-btn"
               >
                 <div className={styles.navItemLeft}>
-                  <span>⚙️</span>
-                  <span>12. Settings</span>
+                  <span className={styles.navItemIcon}>⚙️</span>
+                  <span className={styles.navItemText}>12. Settings</span>
                 </div>
               </button>
             </nav>
-          </div>
 
-          {/* Sidebar Footer */}
-          <div className={styles.sidebarFooter}>
-            <span>🌿</span>
-            <span>Aweermarket v2.0.0 [Stall Portal]</span>
+            {/* Sidebar Footer */}
+            <div className={styles.sidebarFooter}>
+              <div className={styles.sidebarFooterStatus}>
+                <span className={styles.livePulseDot} />
+                <span>Stall Active</span>
+              </div>
+              <span className={styles.sidebarFooterVersion}>v2.0.0</span>
+            </div>
           </div>
         </aside>
 
@@ -1712,7 +1732,6 @@ export default function ShopAdminDashboard() {
                       <th>Image</th>
                       <th>Product Name</th>
                       <th>Category</th>
-                      <th>Packaging &amp; Weight</th>
                       <th>Stall Price (Dhs)</th>
                       <th>Stock Available</th>
                       <th>Visibility</th>
@@ -1722,7 +1741,7 @@ export default function ShopAdminDashboard() {
                   <tbody>
                     {filteredProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className={styles.emptyState}>
+                        <td colSpan={7} className={styles.emptyState}>
                           {isLoadingInventory
                             ? 'Loading stall produce listings...'
                             : 'No products listed matching criteria. Click "+ Add New Product" to publish your offers.'}
@@ -1756,7 +1775,6 @@ export default function ShopAdminDashboard() {
                                 {p.category.replace(/_/g, ' ')}
                               </span>
                             </td>
-                            <td>{o ? `${o.unitWeightKg} kg / ${o.unit}` : '—'}</td>
                             <td>
                               <strong style={{ color: '#ffffff' }}>
                                 Dhs {o ? `${o.priceAed.toFixed(2)} / ${o.unit}` : '—'}
@@ -1887,9 +1905,10 @@ export default function ShopAdminDashboard() {
                       </tr>
                     ) : (
                       filteredOrders.map((ord) => {
-                        const isUpdating = updatingOrderId === ord.id;
+                        const currentOrderId = ord.id || (ord as any)._id;
+                        const isUpdating = updatingOrderId === currentOrderId;
                         return (
-                          <tr key={ord.id}>
+                          <tr key={currentOrderId}>
                             <td>
                               <strong>#{ord.orderNumber}</strong>
                               <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
@@ -1953,7 +1972,7 @@ export default function ShopAdminDashboard() {
                                     <button
                                       type="button"
                                       className={styles.actionBtnPrimary}
-                                      onClick={() => requestStatusChangeWithConfirmation(ord.id, ord.orderNumber, 'confirmed', 'Confirmed')}
+                                      onClick={() => requestStatusChangeWithConfirmation(currentOrderId, ord.orderNumber, 'confirmed', 'Confirmed')}
                                       disabled={isUpdating}
                                     >
                                       Confirm Order
@@ -1961,7 +1980,7 @@ export default function ShopAdminDashboard() {
                                     <button
                                       type="button"
                                       className={styles.actionBtnDanger}
-                                      onClick={() => requestStatusChangeWithConfirmation(ord.id, ord.orderNumber, 'cancelled', 'Cancelled')}
+                                      onClick={() => requestStatusChangeWithConfirmation(currentOrderId, ord.orderNumber, 'cancelled', 'Cancelled')}
                                       disabled={isUpdating}
                                     >
                                       Reject
@@ -1974,7 +1993,7 @@ export default function ShopAdminDashboard() {
                                     <button
                                       type="button"
                                       className={styles.actionBtnPrimary}
-                                      onClick={() => requestStatusChangeWithConfirmation(ord.id, ord.orderNumber, 'preparing', 'Preparing / Packed')}
+                                      onClick={() => requestStatusChangeWithConfirmation(currentOrderId, ord.orderNumber, 'preparing', 'Preparing / Packed')}
                                       disabled={isUpdating}
                                     >
                                       Pack &amp; Prepare
@@ -1982,7 +2001,7 @@ export default function ShopAdminDashboard() {
                                     <button
                                       type="button"
                                       className={styles.actionBtnDanger}
-                                      onClick={() => requestStatusChangeWithConfirmation(ord.id, ord.orderNumber, 'cancelled', 'Cancelled')}
+                                      onClick={() => requestStatusChangeWithConfirmation(currentOrderId, ord.orderNumber, 'cancelled', 'Cancelled')}
                                       disabled={isUpdating}
                                     >
                                       Cancel
@@ -1996,7 +2015,7 @@ export default function ShopAdminDashboard() {
                                       <button
                                         type="button"
                                         className={styles.actionBtnPrimary}
-                                        onClick={() => requestStatusChangeWithConfirmation(ord.id, ord.orderNumber, 'out_for_delivery', 'Out for Delivery')}
+                                        onClick={() => requestStatusChangeWithConfirmation(currentOrderId, ord.orderNumber, 'out_for_delivery', 'Out for Delivery')}
                                         disabled={isUpdating}
                                       >
                                         Dispatch
@@ -2005,7 +2024,7 @@ export default function ShopAdminDashboard() {
                                       <button
                                         type="button"
                                         className={styles.actionBtnPrimary}
-                                        onClick={() => requestStatusChangeWithConfirmation(ord.id, ord.orderNumber, 'ready_for_pickup', 'Ready for Pickup')}
+                                        onClick={() => requestStatusChangeWithConfirmation(currentOrderId, ord.orderNumber, 'ready_for_pickup', 'Ready for Pickup')}
                                         disabled={isUpdating}
                                       >
                                         Ready for Pickup
@@ -2014,7 +2033,7 @@ export default function ShopAdminDashboard() {
                                     <button
                                       type="button"
                                       className={styles.actionBtnDanger}
-                                      onClick={() => requestStatusChangeWithConfirmation(ord.id, ord.orderNumber, 'cancelled', 'Cancelled')}
+                                      onClick={() => requestStatusChangeWithConfirmation(currentOrderId, ord.orderNumber, 'cancelled', 'Cancelled')}
                                       disabled={isUpdating}
                                     >
                                       Cancel
@@ -2026,7 +2045,7 @@ export default function ShopAdminDashboard() {
                                   <button
                                     type="button"
                                     className={styles.actionBtnSuccess}
-                                    onClick={() => requestStatusChangeWithConfirmation(ord.id, ord.orderNumber, 'delivered', 'Delivered')}
+                                    onClick={() => requestStatusChangeWithConfirmation(currentOrderId, ord.orderNumber, 'delivered', 'Delivered')}
                                     disabled={isUpdating}
                                   >
                                     Mark Delivered
@@ -3273,7 +3292,13 @@ export default function ShopAdminDashboard() {
                       id="field-prod-unit"
                       className={styles.formSelect}
                       value={prodUnit}
-                      onChange={(e) => setProdUnit(e.target.value)}
+                      onChange={(e) => {
+                        const nextUnit = e.target.value;
+                        setProdUnit(nextUnit);
+                        if (!['box', 'ctn', 'pkt'].includes(nextUnit.toLowerCase())) {
+                          setProdWeight(0);
+                        }
+                      }}
                       required
                     >
                       <option value="box">Box</option>
@@ -3285,6 +3310,30 @@ export default function ShopAdminDashboard() {
                     </select>
                   </div>
                 </div>
+
+                {/* Conditional Weight (KG) for Box, CTN, PKT */}
+                {['box', 'ctn', 'pkt'].includes(prodUnit.toLowerCase()) && (
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.formLabel} htmlFor="field-prod-weight">
+                      Weight (KG) *
+                    </label>
+                    <div className={styles.inputWithAddon}>
+                      <span className={styles.inputAddonPrefix}>KG</span>
+                      <input
+                        id="field-prod-weight"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        inputMode="decimal"
+                        className={styles.formInputAddon}
+                        placeholder={`e.g. ${getDefaultUnitWeightKg(prodUnit)}`}
+                        value={prodWeight === 0 ? '' : prodWeight}
+                        onChange={(e) => setProdWeight(e.target.value === '' ? 0 : Number(e.target.value))}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* 7. Minimum Order Quantity & 8. Available Stock */}
                 <div className={styles.formGrid2Col}>
@@ -3731,9 +3780,9 @@ export default function ShopAdminDashboard() {
 
         <button
           type="button"
-          onClick={() => setIsMobileDrawerOpen(true)}
+          onClick={() => setIsMobileDrawerOpen((prev) => !prev)}
           className={`${styles.mobileNavItem} ${isMobileDrawerOpen ? styles.mobileNavItemActive : ''}`}
-          aria-label="Open complete menu"
+          aria-label={isMobileDrawerOpen ? 'Close navigation menu' : 'Open navigation menu'}
         >
           <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="3" y1="12" x2="21" y2="12"></line>

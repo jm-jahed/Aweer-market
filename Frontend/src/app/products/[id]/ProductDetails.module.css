@@ -1,50 +1,77 @@
-/* Product Details Page Styles */
+/* Product Details Page — Mobile Premium Design System */
 .container {
-  max-width: 1400px;
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 24px 20px 48px;
   min-height: calc(100vh - 80px);
 }
 
+/* Breadcrumbs */
 .breadcrumbs {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   color: #94a3b8;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
 }
 
 .breadcrumbLink {
   color: #86efac;
   text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s ease;
 }
 
 .breadcrumbLink:hover {
+  color: #4ade80;
   text-decoration: underline;
 }
 
 .breadcrumbSep {
   color: #475569;
+  font-size: 0.75rem;
 }
 
 .breadcrumbCurrent {
   color: #ffffff;
-  font-weight: 600;
+  font-weight: 700;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* Main Details Card */
 .mainGrid {
   display: grid;
-  grid-template-columns: 440px 1fr;
+  grid-template-columns: 460px 1fr;
   gap: 36px;
-  background: #0a1f11;
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: linear-gradient(180deg, rgba(11, 33, 19, 0.9) 0%, rgba(6, 21, 12, 0.98) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.22);
   border-radius: 24px;
   padding: 32px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
 }
 
+/* Ambient glow accent behind grid */
+.mainGrid::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  left: 20%;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+  border-radius: 50%;
+}
+
+/* Left Column: Image & Trust */
 .imageCol {
   display: flex;
   flex-direction: column;
@@ -52,113 +79,226 @@
 }
 
 .imageWrap {
-  background: #ffffff;
-  border-radius: 20px;
-  padding: 30px;
+  background: radial-gradient(circle at center, rgba(34, 197, 94, 0.08) 0%, rgba(4, 18, 10, 0.95) 100%);
+  border-radius: 22px;
+  padding: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(34, 197, 94, 0.2);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+  min-height: 340px;
+}
+
+.imageBadge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: rgba(2, 22, 14, 0.85);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #86efac;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(8px);
+  z-index: 2;
+}
+
+.imageBadgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
 }
 
 .productImg {
   width: 100%;
-  max-height: 280px;
+  max-height: 320px;
   object-fit: contain;
+  border-radius: 14px;
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.5));
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.imageWrap:hover .productImg {
+  transform: scale(1.03);
+}
+
+/* Trust Badges */
 .trustPoints {
-  background: #08190e;
-  border: 1px solid rgba(34, 197, 94, 0.15);
-  border-radius: 16px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 .trustPoint {
+  background: rgba(8, 25, 14, 0.7);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+  border-radius: 12px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: #cbd5e1;
+  font-weight: 600;
 }
 
+.trustPointIcon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+/* Right Column: Info & Pricing */
 .infoCol {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .badgeRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .categoryTag {
   background: rgba(34, 197, 94, 0.15);
   color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  font-size: 0.72rem;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  font-size: 0.75rem;
   font-weight: 800;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 9999px;
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
 }
 
 .originTag {
-  background: #0f2d18;
-  color: #cbd5e1;
-  font-size: 0.72rem;
+  background: rgba(15, 45, 24, 0.8);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  color: #e2e8f0;
+  font-size: 0.75rem;
   font-weight: 700;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skuTag {
+  margin-left: auto;
+  font-size: 0.74rem;
+  color: #86efac;
+  background: rgba(2, 22, 14, 0.6);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: ui-monospace, monospace;
 }
 
 .productTitle {
-  font-size: 2.2rem;
+  font-size: 2.3rem;
   font-weight: 800;
   color: #ffffff;
   margin: 0;
-  line-height: 1.2;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
 }
 
 .ratingRow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  font-size: 0.85rem;
+  font-size: 0.86rem;
   color: #94a3b8;
 }
 
 .star {
-  color: #eab308;
+  color: #facc15;
+  font-size: 1rem;
 }
 
+.ratingScore {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.marketTag {
+  color: #86efac;
+  font-weight: 600;
+}
+
+/* Best Available Wholesale Price Hero Banner */
 .priceBanner {
-  background: #0d2816;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  border-radius: 16px;
-  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(13, 40, 22, 0.95) 0%, rgba(6, 26, 14, 0.95) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 18px;
+  padding: 18px 22px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .priceLabel {
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   color: #86efac;
   text-transform: uppercase;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
 }
 
 .priceVal {
-  font-size: 1.8rem;
+  font-size: 2.1rem;
   font-weight: 800;
   color: #4ade80;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1.1;
+}
+
+.priceUnit {
+  font-size: 1.05rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.equivalentPrice {
+  font-size: 0.82rem;
+  color: #86efac;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.guaranteeBadge {
+  background: rgba(34, 197, 94, 0.16);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #4ade80;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  font-weight: 800;
+  font-size: 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.15);
 }
 
 .productDesc {
@@ -170,43 +310,66 @@
 
 /* Multi-Stall Offers Section */
 .offersSection {
-  margin-top: 10px;
+  margin-top: 8px;
+}
+
+.offersHeadingWrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
 }
 
 .offersHeading {
   font-size: 1.25rem;
   font-weight: 800;
   color: #ffffff;
-  margin: 0 0 14px 0;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.offersCountBadge {
+  background: rgba(34, 197, 94, 0.16);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86efac;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 9999px;
+}
+
+/* Desktop Offers Table */
+.desktopTableWrap {
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(34, 197, 94, 0.22);
+  background: #08190e;
 }
 
 .offersTable {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  border: 1px solid rgba(34, 197, 94, 0.2);
-  border-radius: 16px;
-  overflow: hidden;
-  background: #08190e;
 }
 
 .offersTable th {
   background: #0d2816;
   color: #86efac;
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.76rem;
+  font-weight: 800;
   text-transform: uppercase;
-  padding: 12px 16px;
+  letter-spacing: 0.04em;
+  padding: 14px 16px;
   text-align: left;
   border-bottom: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .offersTable td {
   padding: 14px 16px;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   color: #e2e8f0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   vertical-align: middle;
@@ -216,67 +379,387 @@
   border-bottom: none;
 }
 
+.offersTable tbody tr:hover td {
+  background: rgba(16, 185, 129, 0.04);
+}
+
 .stallName {
   font-weight: 700;
   color: #ffffff;
+  font-size: 0.92rem;
+}
+
+.stallLink {
+  color: #ffffff;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.stallLink:hover {
+  color: #4ade80;
+  text-decoration: underline;
 }
 
 .stallLoc {
   font-size: 0.75rem;
   color: #86efac;
+  margin-top: 2px;
 }
 
 .tableAddBtn {
   background: #22c55e;
   color: #052e16;
   border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: 0.8rem;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 0.85rem;
   font-weight: 800;
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.25);
+}
+
+.tableAddBtn:hover:not(:disabled) {
+  background: #4ade80;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(34, 197, 94, 0.4);
+}
+
+.tableAddBtn:disabled {
+  background: #334155;
+  color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Mobile Offers Cards View (Hidden on Desktop) */
+.mobileOffersList {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobileOfferCard {
+  background: rgba(7, 24, 14, 0.92);
+  border: 1px solid rgba(34, 197, 94, 0.22);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.2s ease;
+}
+
+.mobileOfferCardCheapest {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: linear-gradient(180deg, rgba(12, 36, 21, 0.95) 0%, rgba(7, 24, 14, 0.95) 100%);
+  position: relative;
+}
+
+.mobileCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mobileStallTitle {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.3;
+}
+
+.mobileStallLoc {
+  font-size: 0.76rem;
+  color: #86efac;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cheapestBadge {
+  background: #22c55e;
+  color: #052e16;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+
+.mobileSpecsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: rgba(2, 18, 11, 0.6);
+  border: 1px solid rgba(34, 197, 94, 0.12);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.mobileSpecItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobileSpecLabel {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mobileSpecVal {
+  font-size: 0.88rem;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.mobilePriceHighlighted {
+  font-size: 1.05rem;
+  color: #4ade80;
+  font-weight: 800;
+}
+
+.mobileEquivRate {
+  font-size: 0.74rem;
+  color: #86efac;
+  font-weight: 600;
+}
+
+.mobileAddBtn {
+  width: 100%;
+  background: #22c55e;
+  color: #052e16;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3);
+  transition: all 0.2s ease;
+}
+
+.mobileAddBtn:active {
+  transform: scale(0.98);
+}
+
+.mobileAddBtn:disabled {
+  background: #334155;
+  color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Mobile Sticky Bottom Floating Action Bar */
+.mobileStickyBar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(5, 20, 11, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(34, 197, 94, 0.3);
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 1500;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.6);
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.mobileStickyPriceWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mobileStickyLabel {
+  font-size: 0.68rem;
+  color: #86efac;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.mobileStickyPrice {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #4ade80;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.mobileStickyStall {
+  font-size: 0.72rem;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.mobileStickyBtn {
+  flex-shrink: 0;
+  background: #22c55e;
+  color: #052e16;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 22px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.35);
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
-.tableAddBtn:hover {
-  background: #4ade80;
-  transform: scale(1.05);
+.mobileStickyBtn:active {
+  transform: scale(0.97);
 }
 
-@media (max-width: 900px) {
+/* ==========================================================================
+   RESPONSIVE BREAKPOINTS (Mobile & Tablet Optimization)
+   ========================================================================== */
+@media (max-width: 1024px) {
+  .mainGrid {
+    grid-template-columns: 380px 1fr;
+    gap: 28px;
+    padding: 24px;
+  }
+}
+
+@media (max-width: 860px) {
   .mainGrid {
     grid-template-columns: 1fr;
     padding: 20px;
     gap: 24px;
+    border-radius: 20px;
+  }
+
+  .imageWrap {
+    min-height: 280px;
+    padding: 20px;
+  }
+
+  .productImg {
+    max-height: 260px;
+  }
+
+  .trustPoints {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .trustPoint {
+    padding: 8px 10px;
+    font-size: 0.74rem;
+    flex-direction: column;
+    text-align: center;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 14px 12px 100px; /* Room for mobile sticky bar */
+  }
+
+  .breadcrumbs {
+    margin-bottom: 14px;
+    font-size: 0.78rem;
+  }
+
+  .mainGrid {
+    padding: 16px 14px 24px;
+    border-radius: 18px;
+    gap: 18px;
+    margin-bottom: 16px;
   }
 
   .productTitle {
-    font-size: 1.6rem;
+    font-size: 1.7rem;
   }
 
-  .offersTable {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .priceBanner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  .guaranteeBadge {
+    align-self: flex-start;
+  }
+
+  .desktopTableWrap {
+    display: none; /* Hide wide table on mobile */
+  }
+
+  .mobileOffersList {
+    display: flex; /* Show luxury cards on mobile */
+  }
+
+  .mobileStickyBar {
+    display: flex; /* Activate sticky quick-cart on mobile */
   }
 }
 
 @media (max-width: 480px) {
+  .container {
+    padding: 10px 8px 105px;
+  }
+
   .mainGrid {
-    padding: 14px 10px 40px;
-    gap: 16px;
+    padding: 14px 12px 20px;
+    border-radius: 16px;
+  }
+
+  .imageWrap {
+    min-height: 240px;
+    padding: 16px;
+  }
+
+  .productImg {
+    max-height: 220px;
   }
 
   .productTitle {
-    font-size: 1.35rem;
-  }
-
-  .priceBanner {
-    padding: 12px 14px;
+    font-size: 1.45rem;
   }
 
   .priceVal {
-    font-size: 1.5rem;
+    font-size: 1.8rem;
+  }
+
+  .trustPoints {
+    grid-template-columns: 1fr;
+  }
+
+  .trustPoint {
+    flex-direction: row;
+    text-align: left;
+    padding: 8px 12px;
+  }
+
+  .mobileSpecsGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 8px 10px;
   }
 }

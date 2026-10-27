@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCart, CartItem } from '@/lib/cart-context';
 import { getProductById } from '@/lib/api-client';
-import { resolveProduceImage } from '@/lib/catalog-utils';
+import { resolveProduceImage, CATEGORY_DISPLAY_CONFIG } from '@/lib/catalog-utils';
 import type { ProductItem, ProductOfferSummary } from '@aweermarket/types';
 import styles from './ProductDetails.module.css';
 
@@ -179,19 +179,23 @@ export default function ProductDetailPage() {
         {/* Left: Product Image & Trust Points */}
         <div className={styles.imageCol}>
           <div className={styles.imageWrap}>
+            <div className={styles.imageBadge}>
+              <span className={styles.imageBadgeDot} />
+              <span>Al Aweer Direct Wholesale</span>
+            </div>
             <img src={product.image} alt={product.name} className={styles.productImg} />
           </div>
           <div className={styles.trustPoints}>
             <div className={styles.trustPoint}>
-              <span>🛡️</span>
-              <span>100% Verified Al Aweer Market Stalls</span>
+              <span className={styles.trustPointIcon}>🛡️</span>
+              <span>100% Verified Al Aweer Stalls</span>
             </div>
             <div className={styles.trustPoint}>
-              <span>🚚</span>
+              <span className={styles.trustPointIcon}>🚚</span>
               <span>Same-Day Scheduled Commercial Delivery</span>
             </div>
             <div className={styles.trustPoint}>
-              <span>⚖️</span>
+              <span className={styles.trustPointIcon}>⚖️</span>
               <span>Price per KG Standardized Across All Stalls</span>
             </div>
           </div>
@@ -200,10 +204,16 @@ export default function ProductDetailPage() {
         {/* Right: Info & Pricing */}
         <div className={styles.infoCol}>
           <div className={styles.badgeRow}>
-            <span className={styles.categoryTag}>{product.category}</span>
-            <span className={styles.originTag}>Origin: {product.originCountry}</span>
-            <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: '#86efac' }}>
-              ID: {product.id}
+            <span className={styles.categoryTag}>
+              <span>{categoryConfig.icon}</span>
+              <span>{categoryConfig.title}</span>
+            </span>
+            <span className={styles.originTag}>
+              <span>📍</span>
+              <span>Origin: {product.originCountry}</span>
+            </span>
+            <span className={styles.skuTag}>
+              SKU: {product.id.slice(-8).toUpperCase()}
             </span>
           </div>
 
@@ -211,9 +221,11 @@ export default function ProductDetailPage() {
 
           <div className={styles.ratingRow}>
             <span className={styles.star}>★</span>
-            <span style={{ color: '#ffffff', fontWeight: 700 }}>4.9</span>
+            <span className={styles.ratingScore}>4.9</span>
             <span>•</span>
-            <span>Dubai Fruits & Vegetables Market</span>
+            <span className={styles.marketTag}>Dubai Fruits &amp; Vegetables Central Market</span>
+            <span>•</span>
+            <span>320+ wholesale buyers</span>
           </div>
 
           <div className={styles.priceBanner}>
@@ -221,105 +233,190 @@ export default function ProductDetailPage() {
               <div className={styles.priceLabel}>Best Available Wholesale Price</div>
               <div className={styles.priceVal}>
                 Dhs {offers[0] ? offers[0].priceAed.toFixed(2) : product.lowestPriceAedPerKg.toFixed(2)}
-                <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 500 }}>
+                <span className={styles.priceUnit}>
                   {' '}
                   / {offers[0] ? offers[0].unit : 'unit'}
                 </span>
               </div>
+              {offers[0] && (
+                <div className={styles.equivalentPrice}>
+                  ≈ Dhs {offers[0].equivalentPricePerKg.toFixed(2)} / kg equivalent
+                </div>
+              )}
             </div>
-            <span
-              style={{
-                background: 'rgba(34,197,94,0.15)',
-                color: '#4ade80',
-                padding: '6px 14px',
-                borderRadius: 9999,
-                fontWeight: 800,
-                fontSize: '0.8rem'
-              }}
-            >
-              ⚡ Lowest Price Guaranteed
-            </span>
+            <div className={styles.guaranteeBadge}>
+              <span>⚡</span>
+              <span>Lowest Price Guaranteed</span>
+            </div>
           </div>
 
           <p className={styles.productDesc}>
             {product.description || `Fresh, commercial-grade ${product.name.toLowerCase()} sourced directly from verified wholesale vendors in Al Aweer.`}
           </p>
 
-          {/* Multi-Stall Comparison Offers Table */}
+          {/* Multi-Stall Comparison Offers Section */}
           <div className={styles.offersSection}>
-            <h2 className={styles.offersHeading}>
-              <span>🏢</span> Available Stall Offers & Multi-Vendor Pricing
-            </h2>
-            <table className={styles.offersTable}>
-              <thead>
-                <tr>
-                  <th>Vendor Stall</th>
-                  <th>Wholesale Packaging</th>
-                  <th>Price / Unit</th>
-                  <th>Equivalent / KG</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {offers.map((offer, idx) => (
-                  <tr key={offer.vendorId}>
-                    <td>
-                      <div className={styles.stallName}>
-                        <Link href={`/shops/${offer.vendorId}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                          {offer.shopName}
-                        </Link>
-                      </div>
-                      <div className={styles.stallLoc}>{offer.stallNumber || 'Al Aweer Central Market'}</div>
-                    </td>
-                    <td>
-                      {offer.unitWeightKg}kg {offer.unit}
-                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                        MOQ: {offer.minOrderQuantity} {offer.unit}
-                      </div>
-                    </td>
-                    <td style={{ fontWeight: 700, color: '#ffffff' }}>
-                      Dhs {offer.priceAed.toFixed(2)} / {offer.unit}
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          fontWeight: 800,
-                          color: idx === 0 ? '#4ade80' : '#cbd5e1'
-                        }}
-                      >
-                        Dhs {offer.equivalentPricePerKg.toFixed(2)}/kg
-                      </span>
-                      {idx === 0 && (
+            <div className={styles.offersHeadingWrap}>
+              <h2 className={styles.offersHeading}>
+                <span>🏢</span> Available Stall Offers &amp; Multi-Vendor Pricing
+              </h2>
+              <span className={styles.offersCountBadge}>
+                {offers.length} {offers.length === 1 ? 'Stall Offer' : 'Stall Offers'}
+              </span>
+            </div>
+
+            {/* Desktop Table View (Hidden on mobile) */}
+            <div className={styles.desktopTableWrap}>
+              <table className={styles.offersTable}>
+                <thead>
+                  <tr>
+                    <th>Vendor Stall</th>
+                    <th>Wholesale Packaging</th>
+                    <th>Price / Unit</th>
+                    <th>Equivalent / KG</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {offers.map((offer, idx) => (
+                    <tr key={offer.vendorId}>
+                      <td>
+                        <div className={styles.stallName}>
+                          <Link href={`/shops/${offer.vendorId}`} className={styles.stallLink}>
+                            {offer.shopName}
+                          </Link>
+                        </div>
+                        <div className={styles.stallLoc}>{offer.stallNumber || 'Al Aweer Central Market'}</div>
+                      </td>
+                      <td>
+                        <strong>{offer.unitWeightKg}kg {offer.unit}</strong>
+                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 2 }}>
+                          MOQ: {offer.minOrderQuantity} {offer.unit}
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: 800, color: '#ffffff' }}>
+                        Dhs {offer.priceAed.toFixed(2)} / {offer.unit}
+                      </td>
+                      <td>
                         <span
                           style={{
-                            display: 'block',
-                            fontSize: '0.65rem',
-                            color: '#4ade80',
-                            fontWeight: 800
+                            fontWeight: 800,
+                            color: idx === 0 ? '#4ade80' : '#cbd5e1'
                           }}
                         >
-                          CHEAPEST
+                          Dhs {offer.equivalentPricePerKg.toFixed(2)}/kg
                         </span>
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() => handleAddOffer(offer)}
-                        className={styles.tableAddBtn}
-                        id={`add-offer-${offer.vendorId}`}
-                        disabled={offer.availableStock <= 0}
-                      >
-                        {offer.availableStock > 0 ? 'Add to Cart 🛒' : 'Out of Stock'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        {idx === 0 && (
+                          <span
+                            style={{
+                              display: 'block',
+                              fontSize: '0.65rem',
+                              color: '#4ade80',
+                              fontWeight: 800
+                            }}
+                          >
+                            CHEAPEST
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => handleAddOffer(offer)}
+                          className={styles.tableAddBtn}
+                          id={`add-offer-${offer.vendorId}`}
+                          disabled={offer.availableStock <= 0}
+                        >
+                          {offer.availableStock > 0 ? 'Add to Cart 🛒' : 'Out of Stock'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Touch Cards View (Active on mobile screens < 768px) */}
+            <div className={styles.mobileOffersList}>
+              {offers.map((offer, idx) => {
+                const isCheapest = idx === 0;
+                return (
+                  <div
+                    key={offer.vendorId}
+                    className={`${styles.mobileOfferCard} ${isCheapest ? styles.mobileOfferCardCheapest : ''}`}
+                  >
+                    <div className={styles.mobileCardHeader}>
+                      <div>
+                        <Link href={`/shops/${offer.vendorId}`} className={styles.stallLink}>
+                          <div className={styles.mobileStallTitle}>{offer.shopName}</div>
+                        </Link>
+                        <div className={styles.mobileStallLoc}>
+                          <span>📍</span>
+                          <span>{offer.stallNumber || 'Dubai Al Aweer Central Market'}</span>
+                        </div>
+                      </div>
+                      {isCheapest && <span className={styles.cheapestBadge}>★ BEST PRICE</span>}
+                    </div>
+
+                    <div className={styles.mobileSpecsGrid}>
+                      <div className={styles.mobileSpecItem}>
+                        <span className={styles.mobileSpecLabel}>Wholesale Packaging</span>
+                        <span className={styles.mobileSpecVal}>{offer.unitWeightKg}kg {offer.unit}</span>
+                      </div>
+                      <div className={styles.mobileSpecItem}>
+                        <span className={styles.mobileSpecLabel}>Minimum Order</span>
+                        <span className={styles.mobileSpecVal}>{offer.minOrderQuantity} {offer.unit}</span>
+                      </div>
+                      <div className={styles.mobileSpecItem}>
+                        <span className={styles.mobileSpecLabel}>Price per {offer.unit}</span>
+                        <span className={styles.mobilePriceHighlighted}>Dhs {offer.priceAed.toFixed(2)}</span>
+                      </div>
+                      <div className={styles.mobileSpecItem}>
+                        <span className={styles.mobileSpecLabel}>Standardized Rate</span>
+                        <span className={styles.mobileEquivRate}>Dhs {offer.equivalentPricePerKg.toFixed(2)}/kg</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAddOffer(offer)}
+                      className={styles.mobileAddBtn}
+                      id={`mobile-add-offer-${offer.vendorId}`}
+                      disabled={offer.availableStock <= 0}
+                    >
+                      <span>{offer.availableStock > 0 ? 'Add to Cart 🛒' : 'Out of Stock'}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Mobile Sticky Quick Action Bar (Floating at bottom on mobile) */}
+      {offers[0] && (
+        <aside className={styles.mobileStickyBar} aria-label="Quick Purchase Bar">
+          <div className={styles.mobileStickyPriceWrap}>
+            <span className={styles.mobileStickyLabel}>Best Wholesale Offer</span>
+            <div className={styles.mobileStickyPrice}>
+              Dhs {offers[0].priceAed.toFixed(2)}
+              <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}> / {offers[0].unit}</span>
+            </div>
+            <span className={styles.mobileStickyStall}>
+              {offers[0].shopName}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleAddOffer(offers[0])}
+            className={styles.mobileStickyBtn}
+            disabled={offers[0].availableStock <= 0}
+          >
+            {offers[0].availableStock > 0 ? 'Add to Cart 🛒' : 'Out of Stock'}
+          </button>
+        </aside>
+      )}
 
       {/* Single-Vendor Cart Conflict Modal */}
       {conflict && (

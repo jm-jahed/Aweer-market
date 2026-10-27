@@ -328,9 +328,14 @@ export const ordersRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
+    const formattedOrder = {
+      ...(typeof (order as any).toObject === 'function' ? (order as any).toObject() : order),
+      id: order.id || (order as any)._id?.toString()
+    };
+
     return reply.status(200).send({
       statusCode: 200,
-      order
+      order: formattedOrder
     });
   });
 };

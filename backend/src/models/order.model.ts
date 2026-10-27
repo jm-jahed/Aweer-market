@@ -61,7 +61,25 @@ const OrderSchema = new Schema<IOrderDocument>(
     items: [OrderItemSubSchema]
   },
   {
-    timestamps: true
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (_doc, ret: Record<string, any>) => {
+        if (ret._id && !ret.id) {
+          ret.id = ret._id.toString();
+        }
+        return ret;
+      }
+    },
+    toObject: {
+      virtuals: true,
+      transform: (_doc, ret: Record<string, any>) => {
+        if (ret._id && !ret.id) {
+          ret.id = ret._id.toString();
+        }
+        return ret;
+      }
+    }
   }
 );
 
