@@ -27,11 +27,32 @@ export default function CategoriesDirectoryPage() {
 
       {/* Header Banner */}
       <header className={styles.headerBanner}>
-        <span className={styles.headerBadge}>Dubai Al Aweer Central Market</span>
+        <div className={styles.headerTop}>
+          <span className={styles.headerBadge}>
+            <span className={styles.headerBadgeDot} />
+            Dubai Al Aweer Central Market
+          </span>
+          <span className={styles.headerLotBadge}>Daily Wholesale Lots</span>
+        </div>
         <h1 className={styles.headerTitle}>Wholesale Produce Categories</h1>
         <p className={styles.headerSub}>
           Select a category to browse live inventory, multi-stall price comparisons, and order directly from verified Al Aweer wholesale vendors.
         </p>
+
+        <div className={styles.marketStatsBar}>
+          <div className={styles.statItem}>
+            <span className={styles.statDot} />
+            <span>Multi-Stall Price Comparison</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statDot} />
+            <span>Guaranteed Lowest Price First</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statDot} />
+            <span>Direct Market Stall Pickups</span>
+          </div>
+        </div>
       </header>
 
       {/* Dynamic Category Grid */}

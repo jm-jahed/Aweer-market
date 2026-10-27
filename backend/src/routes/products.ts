@@ -153,6 +153,7 @@ export const productsRoutes: FastifyPluginAsync = async (fastify) => {
           category: item.category,
           originCountry: item.originCountry,
           description: item.description,
+          imageUrl: item.imageUrl,
           offers: item.offers.filter((o) => o.vendorId === shop.id)
         };
       })

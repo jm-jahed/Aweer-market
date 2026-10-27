@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getCategories, CategoryItem } from '@/lib/api-client';
-import { resolveProduceImage } from '@/lib/catalog-utils';
+import { resolveCategoryImage } from '@/lib/catalog-utils';
 import styles from './Categories.module.css';
 
 export function CategoriesList() {
@@ -45,16 +45,21 @@ export function CategoriesList() {
             key={i}
             className={styles.categoryCard}
             style={{
-              minHeight: 280,
-              opacity: 0.5,
+              minHeight: 380,
+              opacity: 0.6,
               display: 'flex',
               flexDirection: 'column'
             }}
           >
-            <div style={{ height: 160, background: '#0a1a0f' }} />
-            <div style={{ padding: 18, flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ width: '60%', height: 20, background: '#13351d', borderRadius: 4 }} />
-              <div style={{ width: '90%', height: 14, background: '#13351d', borderRadius: 4 }} />
+            <div style={{ height: 210, background: '#071b0e' }} />
+            <div style={{ padding: 22, flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ width: '50%', height: 24, background: '#10331b', borderRadius: 8 }} />
+              <div style={{ width: '85%', height: 16, background: '#0e2b17', borderRadius: 6 }} />
+              <div style={{ width: '70%', height: 16, background: '#0e2b17', borderRadius: 6 }} />
+              <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', paddingTop: 14 }}>
+                <div style={{ width: '30%', height: 18, background: '#10331b', borderRadius: 6 }} />
+                <div style={{ width: '35%', height: 32, background: '#133a1e', borderRadius: 10 }} />
+              </div>
             </div>
           </div>
         ))}
@@ -68,17 +73,17 @@ export function CategoriesList() {
         style={{
           background: 'rgba(239, 68, 68, 0.1)',
           border: '1px solid rgba(239, 68, 68, 0.3)',
-          borderRadius: 16,
-          padding: '24px 32px',
+          borderRadius: 20,
+          padding: '32px 36px',
           textAlign: 'center',
           color: '#fca5a5'
         }}
       >
-        <div style={{ fontSize: '1.8rem', marginBottom: 8 }}>⚠️</div>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 6px 0', color: '#ffffff' }}>
+        <div style={{ fontSize: '2rem', marginBottom: 10 }}>⚠️</div>
+        <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 8px 0', color: '#ffffff' }}>
           Unable to Load Categories
         </h3>
-        <p style={{ fontSize: '0.88rem', margin: '0 0 16px 0', color: '#94a3b8' }}>
+        <p style={{ fontSize: '0.9rem', margin: '0 0 18px 0', color: '#94a3b8' }}>
           {error}
         </p>
         <button
@@ -87,12 +92,12 @@ export function CategoriesList() {
           style={{
             background: '#22c55e',
             color: '#052010',
-            fontWeight: 700,
-            padding: '8px 20px',
-            borderRadius: 8,
+            fontWeight: 800,
+            padding: '10px 24px',
+            borderRadius: 10,
             border: 'none',
             cursor: 'pointer',
-            fontSize: '0.85rem'
+            fontSize: '0.88rem'
           }}
         >
           Try Again
@@ -107,8 +112,8 @@ export function CategoriesList() {
         style={{
           background: '#0a1a0f',
           border: '1px solid rgba(34, 197, 94, 0.15)',
-          borderRadius: 16,
-          padding: '40px 24px',
+          borderRadius: 20,
+          padding: '48px 24px',
           textAlign: 'center',
           color: '#94a3b8'
         }}
@@ -124,25 +129,61 @@ export function CategoriesList() {
         const slug = cat.slug || cat.key;
         const name = cat.name || cat.label;
         const icon = cat.icon || '📦';
-        const image = cat.bannerUrl || resolveProduceImage(name, slug);
-        const desc = cat.description || 'Verified wholesale produce from Dubai Al Aweer Central Market.';
+        const image = resolveCategoryImage(name, slug, cat.bannerUrl);
+        const desc = cat.description || 'Verified wholesale produce direct from Al Aweer Central Market stalls.';
         const href = getCategoryHref(slug);
 
         return (
           <Link key={slug} href={href} className={styles.categoryCard}>
             <div className={styles.cardImgWrap}>
-              <img src={image} alt={name} className={styles.cardImg} />
-              <div className={styles.iconAvatar}>{icon}</div>
-            </div>
-            <div className={styles.cardBody}>
-              <div className={styles.cardTopRow}>
-                <h2 className={styles.cardTitle}>{name}</h2>
-                <span className={styles.unitsTag}>Wholesale Lots</span>
+              <img src={image} alt={name} className={styles.cardImg} loading="lazy" />
+              <div className={styles.imageOverlay} />
+
+              {/* Floating Top Badges */}
+              <div className={styles.floatingBadges}>
+                <div className={styles.categoryTagPill}>
+                  <span className={styles.categoryTagIcon}>{icon}</span>
+                  <span className={styles.categoryTagName}>{name}</span>
+                </div>
+                <div className={styles.liveBadge}>
+                  <span className={styles.livePulse} />
+                  <span>Wholesale Lots</span>
+                </div>
               </div>
-              <p className={styles.cardDesc}>{desc}</p>
+            </div>
+
+            <div className={styles.cardBody}>
+              <div className={styles.cardMain}>
+                <div className={styles.cardTitleRow}>
+                  <h2 className={styles.cardTitle}>{name}</h2>
+                  <span className={styles.marketOriginBadge}>Al Aweer Direct</span>
+                </div>
+                <p className={styles.cardDesc}>{desc}</p>
+              </div>
+
+              {/* Feature Chips */}
+              <div className={styles.featurePills}>
+                <span className={styles.featurePill}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  Verified Stalls
+                </span>
+                <span className={styles.featurePill}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                  Daily Fresh
+                </span>
+                <span className={styles.featurePill}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  Lowest Price
+                </span>
+              </div>
+
+              {/* Card Footer / CTA */}
               <div className={styles.cardFooter}>
-                <span className={styles.itemCountText}>Direct Stalls</span>
-                <span className={styles.arrowLink}>Browse Category →</span>
+                <span className={styles.footerMarketNote}>Bulk & Wholesale Supply</span>
+                <div className={styles.ctaButton}>
+                  <span>Explore Category</span>
+                  <span className={styles.ctaArrow}>→</span>
+                </div>
               </div>
             </div>
           </Link>

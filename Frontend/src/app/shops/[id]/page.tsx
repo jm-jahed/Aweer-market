@@ -391,6 +391,9 @@ export default function ShopStorefrontPage() {
                           src={produceImg}
                           alt={item.name}
                           className={styles.productImg}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/images/hero-basket.jpg';
+                          }}
                         />
                       </Link>
                       <button
@@ -428,9 +431,6 @@ export default function ShopStorefrontPage() {
                         <div key={idx} className={styles.offerCard}>
                           <div className={styles.offerHeader}>
                             <div>
-                              <div className={styles.packagingText}>
-                                {offer.unitWeightKg}kg {offer.unit}
-                              </div>
                               <div className={styles.moqText}>
                                 Min Order: {offer.minOrderQuantity} {offer.unit}
                               </div>

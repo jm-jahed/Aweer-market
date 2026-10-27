@@ -692,14 +692,14 @@ function MarketplaceContent() {
           {/* Shop by Category Section Header */}
           <div className={styles.categorySectionHeader}>
             <h2 className={styles.categorySectionTitle}>Shop by Category</h2>
-            <button
-              type="button"
-              onClick={() => setSelectedCategory('all')}
+            <Link
+              href="/categories"
               className={styles.viewAllLink}
+              title="View all categories"
             >
               <span>View All</span>
               <span>→</span>
-            </button>
+            </Link>
           </div>
 
           {/* Circular Category Navigation Chips (Dynamic from Real API) */}
@@ -849,18 +849,14 @@ function MarketplaceContent() {
                   </button>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCategory('all');
-                  if (searchQuery) router.push('/');
-                }}
+              <Link
+                href="/products"
                 className={styles.viewAllLink}
-                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                title="View all products"
               >
                 <span>View All</span>
                 <span>→</span>
-              </button>
+              </Link>
             </div>
 
             {/* Product Cards Grid — CHEAP PRICE 1ST (Real API Products) */}

@@ -1,23 +1,28 @@
-/* Categories Directory Styles */
+/* ==========================================================================
+   Categories Directory Styles — Dubai Al Aweer Wholesale Market (Premium)
+   ========================================================================== */
+
 .container {
   max-width: 1540px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 28px 24px 60px;
   min-height: calc(100vh - 80px);
 }
 
+/* Breadcrumbs */
 .breadcrumbs {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.82rem;
+  gap: 10px;
+  font-size: 0.84rem;
   color: #94a3b8;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .breadcrumbLink {
   color: #86efac;
   text-decoration: none;
+  font-weight: 600;
   transition: color 0.15s ease;
 }
 
@@ -27,120 +32,258 @@
 }
 
 .breadcrumbSep {
-  color: #475569;
+  color: #334155;
+  font-size: 0.75rem;
 }
 
 .breadcrumbCurrent {
-  color: #ffffff;
-  font-weight: 600;
+  color: #f1f5f9;
+  font-weight: 700;
 }
 
+/* Header Banner */
 .headerBanner {
-  background: linear-gradient(135deg, #0a2414 0%, #07170c 100%);
-  border: 1px solid rgba(34, 197, 94, 0.22);
-  border-radius: 20px;
-  padding: 32px;
-  margin-bottom: 28px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  position: relative;
+  background: radial-gradient(circle at 85% 15%, rgba(34, 197, 94, 0.14) 0%, transparent 60%),
+              radial-gradient(circle at 10% 90%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+              linear-gradient(135deg, #0a2414 0%, #06170d 60%, #040e08 100%);
+  border: 1px solid rgba(74, 222, 128, 0.22);
+  border-radius: 24px;
+  padding: 36px 40px;
+  margin-bottom: 32px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.headerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
 }
 
 .headerBadge {
-  display: inline-block;
-  background: rgba(34, 197, 94, 0.15);
-  border: 1px solid rgba(34, 197, 94, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(74, 222, 128, 0.35);
   color: #4ade80;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 800;
-  padding: 4px 12px;
+  padding: 5px 14px;
   border-radius: 9999px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 10px;
+  letter-spacing: 0.06em;
+}
+
+.headerBadgeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+.headerLotBadge {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #86efac;
+  background: rgba(6, 26, 14, 0.6);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  padding: 4px 12px;
+  border-radius: 9999px;
 }
 
 .headerTitle {
-  font-size: 2.2rem;
-  font-weight: 800;
+  font-size: 2.35rem;
+  font-weight: 900;
   color: #ffffff;
-  margin: 0 0 8px 0;
-  letter-spacing: -0.02em;
+  margin: 0 0 10px 0;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
 }
 
 .headerSub {
-  font-size: 0.95rem;
+  font-size: 0.98rem;
   color: #94a3b8;
-  max-width: 720px;
-  line-height: 1.5;
-  margin: 0;
+  max-width: 760px;
+  line-height: 1.6;
+  margin: 0 0 24px 0;
 }
 
+.marketStatsBar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.statItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.statDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+}
+
+/* Category Grid */
 .categoryGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 24px;
 }
 
+/* Category Card */
 .categoryCard {
-  background: #0e2415;
-  border: 1px solid rgba(34, 197, 94, 0.18);
-  border-radius: 20px;
+  position: relative;
+  background: linear-gradient(180deg, #0c2717 0%, #06180e 100%);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: 24px;
   overflow: hidden;
   text-decoration: none;
   display: flex;
   flex-direction: column;
-  transition: all 0.25s ease;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.3s ease,
+              box-shadow 0.3s ease;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .categoryCard:hover {
-  transform: translateY(-4px);
-  border-color: #22c55e;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5), 0 0 15px rgba(34, 197, 94, 0.2);
+  transform: translateY(-6px);
+  border-color: rgba(74, 222, 128, 0.6);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.65), 0 0 30px rgba(34, 197, 94, 0.22);
 }
 
+/* Image Wrap */
 .cardImgWrap {
   position: relative;
-  height: 160px;
+  height: 210px;
   overflow: hidden;
-  background: #051309;
+  background: #041208;
 }
 
 .cardImg {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
+  object-position: center;
+  display: block;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .categoryCard:hover .cardImg {
   transform: scale(1.06);
 }
 
-.iconAvatar {
+.imageOverlay {
   position: absolute;
-  bottom: 12px;
-  left: 16px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: #0c2314;
-  border: 2px solid #22c55e;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.4rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  inset: 0;
+  background: linear-gradient(180deg, 
+    rgba(0, 0, 0, 0.15) 0%, 
+    rgba(4, 16, 9, 0) 45%, 
+    rgba(6, 22, 13, 0.82) 82%, 
+    #0c2717 100%
+  );
+  pointer-events: none;
 }
 
+/* Floating Badges */
+.floatingBadges {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.categoryTagPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(4, 18, 10, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  border-radius: 9999px;
+  padding: 6px 14px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+.categoryTagIcon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.categoryTagName {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+.liveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(34, 197, 94, 0.16);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  color: #86efac;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.livePulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+/* Card Body */
 .cardBody {
-  padding: 18px 20px 20px;
+  padding: 20px 22px 22px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   flex: 1;
 }
 
-.cardTopRow {
+.cardMain {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cardTitleRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -148,81 +291,164 @@
 }
 
 .cardTitle {
-  font-size: 1.15rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: #ffffff;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
-.unitsTag {
-  background: rgba(34, 197, 94, 0.12);
-  color: #86efac;
-  font-size: 0.7rem;
+.marketOriginBadge {
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 3px 8px;
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  padding: 3px 9px;
   border-radius: 6px;
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
 .cardDesc {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   color: #94a3b8;
-  line-height: 1.45;
+  line-height: 1.55;
   margin: 0;
-  flex: 1;
+  min-height: 42px;
 }
 
+/* Feature Pills */
+.featurePills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.featurePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+/* Card Footer / CTA */
 .cardFooter {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  margin-top: auto;
 }
 
-.itemCountText {
-  font-size: 0.8rem;
+.footerMarketNote {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.ctaButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  color: #86efac;
+  font-size: 0.84rem;
   font-weight: 700;
-  color: #4ade80;
+  padding: 8px 16px;
+  border-radius: 10px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.arrowLink {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #ffffff;
-  transition: transform 0.2s ease;
+.categoryCard:hover .ctaButton {
+  background: #22c55e;
+  color: #04180b;
+  border-color: #22c55e;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.45);
 }
 
-.categoryCard:hover .arrowLink {
+.ctaArrow {
+  font-weight: 900;
+  transition: transform 0.25s ease;
+}
+
+.categoryCard:hover .ctaArrow {
   transform: translateX(4px);
-  color: #4ade80;
 }
 
+/* Keyframes */
+@keyframes pulseDot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+/* Mobile & Tablet Responsiveness */
 @media (max-width: 768px) {
   .container {
-    padding: 14px 12px 85px;
+    padding: 16px 12px 90px;
   }
 
   .headerBanner {
-    padding: 20px 16px;
-    border-radius: 16px;
+    padding: 24px 18px;
+    border-radius: 18px;
+    margin-bottom: 20px;
   }
 
   .headerTitle {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
   }
 
   .headerSub {
-    font-size: 0.82rem;
+    font-size: 0.86rem;
+    margin-bottom: 16px;
+  }
+
+  .marketStatsBar {
+    gap: 12px;
+    padding-top: 14px;
+  }
+
+  .statItem {
+    font-size: 0.76rem;
   }
 
   .categoryGrid {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 18px;
   }
 
   .cardImgWrap {
-    height: 130px;
+    height: 180px;
+  }
+
+  .cardBody {
+    padding: 18px;
+    gap: 12px;
+  }
+
+  .cardTitle {
+    font-size: 1.25rem;
+  }
+
+  .cardDesc {
+    font-size: 0.84rem;
+    min-height: auto;
   }
 }

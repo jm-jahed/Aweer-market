@@ -128,6 +128,46 @@ export const CATEGORY_DISPLAY_CONFIG: Record<
 };
 
 /**
+ * Resolves category banner photography: prioritizes custom uploaded banner,
+ * falling back to dedicated high-definition commercial photography.
+ */
+export function resolveCategoryImage(name: string, slug?: string, bannerUrl?: string): string {
+  if (bannerUrl && typeof bannerUrl === 'string' && bannerUrl.trim().length > 0) {
+    return bannerUrl.trim();
+  }
+
+  const n = (name || '').toLowerCase();
+  const s = (slug || '').toLowerCase();
+
+  if (s.includes('fruit') || n.includes('fruit') || s.includes('berries') || n.includes('berries')) {
+    return '/images/category-fruits.jpg';
+  }
+  if (s.includes('vegetable') || n.includes('vegetable')) {
+    return '/images/category-vegetables.jpg';
+  }
+  if (
+    s.includes('leaf') ||
+    n.includes('leaf') ||
+    s.includes('herb') ||
+    n.includes('herb') ||
+    n.includes('greens') ||
+    s.includes('greens') ||
+    n.includes('coriander') ||
+    n.includes('mint') ||
+    n.includes('spinach')
+  ) {
+    return '/images/category-leaf.jpg';
+  }
+  if (s.includes('root') || n.includes('root') || n.includes('carrot')) {
+    return '/images/carrots.jpg';
+  }
+  if (s.includes('citrus') || n.includes('citrus') || n.includes('orange') || n.includes('lemon')) {
+    return '/images/category-fruits.jpg';
+  }
+  return '/images/category-vegetables.jpg';
+}
+
+/**
  * Resolves produce food photography: prioritizes vendor uploaded image,
  * falling back to deterministic keyword matching.
  */

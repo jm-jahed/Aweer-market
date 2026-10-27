@@ -3,12 +3,13 @@
 /**
  * AweerMarket — Dedicated Shopping Cart Route (/cart)
  * Real-time wholesale cart review with single-vendor isolation,
- * quantity updates, and direct transition to checkout.
+ * produce line thumbnails, live quantity controls, and luxury dark emerald aesthetics.
  */
 
 import React from 'react';
 import Link from 'next/link';
 import { useCart } from '@/lib/cart-context';
+import { resolveProduceImage } from '@/lib/catalog-utils';
 import styles from './Cart.module.css';
 
 export default function CartPage() {
@@ -28,25 +29,25 @@ export default function CartPage() {
       <main className={styles.container}>
         <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
           <Link href="/" className={styles.breadcrumbLink}>Home</Link>
-          <span>/</span>
+          <span className={styles.breadcrumbSep}>/</span>
           <span className={styles.breadcrumbCurrent}>Wholesale Cart</span>
         </nav>
 
         <div className={styles.emptyCard}>
-          <div className={styles.emptyIcon}>🛒</div>
+          <div className={styles.emptyIconWrap}>🛒</div>
           <h1 className={styles.emptyTitle}>Your Wholesale Cart is Empty</h1>
           <p className={styles.emptyText}>
-            You haven&apos;t added any bulk produce to your cart yet. Explore fresh fruits, vegetables, and greens directly from verified Al Aweer Central Market stalls.
+            You haven&apos;t added any bulk produce to your cart yet. Explore fresh fruits, vegetables, and greens directly from verified Al Aweer Central Market stalls with guaranteed wholesale rates.
           </p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/fruits" className={styles.browseBtn}>
+          <div className={styles.browseActions}>
+            <Link href="/fruits" className={styles.browseBtnPrimary}>
               Browse Fruits
             </Link>
-            <Link href="/vegetables" className={styles.browseBtn}>
+            <Link href="/vegetables" className={styles.browseBtnPrimary}>
               Browse Vegetables
             </Link>
-            <Link href="/products" className={styles.browseBtn} style={{ background: '#0e2415' }}>
-              Full Directory
+            <Link href="/products" className={styles.browseBtnSecondary}>
+              Full Marketplace Directory
             </Link>
           </div>
         </div>
@@ -59,12 +60,12 @@ export default function CartPage() {
       {/* Breadcrumb Navigation */}
       <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
         <Link href="/" className={styles.breadcrumbLink}>Home</Link>
-        <span>/</span>
+        <span className={styles.breadcrumbSep}>/</span>
         <span className={styles.breadcrumbCurrent}>Wholesale Cart</span>
       </nav>
 
       {/* Page Header */}
-      <div className={styles.pageHeader}>
+      <header className={styles.pageHeader}>
         <div className={styles.titleArea}>
           <h1 className={styles.pageTitle}>
             Wholesale Cart
@@ -82,14 +83,14 @@ export default function CartPage() {
           className={styles.clearCartBtn}
           title="Clear all items in cart"
         >
-          Clear Cart
+          🗑️ Clear Cart
         </button>
-      </div>
+      </header>
 
       {/* Single-Vendor Wholesale Stall Banner */}
       <section className={styles.vendorBanner} aria-label="Active vendor stall">
         <div className={styles.vendorInfo}>
-          <span className={styles.vendorIcon}>🏬</span>
+          <div className={styles.vendorIconWrap}>🏬</div>
           <div>
             {shopId ? (
               <Link
@@ -97,7 +98,7 @@ export default function CartPage() {
                 style={{ textDecoration: 'none', color: 'inherit' }}
                 title={`View ${shopName || 'stall'}'s full profile`}
               >
-                <h2 className={styles.vendorName} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <h2 className={styles.vendorName}>
                   <span>{shopName || 'Wholesale Stall'}</span>
                   <span style={{ fontSize: '0.85rem', color: '#86efac' }}>↗</span>
                 </h2>
@@ -106,102 +107,163 @@ export default function CartPage() {
               <h2 className={styles.vendorName}>{shopName || 'Wholesale Stall'}</h2>
             )}
             <p className={styles.vendorPolicy}>
-              Single-vendor bulk order isolation enforced. All produce lines originate from this verified stall.
+              Single-vendor bulk order isolation enforced • All items dispatched directly from this verified stall.
             </p>
           </div>
         </div>
-        <span className={styles.vendorBadge}>Active Stall</span>
+        <span className={styles.vendorBadge}>Verified Stall</span>
       </section>
 
       {/* Two-Column Cart Layout */}
       <div className={styles.cartLayout}>
         {/* Left Column: Produce Items */}
-        <div className={styles.itemList}>
-          {items.map((item) => (
-            <article key={item.productId} className={styles.itemCard}>
-              <div className={styles.itemInfo}>
-                <h3 className={styles.itemName}>{item.name}</h3>
-                <p className={styles.itemMeta}>
-                  Packaging: {item.unit} ({item.unitWeightKg} kg/unit) • MOQ: {item.minOrderQuantity || 1}
-                </p>
-              </div>
+        <section className={styles.itemList} aria-label="Cart Produce Lines">
+          {items.map((item) => {
+            const produceImg = resolveProduceImage(item.name);
+            const lineTotal = item.unitPriceAed * item.quantity;
+            const minQty = item.minOrderQuantity || 1;
 
-              {/* Quantity Controls */}
-              <div className={styles.quantityControls}>
+            return (
+              <article key={item.productId} className={styles.itemCard}>
+                {/* Produce Thumbnail */}
+                <div className={styles.itemThumbWrap}>
+                  <img
+                    src={produceImg}
+                    alt={item.name}
+                    className={styles.itemThumb}
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/logo.svg';
+                    }}
+                  />
+                </div>
+
+                {/* Produce Info */}
+                <div className={styles.itemInfo}>
+                  <h3 className={styles.itemName}>
+                    <Link href={`/products/${item.productId}`} className={styles.itemNameLink}>
+                      {item.name}
+                    </Link>
+                  </h3>
+                  <div className={styles.itemMeta}>
+                    <span className={styles.specPill}>📦 {item.unit}</span>
+                    {item.unitWeightKg > 0 && (
+                      <span className={styles.specPill}>⚖️ {item.unitWeightKg} kg/{item.unit}</span>
+                    )}
+                    <span className={styles.moqBadge}>Min Order: {minQty} {item.unit}s</span>
+                  </div>
+                </div>
+
+                {/* Quantity Controls */}
+                <div className={styles.quantityControls}>
+                  <button
+                    type="button"
+                    className={styles.qtyBtn}
+                    onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                    disabled={item.quantity <= minQty}
+                    aria-label={`Decrease ${item.name} quantity`}
+                  >
+                    −
+                  </button>
+                  <span className={styles.qtyDisplay}>{item.quantity}</span>
+                  <button
+                    type="button"
+                    className={styles.qtyBtn}
+                    onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                    disabled={item.availableStock > 0 && item.quantity >= item.availableStock}
+                    aria-label={`Increase ${item.name} quantity`}
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* Price Calculation */}
+                <div className={styles.itemPricing}>
+                  <div className={styles.itemTotal}>
+                    Dhs {lineTotal.toFixed(2)}
+                  </div>
+                  <div className={styles.itemUnitPrice}>
+                    Dhs {item.unitPriceAed.toFixed(2)} / {item.unit}
+                  </div>
+                </div>
+
+                {/* Remove Button */}
                 <button
                   type="button"
-                  className={styles.qtyBtn}
-                  onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                  disabled={item.quantity <= (item.minOrderQuantity || 1)}
-                  aria-label={`Decrease ${item.name} quantity`}
+                  className={styles.removeBtn}
+                  onClick={() => removeFromCart(item.productId)}
+                  title={`Remove ${item.name}`}
+                  aria-label={`Remove ${item.name} from cart`}
                 >
-                  −
+                  ✕
                 </button>
-                <span className={styles.qtyDisplay}>{item.quantity}</span>
-                <button
-                  type="button"
-                  className={styles.qtyBtn}
-                  onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                  disabled={item.quantity >= item.availableStock}
-                  aria-label={`Increase ${item.name} quantity`}
-                >
-                  +
-                </button>
-              </div>
-
-              {/* Price Calculation */}
-              <div className={styles.itemPricing}>
-                <div className={styles.itemTotal}>
-                  Dhs {(item.unitPriceAed * item.quantity).toFixed(2)}
-                </div>
-                <div className={styles.itemUnitPrice}>
-                  Dhs {item.unitPriceAed.toFixed(2)} / {item.unit}
-                </div>
-              </div>
-
-              {/* Remove Button */}
-              <button
-                type="button"
-                className={styles.removeBtn}
-                onClick={() => removeFromCart(item.productId)}
-                title={`Remove ${item.name}`}
-                aria-label={`Remove ${item.name} from cart`}
-              >
-                ✕
-              </button>
-            </article>
-          ))}
-        </div>
+              </article>
+            );
+          })}
+        </section>
 
         {/* Right Column: Order Summary Card */}
-        <aside className={styles.summaryCard}>
+        <aside className={styles.summaryCard} aria-label="Order Summary">
           <h2 className={styles.summaryTitle}>Order Summary</h2>
+          
           <div className={styles.summaryRow}>
             <span>Subtotal ({totalItemsCount} units)</span>
-            <span>Dhs {cartTotalAed.toFixed(2)}</span>
+            <span className={styles.summaryRowVal}>Dhs {cartTotalAed.toFixed(2)}</span>
           </div>
+
           <div className={styles.summaryRow}>
             <span>Market VAT (Wholesale 0%)</span>
-            <span>Dhs 0.00</span>
+            <span className={styles.summaryRowVal}>Dhs 0.00</span>
           </div>
+
           <div className={styles.summaryRow}>
             <span>Stall Dispatch</span>
-            <span style={{ color: '#15803d', fontWeight: 600 }}>Standard</span>
+            <span style={{ color: '#4ade80', fontWeight: 700 }}>Direct from Al Aweer</span>
           </div>
+
           <div className={styles.summaryRowTotal}>
             <span>Total Estimated</span>
             <span className={styles.totalHighlight}>Dhs {cartTotalAed.toFixed(2)}</span>
           </div>
 
           <Link href="/checkout" className={styles.checkoutBtn} id="cart-proceed-checkout-btn">
-            Proceed to Checkout →
+            <span>Proceed to Checkout</span>
+            <span>→</span>
           </Link>
 
           <Link href="/" className={styles.continueShoppingLink}>
             ← Continue Browsing Market
           </Link>
+
+          {/* Trust Signals */}
+          <div className={styles.summaryTrustList}>
+            <div className={styles.summaryTrustItem}>
+              <span>🛡️</span>
+              <span>Direct Al Aweer Central Market Stalls</span>
+            </div>
+            <div className={styles.summaryTrustItem}>
+              <span>🚚</span>
+              <span>Same-Day & Next-Day Wholesale Dispatch</span>
+            </div>
+            <div className={styles.summaryTrustItem}>
+              <span>💵</span>
+              <span>Cash on Delivery / Bank Transfer</span>
+            </div>
+          </div>
         </aside>
       </div>
+
+      {/* Mobile Sticky Quick-Checkout Bar */}
+      <aside className={styles.mobileCartBar} aria-label="Mobile Quick Checkout">
+        <div className={styles.mobileCartBarTotal}>
+          <span className={styles.mobileCartBarLabel}>Total Estimated</span>
+          <span className={styles.mobileCartBarAmount}>Dhs {cartTotalAed.toFixed(2)}</span>
+        </div>
+        <Link href="/checkout" className={styles.mobileCartBarBtn} id="mobile-cart-proceed-checkout-btn">
+          <span>Checkout</span>
+          <span>→</span>
+        </Link>
+      </aside>
     </main>
   );
 }
