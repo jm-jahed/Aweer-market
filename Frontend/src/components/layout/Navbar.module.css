@@ -558,6 +558,7 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
+    min-width: 0;
   }
 
   .mobileHeaderRow {
@@ -565,37 +566,43 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    gap: 8px;
+    gap: 6px;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .mobileBrandLink {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     text-decoration: none;
-    flex-shrink: 0;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .mobileHeaderActions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    flex-shrink: 0;
   }
 
   .mobileLocationPill {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     background: #091e13;
     border: 1px solid rgba(34, 197, 94, 0.3);
     border-radius: 9999px;
-    padding: 6px 12px;
-    font-size: 0.76rem;
+    padding: 5px 10px;
+    font-size: 0.72rem;
     font-weight: 700;
     color: #ffffff;
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     white-space: nowrap;
+    flex-shrink: 1;
   }
 
   .mobileCartCircle {
@@ -637,15 +644,29 @@
   }
 
   .brandLogoText {
-    font-size: 1.55rem;
-    text-align: center;
+    font-size: 1.2rem;
+    line-height: 1.1;
+    white-space: nowrap;
   }
 
   .brandTagline {
-    font-size: 0.7rem;
-    text-align: center;
+    font-size: 0.58rem;
     color: #86efac;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 480px) {
+    .brandTagline {
+      display: none;
+    }
+    .brandLogoText {
+      font-size: 1.1rem;
+    }
+    .mobileLocationPill {
+      padding: 4px 7px;
+      font-size: 0.68rem;
+    }
   }
 
   /* Search bar fixed/sticky at top inside mobile header */
