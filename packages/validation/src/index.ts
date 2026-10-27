@@ -163,7 +163,7 @@ export const UpdateShopProfileSchema = z.object({
 // ============================================================================
 
 export const ProductOfferSchema = z.object({
-  unit: z.nativeEnum(WholesaleUnit),
+  unit: z.union([z.nativeEnum(WholesaleUnit), z.string().min(1)]),
   unitWeightKg: z.number().positive().default(1),
   priceAed: z.number().positive(),
   minOrderQuantity: z.number().int().positive().default(1),
@@ -172,7 +172,7 @@ export const ProductOfferSchema = z.object({
 
 export const CreateProductSchema = z.object({
   name: z.string().min(2),
-  category: z.nativeEnum(ProductCategory),
+  category: z.string().min(1, 'Category is required'),
   originCountry: z.string().min(2),
   description: z.string().default(''),
   imageUrl: z.string().optional(),
@@ -194,7 +194,7 @@ export const UpdateProductOfferSchema = z.object({
 
 export const UpdateVendorProductSchema = z.object({
   name: z.string().min(2).optional(),
-  category: z.nativeEnum(ProductCategory).optional(),
+  category: z.string().min(1).optional(),
   originCountry: z.string().min(2).optional(),
   description: z.string().optional(),
   imageUrl: z.string().optional(),

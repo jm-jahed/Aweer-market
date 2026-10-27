@@ -6,7 +6,7 @@ export interface IProductOffer {
   shopId: string;
   shopName: string;
   stallNumber?: string;
-  unit: WholesaleUnit;
+  unit: WholesaleUnit | string;
   unitWeightKg: number;
   priceAed: number;
   equivalentPricePerKg: number;
@@ -17,7 +17,7 @@ export interface IProductOffer {
 
 export interface IProductDocument extends Document {
   name: string;
-  category: ProductCategory;
+  category: ProductCategory | string;
   originCountry: string;
   description: string;
   imageUrl?: string;
@@ -50,8 +50,8 @@ const ProductSchema = new Schema<IProductDocument>(
     name: { type: String, required: [true, 'Product name is required'], trim: true, index: true },
     category: {
       type: String,
-      enum: Object.values(ProductCategory),
       required: [true, 'Product category is required'],
+      trim: true,
       index: true
     },
     originCountry: { type: String, required: true, trim: true },
@@ -117,7 +117,7 @@ export const ProductModel: Model<IProductDocument> =
 export interface ProductRecord {
   id: string;
   name: string;
-  category: ProductCategory;
+  category: ProductCategory | string;
   originCountry: string;
   description: string;
   imageUrl?: string;
@@ -193,7 +193,7 @@ export function resetInMemoryProducts(): void {
 
 export interface CreateProductData {
   name: string;
-  category: ProductCategory;
+  category: ProductCategory | string;
   originCountry: string;
   description?: string;
   imageUrl?: string;
@@ -202,7 +202,7 @@ export interface CreateProductData {
     shopId: string;
     shopName: string;
     stallNumber?: string;
-    unit: WholesaleUnit;
+    unit: WholesaleUnit | string;
     unitWeightKg: number;
     priceAed: number;
     minOrderQuantity?: number;
@@ -265,7 +265,7 @@ export async function createProduct(data: CreateProductData): Promise<IProductDo
 }
 
 export interface QueryProductsFilter {
-  category?: ProductCategory;
+  category?: ProductCategory | string;
   search?: string;
   originCountry?: string;
   page?: number;
@@ -419,7 +419,7 @@ export async function addOrUpdateProductOffer(
     shopId: string;
     shopName: string;
     stallNumber?: string;
-    unit: WholesaleUnit;
+    unit: WholesaleUnit | string;
     unitWeightKg: number;
     priceAed: number;
     minOrderQuantity?: number;
@@ -697,6 +697,25 @@ export async function setOffersActiveForShop(
     }
   }
   return updatedCount;
+}
+
+export async function removeDemoProducts(): Promise<number> {
+  const demoNames = ['Valencia Oranges', 'Cavendish Bananas', 'Roma Tomatoes'];
+  if (isDatabaseConnected()) {
+    const res = await ProductModel.deleteMany({
+      name: { $in: demoNames }
+    });
+    return res.deletedCount || 0;
+  }
+
+  let deleted = 0;
+  for (const [id, prod] of inMemoryProducts.entries()) {
+    if (demoNames.includes(prod.name)) {
+      inMemoryProducts.delete(id);
+      deleted++;
+    }
+  }
+  return deleted;
 }
 
 

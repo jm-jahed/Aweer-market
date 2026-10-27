@@ -211,6 +211,8 @@ export async function start() {
       await ensureDefaultCategories();
       const { ensureDefaultSuperAdmin } = await import('./seed.js');
       await ensureDefaultSuperAdmin();
+      const { removeDemoProducts } = await import('./models/product.model.js');
+      await removeDemoProducts();
     }
 
     if (process.env.ALLOW_IN_MEMORY_DB === 'true') {

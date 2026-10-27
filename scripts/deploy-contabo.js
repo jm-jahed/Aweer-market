@@ -92,6 +92,10 @@ conn.on('ready', () => {
     pnpm build
     
     echo ""
+    echo "▶ STEP 5.5: Purging legacy demo products from production database..."
+    pnpm --filter @aweermarket/api clean:demo || true
+    
+    echo ""
     echo "▶ STEP 6: Reloading PM2 services..."
     pm2 restart aweermarket-api aweermarket-superadmin aweermarket-vendor aweermarket-web
     

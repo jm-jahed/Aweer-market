@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit",
     "lint": "echo \"Lint check passed for @aweermarket/api\"",
+    "clean:demo": "tsx src/scripts/clean-demo-products.ts",
     "test": "tsx --test --test-concurrency=1 src/**/*.test.ts"
   },
   "dependencies": {

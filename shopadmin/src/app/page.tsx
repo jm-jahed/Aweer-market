@@ -220,11 +220,11 @@ export default function ShopAdminDashboard() {
   // Add Product Modal Form (Strict 8-Field Specification)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [prodName, setProdName] = useState('');
-  const [prodCategory, setProdCategory] = useState<ProductCategory>(ProductCategory.FRESH_FRUITS);
-  const [prodOrigin, setProdOrigin] = useState('United Arab Emirates');
-  const [prodImageUrl, setProdImageUrl] = useState('/images/apple.jpg');
-  const [prodPrice, setProdPrice] = useState<number>(30);
-  const [prodUnit, setProdUnit] = useState<WholesaleUnit>(WholesaleUnit.BOX);
+  const [prodCategory, setProdCategory] = useState<string>('fresh_fruits');
+  const [prodOrigin, setProdOrigin] = useState('');
+  const [prodImageUrl, setProdImageUrl] = useState('');
+  const [prodPrice, setProdPrice] = useState<number>(0);
+  const [prodUnit, setProdUnit] = useState<string>('box');
   const [prodMoq, setProdMoq] = useState<number>(1);
   const [prodStock, setProdStock] = useState<number>(50);
   const [isSubmittingProd, setIsSubmittingProd] = useState(false);
@@ -256,13 +256,14 @@ export default function ShopAdminDashboard() {
       setDraftUploadedKey(null);
     }
     setProdName('');
-    setProdCategory(ProductCategory.FRESH_FRUITS);
-    setProdOrigin('United Arab Emirates');
-    setProdImageUrl('/images/apple.jpg');
+    const defaultCat = categories.find((c) => c.isActive !== false)?.slug || 'fresh_fruits';
+    setProdCategory(defaultCat);
+    setProdOrigin('');
+    setProdImageUrl('');
     setUploadPreviewUrl(null);
     setIsUploadingImage(false);
-    setProdPrice(30);
-    setProdUnit(WholesaleUnit.BOX);
+    setProdPrice(0);
+    setProdUnit('box');
     setProdMoq(1);
     setProdStock(50);
     setAddModalError(null);
@@ -428,11 +429,26 @@ export default function ShopAdminDashboard() {
   const loadCategories = useCallback(async () => {
     try {
       const res = await getCategories();
-      setCategories(res.categories || []);
+      const loaded = res.categories || [];
+      setCategories(loaded);
+      if (loaded.length > 0) {
+        setProdCategory((prev) => {
+          if (!prev || prev === 'fresh_fruits') {
+            const firstValid = loaded.find((c) => c.isActive !== false);
+            return firstValid ? (firstValid.slug || (firstValid as any).key) : (loaded[0].slug || (loaded[0] as any).key);
+          }
+          return prev;
+        });
+      }
     } catch {
       // Fallback gracefully
     }
   }, []);
+
+  const openAddProduceModal = useCallback(() => {
+    loadCategories();
+    setIsAddModalOpen(true);
+  }, [loadCategories]);
 
   useEffect(() => {
     if (user) {
@@ -641,7 +657,7 @@ export default function ShopAdminDashboard() {
         category: prodCategory,
         originCountry: prodOrigin.trim(),
         description: `${prodName.trim()} sourced directly from ${prodOrigin.trim()}. Fresh commercial produce.`,
-        imageUrl: prodImageUrl || '/images/apple.jpg',
+        imageUrl: prodImageUrl,
         offer: {
           unit: prodUnit,
           unitWeightKg: derivedUnitWeightKg,
@@ -1334,7 +1350,7 @@ export default function ShopAdminDashboard() {
                   <div className={styles.quickActionsList}>
                     <button
                       type="button"
-                      onClick={() => setIsAddModalOpen(true)}
+                      onClick={openAddProduceModal}
                       className={styles.actionPillBtn}
                       id="quick-add-produce-btn"
                     >
@@ -1629,7 +1645,7 @@ export default function ShopAdminDashboard() {
                   <button
                     type="button"
                     className={styles.addBtn}
-                    onClick={() => setIsAddModalOpen(true)}
+                    onClick={openAddProduceModal}
                     id="add-produce-btn"
                   >
                     <span>+</span>
@@ -3050,16 +3066,30 @@ export default function ShopAdminDashboard() {
                       id="field-prod-category"
                       className={styles.formSelect}
                       value={prodCategory}
-                      onChange={(e) => setProdCategory(e.target.value as ProductCategory)}
+                      onChange={(e) => setProdCategory(e.target.value)}
                       required
                     >
-                      <option value={ProductCategory.FRESH_FRUITS}>Fresh Fruits</option>
-                      <option value={ProductCategory.FRESH_VEGETABLES}>Fresh Vegetables</option>
-                      <option value={ProductCategory.CITRUS}>Citrus Fruits</option>
-                      <option value={ProductCategory.EXOTIC_PRODUCE}>Exotic / Tropical</option>
-                      <option value={ProductCategory.LEAFY_GREENS}>Leafy Greens</option>
-                      <option value={ProductCategory.ROOT_VEGETABLES}>Root Vegetables</option>
-                      <option value={ProductCategory.BERRIES}>Berries &amp; Melons</option>
+                      {categories && categories.length > 0 ? (
+                        categories.filter((c) => c.isActive !== false).map((c) => {
+                          const val = c.slug || (c as any).key;
+                          const name = c.name || (c as any).label || val;
+                          return (
+                            <option key={c.id || val} value={val}>
+                              {c.icon ? `${c.icon} ` : ''}{name}
+                            </option>
+                          );
+                        })
+                      ) : (
+                        <>
+                          <option value="fresh_fruits">🍎 Fresh Fruits</option>
+                          <option value="fresh_vegetables">🥬 Fresh Vegetables</option>
+                          <option value="citrus">🍊 Citrus Fruits</option>
+                          <option value="exotic_produce">🥭 Exotic / Tropical</option>
+                          <option value="leafy_greens">🌿 Leafy Greens</option>
+                          <option value="root_vegetables">🥔 Root Vegetables</option>
+                          <option value="berries">🍓 Berries &amp; Melons</option>
+                        </>
+                      )}
                     </select>
                   </div>
 
@@ -3214,7 +3244,7 @@ export default function ShopAdminDashboard() {
                       <input
                         id="field-prod-price"
                         type="number"
-                        step="0.25"
+                        step="0.01"
                         min="0.01"
                         inputMode="decimal"
                         className={styles.formInputAddon}
@@ -3235,17 +3265,15 @@ export default function ShopAdminDashboard() {
                       id="field-prod-unit"
                       className={styles.formSelect}
                       value={prodUnit}
-                      onChange={(e) => setProdUnit(e.target.value as WholesaleUnit)}
+                      onChange={(e) => setProdUnit(e.target.value)}
                       required
                     >
-                      <option value={WholesaleUnit.BOX}>Box (Standard wholesale box)</option>
-                      <option value={WholesaleUnit.CRATE}>Crate (Plastic/wood produce crate)</option>
-                      <option value={WholesaleUnit.CARTON}>Carton (Corrugated commercial carton)</option>
-                      <option value={WholesaleUnit.KG}>Kilogram (kg - Bulk produce weight)</option>
-                      <option value={WholesaleUnit.SACK}>Sack (Mesh produce sack)</option>
-                      <option value={WholesaleUnit.PALLET}>Pallet (Full wholesale dock pallet)</option>
-                      <option value={WholesaleUnit.PIECE}>Piece (Per piece / melon)</option>
-                      <option value={WholesaleUnit.BUNCH}>Bunch (Fresh herbs &amp; greens)</option>
+                      <option value="box">Box</option>
+                      <option value="kg">KG</option>
+                      <option value="ctn">CTN</option>
+                      <option value="piece">Piece</option>
+                      <option value="bag">Bag</option>
+                      <option value="pkt">PKT</option>
                     </select>
                   </div>
                 </div>

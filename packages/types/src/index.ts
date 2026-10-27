@@ -44,11 +44,14 @@ export function isAdministrativeRole(role: UserRole | string): boolean {
 export enum WholesaleUnit {
   KG = 'kg',
   CARTON = 'carton',
+  CTN = 'ctn',
   CRATE = 'crate',
   PALLET = 'pallet',
   BOX = 'box',
   SACK = 'sack',
+  BAG = 'bag',
   PIECE = 'piece',
+  PKT = 'pkt',
   BUNCH = 'bunch'
 }
 
@@ -58,20 +61,35 @@ export enum WholesaleUnit {
 export function getDefaultUnitWeightKg(unit: WholesaleUnit | string): number {
   switch (unit) {
     case WholesaleUnit.KG:
+    case 'kg':
       return 1;
     case WholesaleUnit.PIECE:
+    case 'piece':
+      return 0.5;
+    case WholesaleUnit.PKT:
+    case 'pkt':
       return 0.5;
     case WholesaleUnit.BUNCH:
+    case 'bunch':
       return 0.25;
     case WholesaleUnit.BOX:
+    case 'box':
       return 10;
     case WholesaleUnit.CARTON:
+    case WholesaleUnit.CTN:
+    case 'carton':
+    case 'ctn':
       return 10;
     case WholesaleUnit.CRATE:
+    case 'crate':
       return 12;
     case WholesaleUnit.SACK:
+    case WholesaleUnit.BAG:
+    case 'sack':
+    case 'bag':
       return 20;
     case WholesaleUnit.PALLET:
+    case 'pallet':
       return 500;
     default:
       return 1;
@@ -199,7 +217,7 @@ export interface ProductOfferSummary {
   vendorId: string;
   shopName: string;
   stallNumber?: string;
-  unit: WholesaleUnit;
+  unit: WholesaleUnit | string;
   unitWeightKg: number;
   priceAed: number;
   equivalentPricePerKg: number;
@@ -210,7 +228,7 @@ export interface ProductOfferSummary {
 export interface ProductItem {
   id: string;
   name: string;
-  category: ProductCategory;
+  category: ProductCategory | string;
   originCountry: string;
   description: string;
   imageUrl?: string;

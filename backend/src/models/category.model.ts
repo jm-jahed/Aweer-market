@@ -66,7 +66,9 @@ CategorySchema.methods.toPublicItem = function (productCount: number = 0): Categ
   return {
     id: this._id.toString(),
     key: this.slug,
+    name: this.name,
     label: this.name,
+    slug: this.slug,
     description: this.description || '',
     icon: this.icon || '📦',
     bannerUrl: this.bannerUrl || '',
@@ -180,7 +182,9 @@ function createInMemoryCategoryRecord(data: Omit<CategoryRecord, 'toPublicItem'>
       return {
         id: this.id,
         key: this.slug,
+        name: this.name,
         label: this.name,
+        slug: this.slug,
         description: this.description || '',
         icon: this.icon || '📦',
         bannerUrl: this.bannerUrl || '',
