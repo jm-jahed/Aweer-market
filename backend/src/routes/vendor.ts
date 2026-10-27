@@ -168,7 +168,7 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
     const products = await listProductsByVendor(shopId);
 
     const vendorProducts = products.map((prod) => {
-      const stallOffer = prod.offers.find((o) => o.shopId === shopId);
+      const stallOffer = prod.offers.find((o) => String(o.shopId) === String(shopId));
       return {
         id: prod.id,
         name: prod.name,

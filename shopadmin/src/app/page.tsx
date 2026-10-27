@@ -1060,7 +1060,7 @@ export default function ShopAdminDashboard() {
         <div className={styles.headerActions}>
           <button type="button" className={styles.langBtn}>
             <span>🌐</span>
-            <span>English / বাংলা</span>
+            <span>English</span>
             <span style={{ fontSize: '0.65rem' }}>▼</span>
           </button>
 

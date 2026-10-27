@@ -539,7 +539,11 @@ export async function updateProductOffer(
 
 export async function listProductsByVendor(shopId: string): Promise<Array<IProductDocument | ProductRecord>> {
   if (isDatabaseConnected()) {
-    return await ProductModel.find({ 'offers.shopId': shopId }).sort({ updatedAt: -1 }).exec();
+    const conditions: Array<Record<string, unknown>> = [{ 'offers.shopId': String(shopId) }];
+    if (mongoose.Types.ObjectId.isValid(shopId)) {
+      conditions.push({ 'offers.shopId': new mongoose.Types.ObjectId(shopId) });
+    }
+    return await ProductModel.find({ $or: conditions }).sort({ updatedAt: -1 }).exec();
   }
 
   if (!isInMemoryProductStoreAllowed()) {
@@ -547,7 +551,7 @@ export async function listProductsByVendor(shopId: string): Promise<Array<IProdu
   }
 
   return Array.from(inMemoryProducts.values())
-    .filter((p) => p.offers.some((o) => o.shopId === shopId))
+    .filter((p) => p.offers.some((o) => String(o.shopId) === String(shopId)))
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 }
 
@@ -726,7 +730,7 @@ export async function removeProductOffer(
     const product = await ProductModel.findById(productId);
     if (!product) return { deleted: false, remainingOffers: 0 };
 
-    product.offers = product.offers.filter((o) => o.shopId !== shopId);
+    product.offers = product.offers.filter((o) => String(o.shopId) !== String(shopId));
 
     if (product.offers.length === 0) {
       await ProductModel.findByIdAndDelete(productId);
