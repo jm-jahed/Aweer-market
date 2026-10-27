@@ -668,7 +668,7 @@ export default function ShopAdminDashboard() {
   const executeAddProduce = async () => {
     setIsSubmittingProd(true);
     try {
-      const isPackaged = ['box', 'ctn', 'pkt'].includes(prodUnit.toLowerCase());
+      const isPackaged = ['box', 'ctn', 'pkt', 'bag', 'sack'].includes(prodUnit.toLowerCase());
       const derivedUnitWeightKg = isPackaged && Number(prodWeight) > 0
         ? Number(prodWeight)
         : getDefaultUnitWeightKg(prodUnit);
@@ -732,7 +732,7 @@ export default function ShopAdminDashboard() {
       setAddModalError('Please select a produce Unit.');
       return;
     }
-    const isPackaged = ['box', 'ctn', 'pkt'].includes(prodUnit.toLowerCase());
+    const isPackaged = ['box', 'ctn', 'pkt', 'bag', 'sack'].includes(prodUnit.toLowerCase());
     if (isPackaged && (!prodWeight || Number(prodWeight) <= 0 || isNaN(Number(prodWeight)))) {
       setAddModalError(`Please enter a valid Weight (KG) for ${prodUnit.toUpperCase()}.`);
       return;
@@ -3305,8 +3305,10 @@ export default function ShopAdminDashboard() {
                       onChange={(e) => {
                         const nextUnit = e.target.value;
                         setProdUnit(nextUnit);
-                        if (!['box', 'ctn', 'pkt'].includes(nextUnit.toLowerCase())) {
+                        if (!['box', 'ctn', 'pkt', 'bag', 'sack'].includes(nextUnit.toLowerCase())) {
                           setProdWeight(0);
+                        } else {
+                          setProdWeight(getDefaultUnitWeightKg(nextUnit));
                         }
                       }}
                       required
@@ -3321,8 +3323,8 @@ export default function ShopAdminDashboard() {
                   </div>
                 </div>
 
-                {/* Conditional Weight (KG) for Box, CTN, PKT */}
-                {['box', 'ctn', 'pkt'].includes(prodUnit.toLowerCase()) && (
+                {/* Conditional Weight (KG) for Box, CTN, PKT, Bag, Sack */}
+                {['box', 'ctn', 'pkt', 'bag', 'sack'].includes(prodUnit.toLowerCase()) && (
                   <div className={styles.fieldGroup}>
                     <label className={styles.formLabel} htmlFor="field-prod-weight">
                       Weight (KG) *

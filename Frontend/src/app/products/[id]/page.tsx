@@ -186,6 +186,7 @@ export default function ProductDetailPage() {
         {/* Left: Product Image & Trust Points */}
         <div className={styles.imageCol}>
           <div className={styles.imageWrap}>
+            <div className={styles.imageBackdrop} style={{ backgroundImage: `url(${product.image})` }} />
             <div className={styles.imageBadge}>
               <span className={styles.imageBadgeDot} />
               <span>Al Aweer Direct Wholesale</span>
@@ -202,8 +203,8 @@ export default function ProductDetailPage() {
               <span>Same-Day Scheduled Commercial Delivery</span>
             </div>
             <div className={styles.trustPoint}>
-              <span className={styles.trustPointIcon}>⚖️</span>
-              <span>Price per KG Standardized Across All Stalls</span>
+              <span className={styles.trustPointIcon}>📦</span>
+              <span>Guaranteed Bulk Wholesale Packaging</span>
             </div>
           </div>
         </div>
@@ -245,11 +246,6 @@ export default function ProductDetailPage() {
                   / {offers[0] ? offers[0].unit : 'unit'}
                 </span>
               </div>
-              {offers[0] && (
-                <div className={styles.equivalentPrice}>
-                  ≈ Dhs {offers[0].equivalentPricePerKg.toFixed(2)} / kg equivalent
-                </div>
-              )}
             </div>
             <div className={styles.guaranteeBadge}>
               <span>⚡</span>
@@ -280,12 +276,11 @@ export default function ProductDetailPage() {
                     <th>Vendor Stall</th>
                     <th>Wholesale Packaging</th>
                     <th>Price / Unit</th>
-                    <th>Equivalent / KG</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {offers.map((offer, idx) => (
+                  {offers.map((offer) => (
                     <tr key={offer.vendorId}>
                       <td>
                         <div className={styles.stallName}>
@@ -301,30 +296,8 @@ export default function ProductDetailPage() {
                           MOQ: {offer.minOrderQuantity} {offer.unit}
                         </div>
                       </td>
-                      <td style={{ fontWeight: 800, color: '#ffffff' }}>
+                      <td style={{ fontWeight: 800, color: '#4ade80', fontSize: '1.1rem' }}>
                         Dhs {offer.priceAed.toFixed(2)} / {offer.unit}
-                      </td>
-                      <td>
-                        <span
-                          style={{
-                            fontWeight: 800,
-                            color: idx === 0 ? '#4ade80' : '#cbd5e1'
-                          }}
-                        >
-                          Dhs {offer.equivalentPricePerKg.toFixed(2)}/kg
-                        </span>
-                        {idx === 0 && (
-                          <span
-                            style={{
-                              display: 'block',
-                              fontSize: '0.65rem',
-                              color: '#4ade80',
-                              fontWeight: 800
-                            }}
-                          >
-                            CHEAPEST
-                          </span>
-                        )}
                       </td>
                       <td>
                         <button
@@ -365,22 +338,18 @@ export default function ProductDetailPage() {
                       {isCheapest && <span className={styles.cheapestBadge}>★ BEST PRICE</span>}
                     </div>
 
-                    <div className={styles.mobileSpecsGrid}>
+                    <div className={styles.mobileSpecsGrid} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
                       <div className={styles.mobileSpecItem}>
-                        <span className={styles.mobileSpecLabel}>Wholesale Packaging</span>
+                        <span className={styles.mobileSpecLabel}>Packaging</span>
                         <span className={styles.mobileSpecVal}>{offer.unitWeightKg}kg {offer.unit}</span>
                       </div>
                       <div className={styles.mobileSpecItem}>
-                        <span className={styles.mobileSpecLabel}>Minimum Order</span>
+                        <span className={styles.mobileSpecLabel}>Min Order</span>
                         <span className={styles.mobileSpecVal}>{offer.minOrderQuantity} {offer.unit}</span>
                       </div>
                       <div className={styles.mobileSpecItem}>
-                        <span className={styles.mobileSpecLabel}>Price per {offer.unit}</span>
+                        <span className={styles.mobileSpecLabel}>Price / {offer.unit}</span>
                         <span className={styles.mobilePriceHighlighted}>Dhs {offer.priceAed.toFixed(2)}</span>
-                      </div>
-                      <div className={styles.mobileSpecItem}>
-                        <span className={styles.mobileSpecLabel}>Standardized Rate</span>
-                        <span className={styles.mobileEquivRate}>Dhs {offer.equivalentPricePerKg.toFixed(2)}/kg</span>
                       </div>
                     </div>
 
