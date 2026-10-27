@@ -255,59 +255,100 @@ function MarketplaceContent() {
            ================================================================= */}
         <aside className={styles.sidebar}>
           <div className={styles.sidebarCard}>
-            <Link
-              href="/"
-              onClick={() => { setActiveSidebarNav('home'); setSelectedCategory('all'); }}
-              className={`${styles.menuItem} ${activeSidebarNav === 'home' ? styles.menuItemActive : ''}`}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSidebarNav('home');
+                setSelectedCategory('all');
+                setMobileSearch('');
+                if (searchQuery) router.push('/');
+              }}
+              className={`${styles.menuItem} ${selectedCategory === 'all' && activeSidebarNav === 'home' ? styles.menuItemActive : ''}`}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                background: selectedCategory === 'all' && activeSidebarNav === 'home' ? undefined : 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit'
+              }}
             >
               <span className={styles.menuIcon}>🏠</span>
               <span>Home</span>
-            </Link>
-            <Link
-              href="/fruits"
-              className={`${styles.menuItem} ${activeSidebarNav === 'fruits' ? styles.menuItemActive : ''}`}
-            >
-              <span className={styles.menuIcon}>🍎</span>
-              <span>Fruits</span>
-            </Link>
-            <Link
-              href="/vegetables"
-              className={`${styles.menuItem} ${activeSidebarNav === 'vegetables' ? styles.menuItemActive : ''}`}
-            >
-              <span className={styles.menuIcon}>🥬</span>
-              <span>Vegetables</span>
-            </Link>
-            <Link
-              href="/categories/leafy_greens"
-              className={`${styles.menuItem} ${activeSidebarNav === 'herbs' ? styles.menuItemActive : ''}`}
-            >
-              <span className={styles.menuIcon}>🌿</span>
-              <span>Herbs & Greens</span>
-            </Link>
-            <Link
-              href="/categories/exotic_produce"
-              className={`${styles.menuItem} ${activeSidebarNav === 'spices' ? styles.menuItemActive : ''}`}
-            >
-              <span className={styles.menuIcon}>🌶️</span>
-              <span>Spices</span>
-            </Link>
-            <Link
-              href="/categories/fresh_cuts"
-              className={`${styles.menuItem} ${activeSidebarNav === 'freshcuts' ? styles.menuItemActive : ''}`}
-            >
-              <span className={styles.menuIcon}>🥗</span>
-              <span>Fresh Cuts</span>
-            </Link>
-            <Link
-              href="/categories/organic"
-              className={`${styles.menuItem} ${activeSidebarNav === 'organic' ? styles.menuItemActive : ''}`}
-            >
-              <span className={styles.menuIcon}>🌱</span>
-              <span>Organic</span>
-            </Link>
+            </button>
+
+            {/* Dynamic categories added by Superadmin / Reseller */}
+            {categoriesLoading ? (
+              <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[1, 2, 3].map((k) => (
+                  <div
+                    key={k}
+                    style={{
+                      height: 38,
+                      background: 'rgba(34, 197, 94, 0.08)',
+                      borderRadius: 12
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              categories.map((cat) => {
+                const catSlug = cat.slug || cat.key;
+                const isSelected = selectedCategory === catSlug;
+                const icon =
+                  cat.icon ||
+                  (catSlug.toLowerCase().includes('fruit')
+                    ? '🍊'
+                    : catSlug.toLowerCase().includes('veg')
+                    ? '🥦'
+                    : catSlug.toLowerCase().includes('leaf') || catSlug.toLowerCase().includes('herb')
+                    ? '🥬'
+                    : catSlug.toLowerCase().includes('citrus') || catSlug.toLowerCase().includes('lemon')
+                    ? '🍋'
+                    : catSlug.toLowerCase().includes('exotic')
+                    ? '🥑'
+                    : catSlug.toLowerCase().includes('berry')
+                    ? '🫐'
+                    : catSlug.toLowerCase().includes('root') || catSlug.toLowerCase().includes('potato') || catSlug.toLowerCase().includes('onion')
+                    ? '🥕'
+                    : catSlug.toLowerCase().includes('spice')
+                    ? '🌶️'
+                    : '📦');
+
+                return (
+                  <button
+                    key={catSlug}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(catSlug);
+                      setActiveSidebarNav(catSlug);
+                      const el = document.getElementById('todays-prices');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className={`${styles.menuItem} ${isSelected ? styles.menuItemActive : ''}`}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      background: isSelected ? undefined : 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit'
+                    }}
+                    title={cat.description || cat.label || cat.name}
+                  >
+                    <span className={styles.menuIcon}>{icon}</span>
+                    <span>{cat.label || cat.name}</span>
+                  </button>
+                );
+              })
+            )}
+
+            <div style={{ height: 1, background: 'rgba(34, 197, 94, 0.12)', margin: '8px 4px' }} />
+
             <Link
               href="/shops"
               className={`${styles.menuItem} ${activeSidebarNav === 'nearby' ? styles.menuItemActive : ''}`}
+              onClick={() => setActiveSidebarNav('nearby')}
             >
               <span className={styles.menuIcon}>📍</span>
               <span>Wholesale Stalls</span>
@@ -315,6 +356,7 @@ function MarketplaceContent() {
             <Link
               href="/products"
               className={`${styles.menuItem} ${activeSidebarNav === 'wholesale' ? styles.menuItemActive : ''}`}
+              onClick={() => setActiveSidebarNav('wholesale')}
             >
               <span className={styles.menuIcon}>📦</span>
               <span>Wholesale Catalog</span>
@@ -714,7 +756,10 @@ function MarketplaceContent() {
               <>
                 <button
                   type="button"
-                  onClick={() => setSelectedCategory('all')}
+                  onClick={() => {
+                    setSelectedCategory('all');
+                    setActiveSidebarNav('home');
+                  }}
                   className={`${styles.categoryCircleBtn} ${selectedCategory === 'all' ? styles.categoryCircleBtnActive : ''}`}
                 >
                   <div className={styles.categoryCircleAvatar}>🧺</div>
@@ -724,27 +769,31 @@ function MarketplaceContent() {
                   const catSlug = cat.slug || cat.key;
                   const isActive = selectedCategory === catSlug;
                   const icon =
-                    catSlug === 'fresh_fruits' || catSlug === 'fruits'
+                    cat.icon ||
+                    (catSlug.toLowerCase().includes('fruit')
                       ? '🍊'
-                      : catSlug === 'fresh_vegetables' || catSlug === 'vegetables'
+                      : catSlug.toLowerCase().includes('veg')
                       ? '🥦'
-                      : catSlug === 'citrus'
-                      ? '🍋'
-                      : catSlug === 'leafy_greens' || catSlug === 'herbs_greens'
+                      : catSlug.toLowerCase().includes('leaf') || catSlug.toLowerCase().includes('herb')
                       ? '🥬'
-                      : catSlug === 'exotic_produce'
+                      : catSlug.toLowerCase().includes('citrus')
+                      ? '🍋'
+                      : catSlug.toLowerCase().includes('exotic')
                       ? '🥑'
-                      : catSlug === 'berries'
+                      : catSlug.toLowerCase().includes('berry')
                       ? '🫐'
-                      : catSlug === 'root_vegetables'
+                      : catSlug.toLowerCase().includes('root')
                       ? '🥕'
-                      : cat.icon || '🥬';
+                      : '🥬');
 
                   return (
                     <button
                       key={catSlug}
                       type="button"
-                      onClick={() => setSelectedCategory(catSlug)}
+                      onClick={() => {
+                        setSelectedCategory(catSlug);
+                        setActiveSidebarNav(catSlug);
+                      }}
                       className={`${styles.categoryCircleBtn} ${isActive ? styles.categoryCircleBtnActive : ''}`}
                       title={cat.description || cat.label || cat.name}
                     >
@@ -911,13 +960,11 @@ function MarketplaceContent() {
                           Dhs {displayPrice}
                           <span className={styles.priceUnit}> / {displayUnit}</span>
                         </div>
-                        <span className={`${styles.cardBadge} ${styles.desktopOnlyBadge}`}>
-                          {idx === 0 && hasStock
-                            ? '🏆 Lowest Price'
-                            : hasStock
-                            ? `${bestOffer?.unitWeightKg}kg ${bestOffer?.unit}`
-                            : 'Out of Stock'}
-                        </span>
+                        {(!hasStock || (idx === 0 && hasStock)) && (
+                          <span className={`${styles.cardBadge} ${styles.desktopOnlyBadge}`}>
+                            {idx === 0 && hasStock ? '🏆 Lowest Price' : 'Out of Stock'}
+                          </span>
+                        )}
                         <div className={`${styles.vendorInfo} ${styles.desktopOnlyVendor}`}>
                           {bestOffer?.vendorId ? (
                             <Link

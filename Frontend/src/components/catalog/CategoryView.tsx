@@ -288,13 +288,13 @@ export function CategoryView({
                     Dhs {displayPrice}
                     <span className={styles.priceUnit}> / {displayUnit}</span>
                   </div>
-                  <span className={styles.cardBadge}>
-                    {idx === 0 && sortBy === 'lowest_price' && hasStock
-                      ? '🏆 Lowest Price'
-                      : hasStock
-                      ? `${bestOffer?.unitWeightKg}kg ${bestOffer?.unit}`
-                      : 'Out of Stock'}
-                  </span>
+                  {(!hasStock || (idx === 0 && sortBy === 'lowest_price' && hasStock)) && (
+                    <span className={styles.cardBadge}>
+                      {idx === 0 && sortBy === 'lowest_price' && hasStock
+                        ? '🏆 Lowest Price'
+                        : 'Out of Stock'}
+                    </span>
+                  )}
                   <div className={styles.vendorInfo}>
                     {bestOffer?.vendorId ? (
                       <Link

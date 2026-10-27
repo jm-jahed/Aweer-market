@@ -335,6 +335,7 @@ export default function ShopAdminDashboard() {
   const [editPrice, setEditPrice] = useState<number>(0);
   const [editStock, setEditStock] = useState<number>(0);
   const [editMoq, setEditMoq] = useState<number>(1);
+  const [editWeight, setEditWeight] = useState<number>(0);
   const [isSavingOffer, setIsSavingOffer] = useState(false);
   const [editOfferError, setEditOfferError] = useState<string | null>(null);
 
@@ -764,6 +765,7 @@ export default function ShopAdminDashboard() {
     setEditPrice(item.offer?.priceAed || 0);
     setEditStock(item.offer?.availableStock || 0);
     setEditMoq(item.offer?.minOrderQuantity || 1);
+    setEditWeight(item.offer?.unitWeightKg || 0);
     setEditOfferError(null);
   };
 
@@ -771,11 +773,15 @@ export default function ShopAdminDashboard() {
     if (!editingItem) return;
     setIsSavingOffer(true);
     try {
-      await updateVendorOffer(editingItem.id, {
+      const payload: { priceAed: number; availableStock: number; minOrderQuantity: number; unitWeightKg?: number } = {
         priceAed: Number(editPrice),
         availableStock: Number(editStock),
         minOrderQuantity: Number(editMoq)
-      });
+      };
+      if (editWeight && Number(editWeight) > 0) {
+        payload.unitWeightKg = Number(editWeight);
+      }
+      await updateVendorOffer(editingItem.id, payload);
       setEditingItem(null);
       await loadInventory();
     } catch (err: unknown) {
@@ -795,12 +801,16 @@ export default function ShopAdminDashboard() {
       setEditOfferError('Price must be positive and stock cannot be negative.');
       return;
     }
+    if (editWeight !== undefined && editWeight !== null && Number(editWeight) <= 0) {
+      setEditOfferError('Weight must be greater than 0.');
+      return;
+    }
 
     setConfirmDialog({
       isOpen: true,
       title: 'Confirm Produce Terms Update',
       message: `Are you sure you want to update wholesale terms for "${editingItem.name}"?`,
-      detail: `Price: Dhs ${Number(editPrice).toFixed(2)} | Stock: ${editStock} units | MOQ: ${editMoq}`,
+      detail: `Price: Dhs ${Number(editPrice).toFixed(2)} | Weight: ${editWeight || editingItem.offer?.unitWeightKg || '—'} kg | Stock: ${editStock} units | MOQ: ${editMoq}`,
       confirmLabel: 'Confirm & Save Terms',
       variant: 'primary',
       onConfirm: async () => {
@@ -3427,9 +3437,8 @@ export default function ShopAdminDashboard() {
             </div>
 
             <p style={{ margin: '14px 22px 0', fontSize: '0.85rem', color: '#94a3b8' }}>
-              Updating wholesale pricing and active stock for{' '}
-              <strong style={{ color: '#ffffff' }}>{editingItem.name}</strong> (
-              {editingItem.offer?.unitWeightKg} kg / {editingItem.offer?.unit})
+              Updating wholesale pricing, package weight, and active stock for{' '}
+              <strong style={{ color: '#ffffff' }}>{editingItem.name}</strong>
             </p>
 
             {editOfferError && (
@@ -3450,10 +3459,30 @@ export default function ShopAdminDashboard() {
                       step="0.01"
                       min="0.01"
                       className={styles.formInput}
-                      value={editPrice}
-                      onChange={(e) => setEditPrice(Number(e.target.value))}
+                      value={editPrice === 0 ? '' : editPrice}
+                      onChange={(e) => setEditPrice(e.target.value === '' ? 0 : Number(e.target.value))}
                       required
                     />
+                  </div>
+
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.formLabel}>
+                      Weight (KG per {editingItem.offer?.unit || 'unit'}) *
+                    </label>
+                    <div className={styles.inputWithAddon}>
+                      <span className={styles.inputAddonPrefix}>KG</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        inputMode="decimal"
+                        className={styles.formInputAddon}
+                        placeholder="e.g. 10.00"
+                        value={editWeight === 0 ? '' : editWeight}
+                        onChange={(e) => setEditWeight(e.target.value === '' ? 0 : Number(e.target.value))}
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div className={styles.fieldGroup}>
@@ -3462,8 +3491,20 @@ export default function ShopAdminDashboard() {
                       type="number"
                       min="0"
                       className={styles.formInput}
-                      value={editStock}
-                      onChange={(e) => setEditStock(Number(e.target.value))}
+                      value={editStock === 0 ? '' : editStock}
+                      onChange={(e) => setEditStock(e.target.value === '' ? 0 : Number(e.target.value))}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.formLabel}>Minimum Order (MOQ) *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      className={styles.formInput}
+                      value={editMoq === 0 ? '' : editMoq}
+                      onChange={(e) => setEditMoq(e.target.value === '' ? 1 : Math.max(1, parseInt(e.target.value, 10) || 1))}
                       required
                     />
                   </div>
