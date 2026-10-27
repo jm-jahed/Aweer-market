@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useCart } from '@/lib/cart-context';
 import { getShopById, ShopPublicSummary, ShopStorefrontProduct } from '@/lib/api-client';
 import { resolveProduceImage } from '@/lib/catalog-utils';
-import { formatCountryWithFlag } from '@/lib/country-flags';
+import { CountryWithFlag } from '@/components/common/CountryFlag';
 import styles from './Storefront.module.css';
 
 type StorefrontTab = 'products' | 'info' | 'reviews' | 'location';
@@ -414,8 +414,8 @@ export default function ShopStorefrontPage() {
                         <span className={styles.catBadge}>
                           {(item.category || 'produce').replace(/_/g, ' ')}
                         </span>
-                        <span className={styles.originTag}>
-                          Origin: {formatCountryWithFlag(item.originCountry || 'UAE')}
+                        <span className={styles.originTag} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          Origin: <CountryWithFlag country={item.originCountry || 'UAE'} />
                         </span>
                       </div>
 

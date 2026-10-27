@@ -16,7 +16,7 @@ import {
   resolveProduceImage,
   mapSlugToBackendCategory
 } from '@/lib/catalog-utils';
-import { formatCountryWithFlag } from '@/lib/country-flags';
+import { CountryWithFlag } from '@/components/common/CountryFlag';
 import type { ProductItem, ProductOfferSummary } from '@aweermarket/types';
 import styles from './Catalog.module.css';
 
@@ -569,8 +569,8 @@ function MarketplaceContent() {
                                   </span>
                                 )}
                               </div>
-                              <span className={styles.dropdownItemVendor}>
-                                {bestOffer?.shopName || 'Al Aweer Stall'} • {formatCountryWithFlag(prod.originCountry)}
+                              <span className={styles.dropdownItemVendor} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                {bestOffer?.shopName || 'Al Aweer Stall'} • <CountryWithFlag country={prod.originCountry} />
                               </span>
                             </div>
                           </div>
@@ -973,7 +973,7 @@ function MarketplaceContent() {
                         </div>
 
                         <div className={styles.mobileProductSubtitle}>
-                          Premium quality • {formatCountryWithFlag(prod.originCountry || 'Dubai Market')}
+                          Premium quality • <CountryWithFlag country={prod.originCountry || 'Dubai Market'} />
                         </div>
 
                         {/* Mobile-only price & cart action row */}
@@ -1038,7 +1038,7 @@ function MarketplaceContent() {
                             <span>📍</span>
                             <span>{bestOffer?.stallNumber || 'Dubai Market'}</span>
                             <span>•</span>
-                            <span>{formatCountryWithFlag(prod.originCountry)}</span>
+                            <CountryWithFlag country={prod.originCountry} />
                           </div>
                         </div>
                         <div className={styles.desktopOnlyAddToCart}>

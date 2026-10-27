@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useCart, CartItem } from '@/lib/cart-context';
 import { getProducts } from '@/lib/api-client';
 import { resolveProduceImage } from '@/lib/catalog-utils';
-import { formatCountryWithFlag } from '@/lib/country-flags';
+import { CountryWithFlag } from '@/components/common/CountryFlag';
 import type { ProductItem } from '@aweermarket/types';
 import styles from './Navbar.module.css';
 
@@ -304,8 +304,8 @@ export function Navbar() {
                                 </span>
                               )}
                             </div>
-                            <span className={styles.dropdownItemVendor}>
-                              {bestOffer?.shopName || 'Al Aweer Stall'} • {formatCountryWithFlag(prod.originCountry)}
+                            <span className={styles.dropdownItemVendor} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              {bestOffer?.shopName || 'Al Aweer Stall'} • <CountryWithFlag country={prod.originCountry} />
                             </span>
                           </div>
                         </div>

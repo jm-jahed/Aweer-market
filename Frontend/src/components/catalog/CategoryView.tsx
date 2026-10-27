@@ -10,7 +10,7 @@ import {
   CATEGORY_DISPLAY_CONFIG,
   resolveProduceImage
 } from '@/lib/catalog-utils';
-import { formatCountryWithFlag } from '@/lib/country-flags';
+import { CountryWithFlag } from '@/components/common/CountryFlag';
 import styles from './CategoryView.module.css';
 
 interface CategoryViewProps {
@@ -327,7 +327,7 @@ export function CategoryView({
                   </div>
 
                   <div className={styles.mobileProductSubtitle}>
-                    {bestOffer?.shopName || 'Al Aweer Stall'} • {formatCountryWithFlag(prod.originCountry || 'Dubai Market')}
+                    {bestOffer?.shopName || 'Al Aweer Stall'} • <CountryWithFlag country={prod.originCountry || 'Dubai Market'} />
                   </div>
 
                   {/* Mobile-only price & cart action row */}
@@ -396,7 +396,7 @@ export function CategoryView({
                       <span>📍</span>
                       <span>{bestOffer?.stallNumber || 'Dubai Market'}</span>
                       <span>•</span>
-                      <span>{formatCountryWithFlag(prod.originCountry)}</span>
+                      <CountryWithFlag country={prod.originCountry} />
                     </div>
                   </div>
                   <div className={styles.desktopOnlyAddToCart}>

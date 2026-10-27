@@ -157,8 +157,16 @@ const COUNTRY_MAP: Record<string, string> = {
   russia: '🇷🇺',
   ru: '🇷🇺',
   ukraine: '🇺🇦',
-  ua: '🇺🇦'
 };
+
+const COUNTRY_CODE_MAP: Record<string, string> = {};
+for (const [key, emoji] of Object.entries(COUNTRY_MAP)) {
+  if (emoji && emoji.length >= 4) {
+    const c1 = String.fromCharCode(emoji.charCodeAt(1) - 0xdde6 + 97);
+    const c2 = String.fromCharCode(emoji.charCodeAt(3) - 0xdde6 + 97);
+    COUNTRY_CODE_MAP[key] = `${c1}${c2}`;
+  }
+}
 
 /**
  * Resolves country flag emoji from freeform country text.
@@ -188,6 +196,44 @@ export function getCountryFlag(country?: string): string {
   }
 
   return '';
+}
+
+export function getCountryCode(country?: string): string {
+  if (!country || typeof country !== 'string') return '';
+  const trimmed = country.trim();
+  if (!trimmed) return '';
+
+  // If already contains a regional indicator flag emoji, extract ISO code from it
+  if (/[\uD83C][\uDDE6-\uDDFF]/.test(trimmed)) {
+    const match = trimmed.match(/[\uD83C][\uDDE6-\uDDFF]{2}/);
+    if (match && match[0].length >= 4) {
+      const c1 = String.fromCharCode(match[0].charCodeAt(1) - 0xdde6 + 97);
+      const c2 = String.fromCharCode(match[0].charCodeAt(3) - 0xdde6 + 97);
+      return `${c1}${c2}`;
+    }
+  }
+
+  const norm = trimmed.toLowerCase().replace(/[^a-z]/g, '');
+  if (COUNTRY_CODE_MAP[norm]) return COUNTRY_CODE_MAP[norm];
+
+  for (const [key, code] of Object.entries(COUNTRY_CODE_MAP)) {
+    if (key.length >= 3 && norm.includes(key)) {
+      return code;
+    }
+  }
+
+  return '';
+}
+
+export function cleanCountryName(country?: string): string {
+  if (!country || typeof country !== 'string') return '';
+  return country.replace(/[\uD83C][\uDDE6-\uDDFF]{2}/g, '').replace(/^[A-Z]{2}\s+/, '').trim();
+}
+
+export function getFlagImageUrl(country?: string, width: number = 40): string {
+  const code = getCountryCode(country);
+  if (!code) return '';
+  return `https://flagcdn.com/w${width}/${code}.png`;
 }
 
 /**
