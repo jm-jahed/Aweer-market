@@ -63,6 +63,104 @@ export default function BuyerAccountPage() {
     }
   }, [isLoading, user, router]);
 
+  // Derived KPI Metrics
+  const totalOrdersCount = orders?.length || 0;
+  const pendingOrdersCount = (orders || []).filter((o) =>
+    ['pending', 'confirmed', 'preparing', 'dispatched'].includes(o?.status?.toLowerCase() || '')
+  ).length;
+  const completedOrders = (orders || []).filter((o) => (o?.status?.toLowerCase() || '') === 'delivered');
+  const totalSpentAed = (orders || []).reduce((sum, o) => sum + (o?.totalAmountAed || 0), 0);
+
+  // Derived Unique Wholesale Stalls (Hook called unconditionally)
+  const uniqueStalls = useMemo(() => {
+    if (!orders || orders.length === 0) return [];
+    const map = new Map<string, { id: string; name: string; stallNumber?: string; ordersCount: number; totalSpent: number }>();
+    for (const o of orders) {
+      if (!o) continue;
+      const sid = o.shopId || 'unknown';
+      const existing = map.get(sid) || {
+        id: sid,
+        name: o.shopName || 'Wholesale Stall',
+        stallNumber: o.stallNumber,
+        ordersCount: 0,
+        totalSpent: 0
+      };
+      existing.ordersCount += 1;
+      existing.totalSpent += (o.totalAmountAed || 0);
+      map.set(sid, existing);
+    }
+    return Array.from(map.values());
+  }, [orders]);
+
+  // Filtered Orders for the Orders Tab (Hook called unconditionally)
+  const filteredOrders = useMemo(() => {
+    if (!orders || orders.length === 0) return [];
+    let list = orders;
+    if (orderStatusFilter !== 'all') {
+      list = list.filter((o) => (o?.status?.toLowerCase() || '') === orderStatusFilter.toLowerCase());
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (o) =>
+          (o?.orderNumber?.toLowerCase() || '').includes(q) ||
+          (o?.shopName?.toLowerCase() || '').includes(q) ||
+          (o?.stallNumber && o.stallNumber.toLowerCase().includes(q)) ||
+          (o?.items && o.items.some((i) => (i?.name?.toLowerCase() || '').includes(q)))
+      );
+    }
+    return list;
+  }, [orders, orderStatusFilter, searchQuery]);
+
+  // Derived Notifications (Hook called unconditionally)
+  const notifications: BuyerNotification[] = useMemo(() => {
+    if (!orders || orders.length === 0) return [];
+    const list: BuyerNotification[] = [];
+    for (const o of orders.slice(0, 5)) {
+      if (!o) continue;
+      const itemCount = o.items?.length || 0;
+      if (o.status === 'delivered') {
+        list.push({
+          id: `notif_del_${o.id}`,
+          title: `Order Delivered: ${o.orderNumber || ''}`,
+          message: `Your wholesale order from ${o.shopName || 'Stall'} has been successfully delivered and completed.`,
+          time: new Date(o.updatedAt || o.createdAt || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          type: 'delivery',
+          read: true
+        });
+      } else if (o.status === 'dispatched') {
+        list.push({
+          id: `notif_disp_${o.id}`,
+          title: `Produce Dispatched: ${o.orderNumber || ''}`,
+          message: `Al Aweer refrigerated delivery van is on route with your order from ${o.shopName || 'Stall'}.`,
+          time: new Date(o.updatedAt || o.createdAt || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          type: 'delivery',
+          read: false
+        });
+      } else {
+        list.push({
+          id: `notif_ord_${o.id}`,
+          title: `Order Received: ${o.orderNumber || ''}`,
+          message: `${o.shopName || 'Stall'} is preparing ${itemCount} wholesale produce lines for your stall delivery.`,
+          time: new Date(o.createdAt || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          type: 'order',
+          read: false
+        });
+      }
+    }
+    return list;
+  }, [orders]);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      router.replace('/login');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   // Loading state during initial session probe
   if (isLoading) {
     return (
@@ -88,16 +186,6 @@ export default function BuyerAccountPage() {
     );
   }
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await logout();
-      router.replace('/login');
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
-
   // Safe formatting for registration date
   let formattedDate = 'Recently';
   try {
@@ -116,87 +204,6 @@ export default function BuyerAccountPage() {
   }
 
   const isProvisional = !user.isEmailVerified;
-
-  // Derived KPI Metrics
-  const totalOrdersCount = orders.length;
-  const pendingOrdersCount = orders.filter((o) =>
-    ['pending', 'confirmed', 'preparing', 'dispatched'].includes(o.status.toLowerCase())
-  ).length;
-  const completedOrders = orders.filter((o) => o.status.toLowerCase() === 'delivered');
-  const totalSpentAed = orders.reduce((sum, o) => sum + (o.totalAmountAed || 0), 0);
-
-  // Derived Unique Wholesale Stalls
-  const uniqueStalls = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; stallNumber?: string; ordersCount: number; totalSpent: number }>();
-    for (const o of orders) {
-      const existing = map.get(o.shopId) || {
-        id: o.shopId,
-        name: o.shopName,
-        stallNumber: o.stallNumber,
-        ordersCount: 0,
-        totalSpent: 0
-      };
-      existing.ordersCount += 1;
-      existing.totalSpent += o.totalAmountAed;
-      map.set(o.shopId, existing);
-    }
-    return Array.from(map.values());
-  }, [orders]);
-
-  // Filtered Orders for the Orders Tab
-  const filteredOrders = useMemo(() => {
-    let list = orders;
-    if (orderStatusFilter !== 'all') {
-      list = list.filter((o) => o.status.toLowerCase() === orderStatusFilter.toLowerCase());
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (o) =>
-          o.orderNumber.toLowerCase().includes(q) ||
-          o.shopName.toLowerCase().includes(q) ||
-          (o.stallNumber && o.stallNumber.toLowerCase().includes(q)) ||
-          o.items.some((i) => i.name.toLowerCase().includes(q))
-      );
-    }
-    return list;
-  }, [orders, orderStatusFilter, searchQuery]);
-
-  // Derived Notifications
-  const notifications: BuyerNotification[] = useMemo(() => {
-    const list: BuyerNotification[] = [];
-    for (const o of orders.slice(0, 5)) {
-      if (o.status === 'delivered') {
-        list.push({
-          id: `notif_del_${o.id}`,
-          title: `Order Delivered: ${o.orderNumber}`,
-          message: `Your wholesale order from ${o.shopName} has been successfully delivered and completed.`,
-          time: new Date(o.updatedAt || o.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-          type: 'delivery',
-          read: true
-        });
-      } else if (o.status === 'dispatched') {
-        list.push({
-          id: `notif_disp_${o.id}`,
-          title: `Produce Dispatched: ${o.orderNumber}`,
-          message: `Al Aweer refrigerated delivery van is on route with your order from ${o.shopName}.`,
-          time: new Date(o.updatedAt || o.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-          type: 'delivery',
-          read: false
-        });
-      } else {
-        list.push({
-          id: `notif_ord_${o.id}`,
-          title: `Order Received: ${o.orderNumber}`,
-          message: `${o.shopName} is preparing ${o.items.length} wholesale produce lines for your stall delivery.`,
-          time: new Date(o.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-          type: 'order',
-          read: false
-        });
-      }
-    }
-    return list;
-  }, [orders]);
 
   // Buyer User Initials for Avatar
   const userInitials = (user.fullName || 'Buyer')
