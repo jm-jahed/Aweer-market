@@ -5,6 +5,11 @@
 
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import crypto from 'crypto';
+import sharp from 'sharp';
+
+export const MAX_IMAGE_DIMENSION = 1600;
+export const WEBP_COMPRESSION_QUALITY = 82;
+export const MAX_INPUT_PIXELS = 25_000_000; // 25 megapixels safety limit
 
 export interface R2Config {
   accountId: string;
@@ -21,6 +26,28 @@ export interface UploadImageResult {
   bucket: string;
   size: number;
   mimeType: string;
+  originalSize?: number;
+  width?: number;
+  height?: number;
+  format?: string;
+}
+
+export interface CompressedImageResult {
+  buffer: Buffer;
+  format: 'webp';
+  mimeType: 'image/webp';
+  extension: 'webp';
+  width: number;
+  height: number;
+  originalSize: number;
+  compressedSize: number;
+  hasAlpha: boolean;
+}
+
+export interface ImageCompressionOptions {
+  maxDimension?: number;
+  quality?: number;
+  maxPixels?: number;
 }
 
 export interface ImageValidationResult {
@@ -164,7 +191,77 @@ export function setR2ClientInstance(client: S3Client | null): void {
 }
 
 /**
+ * Compresses and resizes a validated product image buffer using sharp.
+ * - Maximum dimensions: 1600 x 1600 px (preserves aspect ratio, never enlarges smaller images)
+ * - Format: WebP at quality 82
+ * - Preserves transparency (alpha channel)
+ * - Mitigates decompression bombs (enforces limitInputPixels of 25 megapixels)
+ * - Fails safely with clear errors on malformed/unsupported images
+ */
+export async function compressProductImage(
+  buffer: Buffer,
+  options?: ImageCompressionOptions
+): Promise<CompressedImageResult> {
+  if (!buffer || buffer.length === 0) {
+    throw new Error('Image compression failed: buffer is empty.');
+  }
+
+  const maxDimension = options?.maxDimension ?? MAX_IMAGE_DIMENSION;
+  const quality = options?.quality ?? WEBP_COMPRESSION_QUALITY;
+  const maxPixels = options?.maxPixels ?? MAX_INPUT_PIXELS;
+
+  try {
+    const pipeline = sharp(buffer, {
+      limitInputPixels: maxPixels,
+      failOn: 'warning'
+    });
+
+    const metadata = await pipeline.metadata();
+
+    if (!metadata.width || !metadata.height) {
+      throw new Error('Image compression failed: unable to decode image dimensions.');
+    }
+
+    // Auto-orient based on EXIF, resize inside bounding box without upscaling
+    const processed = pipeline
+      .rotate()
+      .resize({
+        width: maxDimension,
+        height: maxDimension,
+        fit: 'inside',
+        withoutEnlargement: true
+      })
+      .webp({
+        quality,
+        effort: 4
+      });
+
+    const { data, info } = await processed.toBuffer({ resolveWithObject: true });
+
+    return {
+      buffer: data,
+      format: 'webp',
+      mimeType: 'image/webp',
+      extension: 'webp',
+      width: info.width,
+      height: info.height,
+      originalSize: buffer.length,
+      compressedSize: data.length,
+      hasAlpha: Boolean(metadata.hasAlpha)
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown processing error';
+    if (msg.includes('pixel limit') || msg.includes('exceeds')) {
+      throw new Error('Image dimensions exceed the maximum allowed limit of 25 megapixels.');
+    }
+    throw new Error(`Image compression failed: ${msg}`);
+  }
+}
+
+/**
  * Uploads a validated product image buffer to Cloudflare R2 with strict shop-scoped key.
+ * Compresses and converts image to optimized WebP (max 1600x1600, quality 82) before upload.
+ * Strictly fail-closed: if compression fails, the uncompressed original is never uploaded.
  */
 export async function uploadProductImageToR2(
   fileBuffer: Buffer,
@@ -176,19 +273,23 @@ export async function uploadProductImageToR2(
     throw new Error(validation.error || 'Invalid image buffer');
   }
 
+  // Compress & resize image to optimized WebP before sending to R2
+  // Fail-closed: if compression fails, we never fall back to uploading raw uncompressed data
+  const compressed = await compressProductImage(fileBuffer);
+
   const config = getR2Config();
   const s3 = client || getR2Client();
 
-  // Clean shopId and generate random UUID key
+  // Clean shopId and generate random UUID key with .webp extension
   const cleanShopId = shopId.replace(/[^a-zA-Z0-9_-]/g, '') || 'general';
   const randomUniqueId = crypto.randomUUID();
-  const objectKey = `products/${cleanShopId}/${randomUniqueId}.${validation.extension}`;
+  const objectKey = `products/${cleanShopId}/${randomUniqueId}.webp`;
 
   const command = new PutObjectCommand({
     Bucket: config.bucketName,
     Key: objectKey,
-    Body: fileBuffer,
-    ContentType: validation.mimeType,
+    Body: compressed.buffer,
+    ContentType: compressed.mimeType,
     CacheControl: 'public, max-age=31536000, immutable'
   });
 
@@ -200,8 +301,12 @@ export async function uploadProductImageToR2(
     key: objectKey,
     url: publicUrl,
     bucket: config.bucketName,
-    size: fileBuffer.length,
-    mimeType: validation.mimeType
+    size: compressed.compressedSize,
+    originalSize: compressed.originalSize,
+    mimeType: compressed.mimeType,
+    width: compressed.width,
+    height: compressed.height,
+    format: compressed.format
   };
 }
 

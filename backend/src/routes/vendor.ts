@@ -494,11 +494,30 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
         url: uploadResult.url,
         key: uploadResult.key,
         size: uploadResult.size,
-        mimeType: uploadResult.mimeType
+        mimeType: uploadResult.mimeType,
+        originalSize: uploadResult.originalSize,
+        width: uploadResult.width,
+        height: uploadResult.height,
+        format: uploadResult.format
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Storage upload error';
       request.log.error({ err }, 'Failed to upload product image to R2');
+
+      const isClientError = msg.includes('compression failed') ||
+        msg.includes('25 megapixels') ||
+        msg.includes('dimensions') ||
+        msg.includes('corrupt') ||
+        msg.includes('Invalid');
+
+      if (isClientError) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: msg
+        });
+      }
+
       return reply.status(500).send({
         statusCode: 500,
         error: 'Internal Server Error',

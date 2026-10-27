@@ -13,11 +13,16 @@ import {
   validateImageBuffer,
   getR2Config,
   isR2Configured,
+  compressProductImage,
   uploadProductImageToR2,
   deleteProductImageFromR2,
   setR2ClientInstance,
-  isValidProductImageKey
+  isValidProductImageKey,
+  MAX_IMAGE_DIMENSION,
+  WEBP_COMPRESSION_QUALITY,
+  MAX_INPUT_PIXELS
 } from './services/r2StorageService.js';
+import sharp from 'sharp';
 import {
   configureAuthRateLimit,
   resetAuthRateLimitConfig,
@@ -64,6 +69,13 @@ describe('AweerMarket — Cloudflare R2 Product Image Storage Integration Tests'
   let sentCommands: any[] = [];
   let mockS3ShouldFail = false;
 
+  // Real decodable image buffers for compression & upload testing
+  let REAL_VALID_JPEG: Buffer;
+  let REAL_VALID_PNG: Buffer;
+  let REAL_VALID_WEBP: Buffer;
+  let LARGE_JPEG: Buffer;
+  let TRANSPARENT_PNG: Buffer;
+
   // Mock S3 Client
   const mockS3Client = {
     send: async (command: any) => {
@@ -88,8 +100,30 @@ describe('AweerMarket — Cloudflare R2 Product Image Storage Integration Tests'
     process.env.R2_SECRET_ACCESS_KEY = 'test_r2_secret_key_xyz_confidential';
     process.env.R2_BUCKET_NAME = 'aweermarket-products-test';
     process.env.R2_PUBLIC_BASE_URL = 'https://images-test.aweermarket.ae';
+    delete process.env.R2_ENDPOINT;
 
     setR2ClientInstance(mockS3Client);
+
+    // Create decodable fixture buffers with Sharp
+    REAL_VALID_JPEG = await sharp({
+      create: { width: 100, height: 100, channels: 3, background: { r: 255, g: 0, b: 0 } }
+    }).jpeg().toBuffer();
+
+    REAL_VALID_PNG = await sharp({
+      create: { width: 100, height: 100, channels: 4, background: { r: 0, g: 255, b: 0, alpha: 0.5 } }
+    }).png().toBuffer();
+
+    REAL_VALID_WEBP = await sharp({
+      create: { width: 100, height: 100, channels: 4, background: { r: 0, g: 0, b: 255, alpha: 1 } }
+    }).webp().toBuffer();
+
+    LARGE_JPEG = await sharp({
+      create: { width: 3000, height: 2000, channels: 3, background: { r: 120, g: 180, b: 90 } }
+    }).jpeg().toBuffer();
+
+    TRANSPARENT_PNG = await sharp({
+      create: { width: 200, height: 200, channels: 4, background: { r: 255, g: 128, b: 0, alpha: 0.4 } }
+    }).png().toBuffer();
 
     app = await buildServer();
     await app.ready();
@@ -222,20 +256,118 @@ describe('AweerMarket — Cloudflare R2 Product Image Storage Integration Tests'
       }
     });
 
-    it('generates predictable object key structure: products/<shopId>/<uuid>.<ext>', async () => {
-      const result = await uploadProductImageToR2(VALID_JPEG, 'stall_99', mockS3Client);
+    it('generates predictable object key structure: products/<shopId>/<uuid>.webp', async () => {
+      const result = await uploadProductImageToR2(REAL_VALID_JPEG, 'stall_99', mockS3Client);
       assert.ok(result.key.startsWith('products/stall_99/'));
-      assert.ok(result.key.endsWith('.jpg'));
+      assert.ok(result.key.endsWith('.webp'));
       assert.strictEqual(result.url, `https://images-test.aweermarket.ae/${result.key}`);
-      assert.strictEqual(result.mimeType, 'image/jpeg');
+      assert.strictEqual(result.mimeType, 'image/webp');
+      assert.strictEqual(result.format, 'webp');
+      assert.strictEqual(result.width, 100);
+      assert.strictEqual(result.height, 100);
+      assert.ok(result.size > 0);
+      assert.ok((result.originalSize ?? 0) > 0);
 
       // Verify command sent to S3
       assert.strictEqual(sentCommands.length, 1);
       const cmd = sentCommands[0];
       assert.strictEqual(cmd.input.Bucket, 'aweermarket-products-test');
       assert.strictEqual(cmd.input.Key, result.key);
-      assert.strictEqual(cmd.input.ContentType, 'image/jpeg');
+      assert.strictEqual(cmd.input.ContentType, 'image/webp');
       assert.strictEqual(cmd.input.CacheControl, 'public, max-age=31536000, immutable');
+    });
+  });
+
+  // ==========================================================================
+  // 2b. Product Image Compression & Optimization (compressProductImage)
+  // ==========================================================================
+  describe('2b. Product Image Compression & Optimization (compressProductImage)', () => {
+    it('converts valid JPEG to WebP and applies quality 82', async () => {
+      const res = await compressProductImage(REAL_VALID_JPEG);
+      assert.strictEqual(res.format, 'webp');
+      assert.strictEqual(res.mimeType, 'image/webp');
+      assert.strictEqual(res.extension, 'webp');
+      assert.strictEqual(res.width, 100);
+      assert.strictEqual(res.height, 100);
+      assert.ok(res.compressedSize > 0);
+      assert.strictEqual(res.originalSize, REAL_VALID_JPEG.length);
+      // Validate WebP container magic bytes: starts with RIFF and has WEBP signature
+      const riff = res.buffer.subarray(0, 4).toString('ascii');
+      const webp = res.buffer.subarray(8, 12).toString('ascii');
+      assert.strictEqual(riff, 'RIFF');
+      assert.strictEqual(webp, 'WEBP');
+    });
+
+    it('resizes oversized image while strictly preserving aspect ratio', async () => {
+      const res = await compressProductImage(LARGE_JPEG);
+      // 3000 x 2000 (3:2) clamped inside 1600x1600 bounding box -> 1600 x 1067
+      assert.strictEqual(res.width, 1600);
+      assert.strictEqual(res.height, 1067);
+      assert.strictEqual(res.format, 'webp');
+      assert.ok(res.compressedSize < res.originalSize, 'Compressed size should be smaller than original');
+    });
+
+    it('never upscales or enlarges smaller images', async () => {
+      const smallJpg = await sharp({
+        create: { width: 640, height: 480, channels: 3, background: { r: 50, g: 100, b: 150 } }
+      }).jpeg().toBuffer();
+      const res = await compressProductImage(smallJpg);
+      assert.strictEqual(res.width, 640);
+      assert.strictEqual(res.height, 480);
+    });
+
+    it('preserves alpha channel / transparency for PNG with transparency', async () => {
+      const res = await compressProductImage(TRANSPARENT_PNG);
+      assert.strictEqual(res.format, 'webp');
+      assert.strictEqual(res.hasAlpha, true);
+      const meta = await sharp(res.buffer).metadata();
+      assert.strictEqual(meta.hasAlpha, true);
+      assert.strictEqual(meta.channels, 4);
+    });
+
+    it('enforces Sharp pixel limit and rejects images exceeding 25 megapixels', async () => {
+      // 6000 x 5000 = 30 million pixels (> 25 megapixels safety limit)
+      const hugeImage = await sharp({
+        create: { width: 6000, height: 5000, channels: 3, background: { r: 10, g: 20, b: 30 } }
+      }).jpeg().toBuffer();
+
+      await assert.rejects(
+        async () => compressProductImage(hugeImage),
+        /exceed.*25 megapixels/i
+      );
+    });
+
+    it('fails safely and throws error on corrupt image buffer without uploading to R2', async () => {
+      const corruptWithValidHeader = Buffer.from([
+        0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x00, 0x00, 0x00
+      ]);
+      await assert.rejects(
+        async () => compressProductImage(corruptWithValidHeader),
+        /image compression failed/i
+      );
+    });
+
+    it('never calls S3 when compression fails (fail-closed protection)', async () => {
+      sentCommands = [];
+      const corruptWithValidHeader = Buffer.from([
+        0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x00, 0x00, 0x00
+      ]);
+      await assert.rejects(
+        async () => uploadProductImageToR2(corruptWithValidHeader, 'stall_99', mockS3Client),
+        /image compression failed/i
+      );
+      assert.strictEqual(sentCommands.length, 0, 'S3 PutObject must NEVER be called if compression fails');
+    });
+
+    it('achieves substantial file size reduction on realistic photograph sample', async () => {
+      const realisticJpg = await sharp({
+        create: { width: 2400, height: 1600, channels: 3, background: { r: 200, g: 80, b: 40 } }
+      }).jpeg({ quality: 98 }).toBuffer();
+
+      const res = await compressProductImage(realisticJpg);
+      const originalBytes = realisticJpg.length;
+      const compressedBytes = res.compressedSize;
+      assert.ok(compressedBytes < originalBytes, `Expected compression: ${compressedBytes} < ${originalBytes}`);
     });
   });
 
@@ -243,9 +375,9 @@ describe('AweerMarket — Cloudflare R2 Product Image Storage Integration Tests'
   // 3. Authenticated Upload Endpoint (POST /api/v1/vendor/upload)
   // ==========================================================================
   describe('3. Authenticated Upload Endpoint (POST /api/v1/vendor/upload)', () => {
-    it('successfully uploads valid JPEG and returns public HTTPS URL and key', async () => {
+    it('successfully uploads valid JPEG, compresses to WebP, and returns public HTTPS URL and key', async () => {
       const { cookie, shop } = await registerTestVendor('jpeg');
-      const payload = createMultipartPayload('produce.jpg', 'image/jpeg', VALID_JPEG);
+      const payload = createMultipartPayload('produce.jpg', 'image/jpeg', REAL_VALID_JPEG);
 
       const res = await app.inject({
         method: 'POST',
@@ -262,7 +394,13 @@ describe('AweerMarket — Cloudflare R2 Product Image Storage Integration Tests'
       assert.strictEqual(data.statusCode, 201);
       assert.ok(data.url.startsWith('https://images-test.aweermarket.ae/products/'));
       assert.ok(data.key.startsWith(`products/${shop.id}/`));
-      assert.strictEqual(data.mimeType, 'image/jpeg');
+      assert.ok(data.key.endsWith('.webp'));
+      assert.strictEqual(data.mimeType, 'image/webp');
+      assert.strictEqual(data.format, 'webp');
+      assert.strictEqual(data.width, 100);
+      assert.strictEqual(data.height, 100);
+      assert.ok(data.size > 0);
+      assert.strictEqual(data.originalSize, REAL_VALID_JPEG.length);
 
       // Crucial: Ensure NO secrets or raw bucket credentials leaked in response
       assert.strictEqual(data.secretAccessKey, undefined);
@@ -270,29 +408,9 @@ describe('AweerMarket — Cloudflare R2 Product Image Storage Integration Tests'
       assert.strictEqual(data.endpoint, undefined);
     });
 
-    it('successfully uploads PNG image', async () => {
+    it('successfully uploads PNG image and compresses to WebP with transparency', async () => {
       const { cookie, shop } = await registerTestVendor('png');
-      const payload = createMultipartPayload('produce.png', 'image/png', VALID_PNG);
-
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/v1/vendor/upload',
-        headers: {
-          cookie,
-          ...payload.headers
-        },
-        payload: payload.body
-      });
-
-      assert.strictEqual(res.statusCode, 201);
-      const data = res.json();
-      assert.ok(data.key.endsWith('.png'));
-      assert.strictEqual(data.mimeType, 'image/png');
-    });
-
-    it('successfully uploads WebP image', async () => {
-      const { cookie, shop } = await registerTestVendor('webp');
-      const payload = createMultipartPayload('produce.webp', 'image/webp', VALID_WEBP);
+      const payload = createMultipartPayload('produce.png', 'image/png', REAL_VALID_PNG);
 
       const res = await app.inject({
         method: 'POST',
@@ -308,6 +426,30 @@ describe('AweerMarket — Cloudflare R2 Product Image Storage Integration Tests'
       const data = res.json();
       assert.ok(data.key.endsWith('.webp'));
       assert.strictEqual(data.mimeType, 'image/webp');
+      assert.strictEqual(data.format, 'webp');
+      assert.ok(data.width > 0);
+      assert.ok(data.height > 0);
+    });
+
+    it('successfully uploads WebP image and optimizes it', async () => {
+      const { cookie, shop } = await registerTestVendor('webp');
+      const payload = createMultipartPayload('produce.webp', 'image/webp', REAL_VALID_WEBP);
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/vendor/upload',
+        headers: {
+          cookie,
+          ...payload.headers
+        },
+        payload: payload.body
+      });
+
+      assert.strictEqual(res.statusCode, 201);
+      const data = res.json();
+      assert.ok(data.key.endsWith('.webp'));
+      assert.strictEqual(data.mimeType, 'image/webp');
+      assert.strictEqual(data.format, 'webp');
     });
 
     it('rejects unauthenticated request (401 Unauthorized)', async () => {
@@ -408,7 +550,7 @@ describe('AweerMarket — Cloudflare R2 Product Image Storage Integration Tests'
     it('handles R2 storage error gracefully without false success or secret leakage', async () => {
       mockS3ShouldFail = true;
       const { cookie } = await registerTestVendor('fail');
-      const payload = createMultipartPayload('produce.jpg', 'image/jpeg', VALID_JPEG);
+      const payload = createMultipartPayload('produce.jpg', 'image/jpeg', REAL_VALID_JPEG);
 
       const res = await app.inject({
         method: 'POST',
@@ -427,10 +569,64 @@ describe('AweerMarket — Cloudflare R2 Product Image Storage Integration Tests'
       assert.strictEqual(data.secretAccessKey, undefined);
     });
 
+    it('rejects image exceeding Sharp 25 megapixels pixel limit with 400 Bad Request', async () => {
+      const { cookie } = await registerTestVendor('hugepix');
+      sentCommands = [];
+
+      // 6000 x 5000 = 30 million pixels
+      const hugeImage = await sharp({
+        create: { width: 6000, height: 5000, channels: 3, background: { r: 10, g: 20, b: 30 } }
+      }).jpeg().toBuffer();
+
+      const payload = createMultipartPayload('huge.jpg', 'image/jpeg', hugeImage);
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/vendor/upload',
+        headers: {
+          cookie,
+          ...payload.headers
+        },
+        payload: payload.body
+      });
+
+      assert.strictEqual(res.statusCode, 400);
+      const data = res.json();
+      assert.match(data.message, /25 megapixels/i);
+      assert.strictEqual(sentCommands.length, 0, 'S3 must NEVER be called when pixel limit is exceeded');
+    });
+
+    it('rejects corrupt image stream during compression with 400 Bad Request without calling S3', async () => {
+      const { cookie } = await registerTestVendor('corruptstream');
+      sentCommands = [];
+
+      // Valid JPEG header bytes but truncated / corrupt body
+      const corruptWithValidHeader = Buffer.from([
+        0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x00, 0x00, 0x00
+      ]);
+
+      const payload = createMultipartPayload('corrupt.jpg', 'image/jpeg', corruptWithValidHeader);
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/vendor/upload',
+        headers: {
+          cookie,
+          ...payload.headers
+        },
+        payload: payload.body
+      });
+
+      assert.strictEqual(res.statusCode, 400);
+      const data = res.json();
+      assert.match(data.message, /compression failed/i);
+      assert.strictEqual(sentCommands.length, 0, 'S3 must NEVER be called on compression failure');
+    });
+
     it('enforces upload rate limit (HTTP 429) when upload quota is exceeded', async () => {
       configureAuthRateLimit({ uploadMaxAttempts: 2, uploadWindowMs: 60 * 1000 });
       const { cookie } = await registerTestVendor('ratelimit');
-      const payload = createMultipartPayload('produce.jpg', 'image/jpeg', VALID_JPEG);
+      const payload = createMultipartPayload('produce.jpg', 'image/jpeg', REAL_VALID_JPEG);
 
       // 1st upload: allowed (201)
       const res1 = await app.inject({
@@ -477,7 +673,7 @@ describe('AweerMarket — Cloudflare R2 Product Image Storage Integration Tests'
       configureAuthRateLimit({ uploadMaxAttempts: 2, uploadMaxIpAttempts: 10, uploadWindowMs: 60 * 1000 });
       const { cookie: cookieA } = await registerTestVendor('isoA');
       const { cookie: cookieB } = await registerTestVendor('isoB');
-      const payload = createMultipartPayload('produce.jpg', 'image/jpeg', VALID_JPEG);
+      const payload = createMultipartPayload('produce.jpg', 'image/jpeg', REAL_VALID_JPEG);
       const sharedHeaders = {
         ...payload.headers,
         'x-forwarded-for': '203.0.113.150'
@@ -541,7 +737,7 @@ describe('AweerMarket — Cloudflare R2 Product Image Storage Integration Tests'
       configureAuthRateLimit({ uploadMaxAttempts: 2, uploadMaxIpAttempts: 3, uploadWindowMs: 60 * 1000 });
       const { cookie: cookieA } = await registerTestVendor('sybilA');
       const { cookie: cookieB } = await registerTestVendor('sybilB');
-      const payload = createMultipartPayload('produce.jpg', 'image/jpeg', VALID_JPEG);
+      const payload = createMultipartPayload('produce.jpg', 'image/jpeg', REAL_VALID_JPEG);
       const sharedHeaders = {
         ...payload.headers,
         'x-forwarded-for': '203.0.113.200'
