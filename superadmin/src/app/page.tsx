@@ -2573,8 +2573,36 @@ export default function SuperAdminDashboard() {
                               {prod.category.replace(/_/g, ' ')}
                             </span>
                           </td>
-                          <td>{formatCountryWithFlag(prod.originCountry)}</td>
-                          <td>{prod.offers?.length || 0} vendor offers</td>
+                          <td>
+                            {prod.offers && prod.offers.length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {prod.offers.map((off, oIdx) => (
+                                  <div
+                                    key={oIdx}
+                                    style={{
+                                      fontSize: '0.8rem',
+                                      background: 'rgba(255,255,255,0.04)',
+                                      padding: '5px 9px',
+                                      borderRadius: 6,
+                                      border: '1px solid rgba(255,255,255,0.08)'
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                      <span style={{ color: '#38bdf8', fontWeight: 600 }}>{off.shopName}</span>
+                                    </div>
+                                    <div style={{ color: '#22c55e', marginTop: 2, fontWeight: 500 }}>
+                                      Dhs {off.priceAed.toFixed(2)} / {off.unit}
+                                      <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: '0.75rem' }}>
+                                        • {off.availableStock} in stock
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#64748b', fontSize: '0.8rem' }}>No vendor offers</span>
+                            )}
+                          </td>
                           <td>
                             <span className={`${styles.statusPill} ${prod.isActive ? styles.statusActive : styles.statusSuspended}`}>
                               {prod.isActive ? 'Listed' : 'Delisted'}

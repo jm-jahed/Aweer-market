@@ -101,19 +101,37 @@ export function CategoryView({
     loadProducts();
   }, [loadProducts]);
 
-  // Client-side sort on fetched products (filter out unavailable products)
-  const sortedProducts = useMemo(() => {
-    return products
-      .filter((p) =>
-        (p.offers || []).some((o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0)
-      )
-      .sort((a, b) => {
-        const priceA = a.lowestPriceAedPerKg || 0;
-        const priceB = b.lowestPriceAedPerKg || 0;
-        if (sortBy === 'lowest_price') return priceA - priceB;
-        if (sortBy === 'highest_price') return priceB - priceA;
-        return a.name.localeCompare(b.name);
-      });
+  // Flatten products by active vendor offer so every stall's produce is visible in the market!
+  interface CategoryProduceOfferItem {
+    id: string;
+    product: ProductItem;
+    offer: ProductOfferSummary;
+  }
+
+  const sortedProducts = useMemo<CategoryProduceOfferItem[]>(() => {
+    const items: CategoryProduceOfferItem[] = [];
+
+    for (const prod of products) {
+      const activeOffers = (prod.offers || []).filter(
+        (o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0
+      );
+
+      for (const offer of activeOffers) {
+        items.push({
+          id: `${prod.id}_${offer.vendorId}`,
+          product: prod,
+          offer
+        });
+      }
+    }
+
+    return items.sort((a, b) => {
+      const priceA = a.offer.priceAed || 0;
+      const priceB = b.offer.priceAed || 0;
+      if (sortBy === 'lowest_price') return priceA - priceB;
+      if (sortBy === 'highest_price') return priceB - priceA;
+      return a.product.name.localeCompare(b.product.name);
+    });
   }, [products, sortBy]);
 
   const handleAddToCart = (product: ProductItem, offer: ProductOfferSummary) => {
@@ -252,21 +270,16 @@ export function CategoryView({
         </div>
       ) : sortedProducts.length > 0 ? (
         <div className={styles.productsGrid}>
-          {sortedProducts.map((prod, idx) => {
-            // Find lowest priced active offer
-            const activeOffers = (prod.offers || []).filter(
-              (o) => o.availableStock > 0
-            );
-            const bestOffer: ProductOfferSummary | undefined =
-              activeOffers.length > 0 ? activeOffers[0] : prod.offers?.[0];
-
+          {sortedProducts.map((item, idx) => {
+            const prod = item.product;
+            const bestOffer = item.offer;
             const img = resolveProduceImage(prod.name, prod.category, prod.imageUrl);
             const hasStock = Boolean(bestOffer && bestOffer.availableStock > 0);
             const displayPrice = bestOffer ? bestOffer.priceAed.toFixed(2) : '—';
             const displayUnit = bestOffer ? bestOffer.unit : 'unit';
 
             return (
-              <div key={prod.id} className={styles.productCard}>
+              <div key={item.id} className={styles.productCard}>
                 <div className={styles.cardImageContainer}>
                   <button type="button" className={styles.heartBtn} title="Save to favorites">
                     ♡
@@ -324,7 +337,7 @@ export function CategoryView({
                       type="button"
                       onClick={() => handleAddToCart(prod, bestOffer)}
                       className={styles.addToCartBtn}
-                      id={`add-cart-${prod.id}`}
+                      id={`add-cart-${item.id}`}
                     >
                       <span>Add to Cart</span>
                       <span>🛒</span>

@@ -17,7 +17,7 @@ import {
   mapSlugToBackendCategory
 } from '@/lib/catalog-utils';
 import { formatCountryWithFlag } from '@/lib/country-flags';
-import type { ProductItem } from '@aweermarket/types';
+import type { ProductItem, ProductOfferSummary } from '@aweermarket/types';
 import styles from './Catalog.module.css';
 
 const DEFAULT_INITIAL_CATEGORIES: CategoryItem[] = [
@@ -26,13 +26,19 @@ const DEFAULT_INITIAL_CATEGORIES: CategoryItem[] = [
   { id: 'leafy_greens', key: 'leafy_greens', name: 'Leaf', label: 'Leaf', slug: 'leafy_greens', icon: '🌿' }
 ];
 
+interface DisplayMarketProduceItem {
+  id: string; // `${prod.id}_${offer.vendorId}`
+  product: ProductItem;
+  offer: ProductOfferSummary;
+}
+
 function MarketplaceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams?.get('search') || '';
   const [mobileSearch, setMobileSearch] = useState(searchQuery);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
-  const [mobileSearchResults, setMobileSearchResults] = useState<ProductItem[]>([]);
+  const [mobileSearchResults, setMobileSearchResults] = useState<DisplayMarketProduceItem[]>([]);
   const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
 
   const { addToCart, conflict, resolveConflict, totalItemsCount } = useCart();
@@ -51,45 +57,65 @@ function MarketplaceContent() {
     setMobileSearch(searchQuery);
   }, [searchQuery]);
 
-  // Live suggestions query for mobile search input with debounce (Guaranteed Lowest Price 1st)
+  // Live suggestions query for mobile search input with debounce (Guaranteed Lowest Price 1st across all vendor offers)
   useEffect(() => {
     const trimmed = mobileSearch.trim();
     if (trimmed.length > 0) {
       const timer = setTimeout(() => {
         getProducts({ search: trimmed, limit: 12 })
           .then((res) => {
-            const availableProds = (res.products || [])
-              .filter((p) => (p.offers || []).some((o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0))
-              .sort((a, b) => (a.lowestPriceAedPerKg || 0) - (b.lowestPriceAedPerKg || 0));
+            const items: DisplayMarketProduceItem[] = [];
+            const prods = (res.products && res.products.length > 0) ? res.products : apiProducts;
+            const q = trimmed.toLowerCase();
 
-            if (availableProds.length > 0) {
-              setMobileSearchResults(availableProds);
-            } else {
-              // Fallback to loaded apiProducts in client memory
-              const q = trimmed.toLowerCase();
-              const clientMatches = apiProducts
-                .filter((p) => (p.offers || []).some((o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0))
-                .filter((p) =>
-                  p.name.toLowerCase().includes(q) ||
-                  p.originCountry.toLowerCase().includes(q) ||
-                  (p.category && p.category.toLowerCase().includes(q)) ||
-                  (p.description && p.description.toLowerCase().includes(q)) ||
-                  p.offers.some((o) => o.shopName.toLowerCase().includes(q))
-                );
-              setMobileSearchResults(clientMatches);
+            for (const prod of prods) {
+              const activeOffers = (prod.offers || []).filter(
+                (o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0
+              );
+              const prodMatches =
+                prod.name.toLowerCase().includes(q) ||
+                prod.originCountry.toLowerCase().includes(q) ||
+                (prod.category && prod.category.toLowerCase().includes(q)) ||
+                (prod.description && prod.description.toLowerCase().includes(q));
+
+              for (const offer of activeOffers) {
+                if (prodMatches || offer.shopName.toLowerCase().includes(q)) {
+                  items.push({
+                    id: `${prod.id}_${offer.vendorId}`,
+                    product: prod,
+                    offer
+                  });
+                }
+              }
             }
+
+            items.sort((a, b) => (a.offer.priceAed || 0) - (b.offer.priceAed || 0));
+            setMobileSearchResults(items.slice(0, 15));
             setIsMobileDropdownOpen(true);
           })
           .catch(() => {
             const q = trimmed.toLowerCase();
-            const clientMatches = apiProducts
-              .filter((p) => (p.offers || []).some((o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0))
-              .filter((p) =>
-                p.name.toLowerCase().includes(q) ||
-                p.originCountry.toLowerCase().includes(q) ||
-                (p.category && p.category.toLowerCase().includes(q))
+            const items: DisplayMarketProduceItem[] = [];
+            for (const prod of apiProducts) {
+              const activeOffers = (prod.offers || []).filter(
+                (o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0
               );
-            setMobileSearchResults(clientMatches);
+              const prodMatches =
+                prod.name.toLowerCase().includes(q) ||
+                prod.originCountry.toLowerCase().includes(q) ||
+                (prod.category && prod.category.toLowerCase().includes(q));
+              for (const offer of activeOffers) {
+                if (prodMatches || offer.shopName.toLowerCase().includes(q)) {
+                  items.push({
+                    id: `${prod.id}_${offer.vendorId}`,
+                    product: prod,
+                    offer
+                  });
+                }
+              }
+            }
+            items.sort((a, b) => (a.offer.priceAed || 0) - (b.offer.priceAed || 0));
+            setMobileSearchResults(items.slice(0, 15));
             setIsMobileDropdownOpen(true);
           });
       }, 180);
@@ -124,36 +150,55 @@ function MarketplaceContent() {
     return undefined;
   }, [selectedCategory]);
 
-  // Compute products list with CHEAP PRICE 1ST guarantee using real backend apiProducts
-  const displayedProducts = useMemo(() => {
-    // Only display products that have active offers in stock (filter out unavailable products)
-    let list: ProductItem[] = apiProducts.filter((p) =>
-      (p.offers || []).some((o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0)
-    );
-    // When searching actively, do not constrain by stale category so users find produce anywhere
-    if (backendCategory && !activeSearch) {
-      list = list.filter(
-        (p) =>
-          p.category === backendCategory ||
-          p.category.toLowerCase() === backendCategory.toLowerCase()
+  // Compute products list with CHEAP PRICE 1ST guarantee using real backend apiProducts.
+  // Expands every vendor's offer so products from all shops/vendors show in one place!
+  const displayedProducts = useMemo<DisplayMarketProduceItem[]>(() => {
+    const items: DisplayMarketProduceItem[] = [];
+
+    for (const prod of apiProducts) {
+      if (backendCategory && !activeSearch) {
+        if (
+          prod.category !== backendCategory &&
+          prod.category.toLowerCase() !== backendCategory.toLowerCase()
+        ) {
+          continue;
+        }
+      }
+
+      const activeOffers = (prod.offers || []).filter(
+        (o) => typeof o.availableStock === 'number' && o.availableStock > 0 && o.priceAed > 0
       );
+
+      if (activeSearch) {
+        const q = activeSearch.toLowerCase();
+        const prodMatches =
+          prod.name.toLowerCase().includes(q) ||
+          prod.originCountry.toLowerCase().includes(q) ||
+          (prod.category && prod.category.toLowerCase().includes(q)) ||
+          (prod.description && prod.description.toLowerCase().includes(q));
+
+        for (const offer of activeOffers) {
+          if (prodMatches || offer.shopName.toLowerCase().includes(q)) {
+            items.push({
+              id: `${prod.id}_${offer.vendorId}`,
+              product: prod,
+              offer
+            });
+          }
+        }
+      } else {
+        for (const offer of activeOffers) {
+          items.push({
+            id: `${prod.id}_${offer.vendorId}`,
+            product: prod,
+            offer
+          });
+        }
+      }
     }
-    if (activeSearch) {
-      const q = activeSearch.toLowerCase();
-      list = list.filter((p) => {
-        return (
-          p.name.toLowerCase().includes(q) ||
-          p.originCountry.toLowerCase().includes(q) ||
-          (p.category && p.category.toLowerCase().includes(q)) ||
-          (p.description && p.description.toLowerCase().includes(q)) ||
-          p.offers.some((o) => o.shopName.toLowerCase().includes(q))
-        );
-      });
-    }
-    // CRITICAL: CHEAPEST PRICE 1ST (Ascending)
-    return [...list].sort(
-      (a, b) => (a.lowestPriceAedPerKg || 0) - (b.lowestPriceAedPerKg || 0)
-    );
+
+    // CRITICAL: CHEAPEST PRICE 1ST (Ascending across all vendor offers)
+    return items.sort((a, b) => (a.offer.priceAed || 0) - (b.offer.priceAed || 0));
   }, [apiProducts, backendCategory, activeSearch]);
 
   const loadData = async () => {
@@ -199,10 +244,10 @@ function MarketplaceContent() {
     }
   };
 
-  const handleAddApiProduct = (prod: ProductItem) => {
-    // Pick lowest priced active offer with stock > 0
+  const handleAddApiProduct = (prod: ProductItem, specificOffer?: ProductOfferSummary) => {
+    // Pick specific offer or lowest priced active offer with stock > 0
     const activeOffers = (prod.offers || []).filter((o) => o.availableStock > 0);
-    const offer = activeOffers[0] || prod.offers?.[0];
+    const offer = specificOffer || activeOffers[0] || prod.offers?.[0];
     if (!offer || offer.availableStock <= 0) return;
 
     const item: CartItem = {
@@ -492,9 +537,9 @@ function MarketplaceContent() {
 
                 {mobileSearchResults.length > 0 ? (
                   <div className={styles.dropdownList}>
-                    {mobileSearchResults.map((prod, idx) => {
-                      const activeOffers = (prod.offers || []).filter((o) => o.availableStock > 0);
-                      const bestOffer = activeOffers[0] || prod.offers?.[0];
+                    {mobileSearchResults.map((item, idx) => {
+                      const prod = item.product;
+                      const bestOffer = item.offer;
                       const hasStock = Boolean(bestOffer && bestOffer.availableStock > 0);
                       const img = resolveProduceImage(prod.name, prod.category, prod.imageUrl);
                       const displayPrice = bestOffer ? bestOffer.priceAed.toFixed(2) : '—';
@@ -502,7 +547,7 @@ function MarketplaceContent() {
 
                       return (
                         <div
-                          key={prod.id}
+                          key={item.id}
                           onClick={() => {
                             setIsMobileDropdownOpen(false);
                             router.push(`/products/${prod.id}`);
@@ -542,7 +587,7 @@ function MarketplaceContent() {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleAddApiProduct(prod);
+                                  handleAddApiProduct(prod, bestOffer);
                                 }}
                                 className={styles.dropdownAddBtn}
                                 title="Add to wholesale cart"
@@ -888,16 +933,16 @@ function MarketplaceContent() {
               </div>
             ) : displayedProducts.length > 0 ? (
               <div className={styles.productsGrid} style={{ marginTop: 14 }}>
-                {displayedProducts.map((prod, idx) => {
-                  const activeOffers = (prod.offers || []).filter((o) => o.availableStock > 0);
-                  const bestOffer = activeOffers[0] || prod.offers?.[0];
+                {displayedProducts.map((item, idx) => {
+                  const prod = item.product;
+                  const bestOffer = item.offer;
                   const hasStock = Boolean(bestOffer && bestOffer.availableStock > 0);
                   const img = resolveProduceImage(prod.name, prod.category, prod.imageUrl);
                   const displayPrice = bestOffer ? bestOffer.priceAed.toFixed(2) : '—';
                   const displayUnit = bestOffer ? bestOffer.unit : 'unit';
 
                   return (
-                    <div key={prod.id} className={styles.productCard}>
+                    <div key={item.id} className={styles.productCard}>
                       <div className={styles.cardImageContainer}>
                         <button type="button" className={`${styles.heartBtn} ${styles.desktopOnlyHeart}`} title="Save to favorites">
                           ♡
@@ -943,9 +988,9 @@ function MarketplaceContent() {
                           {hasStock && bestOffer ? (
                             <button
                               type="button"
-                              onClick={() => handleAddApiProduct(prod)}
+                              onClick={() => handleAddApiProduct(prod, bestOffer)}
                               className={styles.addToCartBtn}
-                              id={`add-cart-${prod.id}`}
+                              id={`add-cart-${item.id}`}
                             >
                               <span>🛒</span>
                               <span>Add to Cart</span>
@@ -1000,9 +1045,9 @@ function MarketplaceContent() {
                           {hasStock && bestOffer ? (
                             <button
                               type="button"
-                              onClick={() => handleAddApiProduct(prod)}
+                              onClick={() => handleAddApiProduct(prod, bestOffer)}
                               className={styles.addToCartBtn}
-                              id={`add-cart-desktop-${prod.id}`}
+                              id={`add-cart-desktop-${item.id}`}
                             >
                               <span>Add to Cart</span>
                               <span>🛒</span>

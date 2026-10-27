@@ -195,7 +195,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
    * Lists wholesale vendor stalls with approval, active, and reseller tenant scoping.
    */
   fastify.get('/shops', async (request: FastifyRequest, reply: FastifyReply) => {
-    const query = request.query as { status?: string };
+    const query = request.query as { status?: string; resellerId?: string; mineOnly?: string };
     const filter: { isApproved?: boolean; resellerId?: string } = {};
 
     if (query.status === 'approved') {
@@ -204,8 +204,10 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       filter.isApproved = false;
     }
 
-    // Multi-Tenant Isolation: Resellers strictly see only their own affiliated stalls
-    if (request.user?.role === UserRole.RESELLER) {
+    // Resellers and SuperAdmins can view all stalls across the wholesale market
+    if (query.resellerId) {
+      filter.resellerId = query.resellerId;
+    } else if (query.mineOnly === 'true' && request.user?.role === UserRole.RESELLER) {
       filter.resellerId = request.user.resellerId;
     }
 
