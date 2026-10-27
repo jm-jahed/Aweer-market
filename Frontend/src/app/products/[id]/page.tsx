@@ -133,6 +133,11 @@ export default function ProductDetailPage() {
     );
   }
 
+  const categoryConfig = CATEGORY_DISPLAY_CONFIG[(product.category || '').toLowerCase()] || {
+    title: (product.category || 'Fresh Produce').replace(/_/g, ' '),
+    icon: '🥬'
+  };
+
   return (
     <div className={styles.container}>
       {/* Toast Notification */}
