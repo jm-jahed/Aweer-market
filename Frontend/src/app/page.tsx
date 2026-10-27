@@ -909,29 +909,35 @@ function MarketplaceContent() {
                         />
                       </div>
                       <div className={styles.cardBody}>
-                        {/* Mobile-only header row inside card */}
-                        <div className={styles.mobileCardTopRow}>
-                          <span className={styles.freshLocalPill}>Fresh &amp; Local</span>
-                          <button type="button" className={styles.mobileHeartBtn} title="Save to favorites">
+                        {/* Mobile Title Row with Heart Button */}
+                        <div className={styles.cardTitleRow}>
+                          <h3 className={styles.productName}>
+                            <Link href={`/products/${prod.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                              {prod.name}
+                            </Link>
+                          </h3>
+                          <button
+                            type="button"
+                            className={styles.mobileHeartBtn}
+                            title="Save to favorites"
+                            aria-label={`Save ${prod.name} to favorites`}
+                          >
                             ♡
                           </button>
                         </div>
 
-                        <h3 className={styles.productName}>
-                          <Link href={`/products/${prod.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                            {prod.name}
-                          </Link>
-                        </h3>
-
                         <div className={styles.mobileProductSubtitle}>
-                          Premium quality • {prod.originCountry || 'Farm fresh'}
+                          Premium quality • {prod.originCountry || 'Dubai Market'}
                         </div>
 
                         {/* Mobile-only price & cart action row */}
                         <div className={styles.mobilePriceActionRow}>
-                          <div className={styles.productPrice}>
-                            Dhs {displayPrice}
-                            <span className={styles.priceUnit}> / {displayUnit}</span>
+                          <div className={styles.mobilePriceBlock}>
+                            <div className={styles.mobilePriceMain}>
+                              <span className={styles.mobileCurrency}>Dhs</span>
+                              <span className={styles.mobilePriceVal}>{displayPrice}</span>
+                            </div>
+                            <span className={styles.mobilePriceUnit}>/ {displayUnit}</span>
                           </div>
                           {hasStock && bestOffer ? (
                             <button

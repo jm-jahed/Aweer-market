@@ -955,6 +955,10 @@
   display: none;
 }
 
+.cardTitleRow {
+  display: block;
+}
+
 .mobileCardTopRow {
   display: none;
 }
@@ -972,6 +976,10 @@
 }
 
 .mobilePriceActionRow {
+  display: none;
+}
+
+.mobilePriceBlock {
   display: none;
 }
 
@@ -1616,7 +1624,7 @@
   }
 
   .productCard {
-    background: #06190e !important;
+    background: linear-gradient(135deg, #071c11 0%, #05180e 100%) !important;
     border: 1px solid rgba(34, 197, 94, 0.22) !important;
     border-radius: 18px !important;
     padding: 12px !important;
@@ -1626,25 +1634,27 @@
     gap: 14px !important;
     min-height: unset !important;
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45) !important;
-    transition: transform 0.2s ease, border-color 0.2s ease !important;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
   }
 
   .productCard:hover {
     border-color: rgba(34, 197, 94, 0.45) !important;
     transform: translateY(-1px) !important;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55) !important;
   }
 
   .cardImageContainer {
-    width: 115px !important;
+    width: 105px !important;
     height: 100px !important;
     border-radius: 14px !important;
-    background: #04140b !important;
+    background: #031209 !important;
     padding: 0 !important;
     min-height: unset !important;
     flex-shrink: 0 !important;
     overflow: hidden !important;
     position: static !important;
     display: block !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
   }
 
   .productImg {
@@ -1659,101 +1669,163 @@
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 2px !important;
-    width: auto !important;
+    gap: 0 !important;
+    min-width: 0 !important;
   }
 
-  .mobileCardTopRow {
+  .cardTitleRow {
     display: flex !important;
-    align-items: center !important;
+    align-items: flex-start !important;
     justify-content: space-between !important;
+    gap: 6px !important;
     width: 100% !important;
-    margin-bottom: 2px !important;
   }
 
-  .freshLocalPill {
-    display: inline-block !important;
-    background: rgba(34, 197, 94, 0.12) !important;
-    border: 1px solid rgba(34, 197, 94, 0.3) !important;
-    color: #4ade80 !important;
-    border-radius: 9999px !important;
-    padding: 2px 8px !important;
-    font-size: 0.62rem !important;
+  .productName {
+    font-size: 0.96rem !important;
     font-weight: 800 !important;
+    color: #ffffff !important;
+    line-height: 1.25 !important;
+    margin: 0 !important;
+    flex: 1 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
   }
 
   .mobileHeartBtn {
     display: flex !important;
     background: transparent !important;
     border: none !important;
-    color: #cbd5e1 !important;
+    color: #94a3b8 !important;
     font-size: 1.15rem !important;
     cursor: pointer !important;
-    padding: 0 !important;
+    padding: 0 0 0 4px !important;
     line-height: 1 !important;
+    flex-shrink: 0 !important;
+    transition: color 0.15s ease, transform 0.15s ease !important;
   }
 
-  .productName {
-    font-size: 0.95rem !important;
-    font-weight: 800 !important;
-    color: #ffffff !important;
-    line-height: 1.25 !important;
-    margin: 2px 0 0 0 !important;
+  .mobileHeartBtn:hover {
+    color: #ef4444 !important;
+    transform: scale(1.15) !important;
   }
 
   .mobileProductSubtitle {
     display: block !important;
-    font-size: 0.68rem !important;
+    font-size: 0.72rem !important;
     color: #94a3b8 !important;
-    margin-bottom: 6px !important;
+    margin: 3px 0 8px 0 !important;
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
   .mobilePriceActionRow {
     display: flex !important;
-    align-items: center !important;
+    align-items: flex-end !important;
     justify-content: space-between !important;
     width: 100% !important;
-    margin-top: 4px !important;
+    gap: 8px !important;
+    margin-top: auto !important;
   }
 
-  .productPrice {
-    font-size: 1.1rem !important;
+  .mobilePriceBlock {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .mobilePriceMain {
+    display: inline-flex !important;
+    align-items: baseline !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileCurrency {
+    font-size: 0.8rem !important;
     font-weight: 800 !important;
     color: #22c55e !important;
-    display: flex !important;
-    align-items: baseline !important;
-    gap: 3px !important;
-    margin: 0 !important;
+    letter-spacing: -0.01em !important;
   }
 
-  .priceUnit {
+  .mobilePriceVal {
+    font-size: 1.22rem !important;
+    font-weight: 900 !important;
+    color: #22c55e !important;
+    line-height: 1 !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  .mobilePriceUnit {
     font-size: 0.72rem !important;
     color: #94a3b8 !important;
     font-weight: 600 !important;
+    white-space: nowrap !important;
   }
 
   .addToCartBtn {
-    background: #16a34a !important;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
     color: #ffffff !important;
     border: none !important;
     border-radius: 9999px !important;
-    padding: 7px 14px !important;
-    font-size: 0.76rem !important;
+    padding: 8px 14px !important;
+    font-size: 0.78rem !important;
     font-weight: 800 !important;
     cursor: pointer !important;
     width: auto !important;
     margin-top: 0 !important;
     min-height: unset !important;
-    display: flex !important;
+    display: inline-flex !important;
     align-items: center !important;
+    justify-content: center !important;
     gap: 6px !important;
-    box-shadow: 0 2px 8px rgba(22, 163, 74, 0.4) !important;
-    transition: background 0.15s ease, transform 0.1s ease !important;
+    box-shadow: 0 3px 12px rgba(22, 163, 74, 0.45) !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease !important;
   }
 
   .addToCartBtn:hover {
-    background: #15803d !important;
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
     transform: translateY(-1px) !important;
+    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.55) !important;
+  }
+
+  .addToCartBtn:active {
+    transform: scale(0.97) !important;
+  }
+
+  @media (max-width: 380px) {
+    .productCard {
+      padding: 10px !important;
+      gap: 10px !important;
+    }
+
+    .cardImageContainer {
+      width: 90px !important;
+      height: 90px !important;
+    }
+
+    .productName {
+      font-size: 0.9rem !important;
+    }
+
+    .mobilePriceVal {
+      font-size: 1.12rem !important;
+    }
+
+    .addToCartBtn {
+      padding: 7px 11px !important;
+      font-size: 0.74rem !important;
+      gap: 4px !important;
+    }
   }
 
   .desktopOnlyHeart,
@@ -1763,6 +1835,7 @@
   .desktopOnlyAddToCart {
     display: none !important;
   }
+
 
   .bottomBannerSection {
     display: none !important;
