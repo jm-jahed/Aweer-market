@@ -16,6 +16,7 @@ import {
   resolveProduceImage,
   mapSlugToBackendCategory
 } from '@/lib/catalog-utils';
+import { formatCountryWithFlag } from '@/lib/country-flags';
 import type { ProductItem } from '@aweermarket/types';
 import styles from './Catalog.module.css';
 
@@ -524,7 +525,7 @@ function MarketplaceContent() {
                                 )}
                               </div>
                               <span className={styles.dropdownItemVendor}>
-                                {bestOffer?.shopName || 'Al Aweer Stall'} • {prod.originCountry}
+                                {bestOffer?.shopName || 'Al Aweer Stall'} • {formatCountryWithFlag(prod.originCountry)}
                               </span>
                             </div>
                           </div>
@@ -927,7 +928,7 @@ function MarketplaceContent() {
                         </div>
 
                         <div className={styles.mobileProductSubtitle}>
-                          Premium quality • {prod.originCountry || 'Dubai Market'}
+                          Premium quality • {formatCountryWithFlag(prod.originCountry || 'Dubai Market')}
                         </div>
 
                         {/* Mobile-only price & cart action row */}
@@ -992,7 +993,7 @@ function MarketplaceContent() {
                             <span>📍</span>
                             <span>{bestOffer?.stallNumber || 'Dubai Market'}</span>
                             <span>•</span>
-                            <span>{prod.originCountry}</span>
+                            <span>{formatCountryWithFlag(prod.originCountry)}</span>
                           </div>
                         </div>
                         <div className={styles.desktopOnlyAddToCart}>

@@ -10,6 +10,7 @@ import {
   CATEGORY_DISPLAY_CONFIG,
   resolveProduceImage
 } from '@/lib/catalog-utils';
+import { formatCountryWithFlag } from '@/lib/country-flags';
 import styles from './CategoryView.module.css';
 
 interface CategoryViewProps {
@@ -315,7 +316,7 @@ export function CategoryView({
                       <span>📍</span>
                       <span>{bestOffer?.stallNumber || 'Dubai Market'}</span>
                       <span>•</span>
-                      <span>{prod.originCountry}</span>
+                      <span>{formatCountryWithFlag(prod.originCountry)}</span>
                     </div>
                   </div>
                   {hasStock && bestOffer ? (

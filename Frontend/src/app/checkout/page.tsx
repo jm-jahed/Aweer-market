@@ -21,8 +21,7 @@ export default function CheckoutPage() {
   const { user } = useAuth();
   const { shopId, shopName, items, updateQuantity, removeFromCart, clearCart, cartTotalAed } = useCart();
 
-  const [deliveryType, setDeliveryType] = useState<DeliveryType>(DeliveryType.SCHEDULED_DELIVERY);
-  const [deliveryAddress, setDeliveryAddress] = useState<string>('');
+  const [deliveryType] = useState<DeliveryType>(DeliveryType.SHOP_PICKUP);
   const [pickupTime, setPickupTime] = useState<string>('Morning (08:00 - 12:00 PM)');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,18 +41,12 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (deliveryType === DeliveryType.SCHEDULED_DELIVERY && !deliveryAddress.trim()) {
-      setError('Please provide a valid delivery address in the UAE for scheduled wholesale delivery.');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const res = await createOrder({
         shopId,
-        deliveryType,
-        deliveryAddress: deliveryType === DeliveryType.SCHEDULED_DELIVERY ? deliveryAddress.trim() : undefined,
-        pickupTime: deliveryType === DeliveryType.SHOP_PICKUP ? pickupTime.trim() : undefined,
+        deliveryType: DeliveryType.SHOP_PICKUP,
+        pickupTime: pickupTime.trim(),
         items: items.map((i) => ({
           productId: i.productId,
           quantity: i.quantity
@@ -349,92 +342,46 @@ export default function CheckoutPage() {
 
           {/* Fulfillment Method Card */}
           <div className={styles.card}>
-            <h2 className={styles.cardTitle} style={{ margin: '0 0 16px 0' }}>
-              Fulfillment Method
-            </h2>
-
-            <div className={styles.radioGroup}>
-              {/* Option 1: Scheduled Delivery */}
-              <label
-                className={`${styles.radioCard} ${deliveryType === DeliveryType.SCHEDULED_DELIVERY ? styles.radioCardActive : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="deliveryType"
-                  className={styles.radioInput}
-                  checked={deliveryType === DeliveryType.SCHEDULED_DELIVERY}
-                  onChange={() => setDeliveryType(DeliveryType.SCHEDULED_DELIVERY)}
-                />
-                <div className={styles.radioContent}>
-                  <span className={styles.radioTitle}>
-                    <span>🚚</span>
-                    <span>Scheduled Delivery</span>
-                  </span>
-                  <span className={styles.radioDesc}>
-                    Temperature-controlled truck dispatch directly to your warehouse, store, or commercial kitchen in the UAE.
-                  </span>
-                </div>
-              </label>
-
-              {/* Option 2: Stall Pickup */}
-              <label
-                className={`${styles.radioCard} ${deliveryType === DeliveryType.SHOP_PICKUP ? styles.radioCardActive : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="deliveryType"
-                  className={styles.radioInput}
-                  checked={deliveryType === DeliveryType.SHOP_PICKUP}
-                  onChange={() => setDeliveryType(DeliveryType.SHOP_PICKUP)}
-                />
-                <div className={styles.radioContent}>
-                  <span className={styles.radioTitle}>
-                    <span>🏬</span>
-                    <span>Stall Pickup</span>
-                  </span>
-                  <span className={styles.radioDesc}>
-                    Collect pallets or crates directly from {shopName || 'the stall'}&apos;s loading dock at Al Aweer Central Wholesale Market.
-                  </span>
-                </div>
-              </label>
+            <div className={styles.cardTitle} style={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>Fulfillment Method</span>
+              <span className={styles.specPill} style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80' }}>
+                🏪 Stall Pickup Only
+              </span>
             </div>
 
-            {/* Address input or pickup time selector */}
-            {deliveryType === DeliveryType.SCHEDULED_DELIVERY ? (
-              <div className={styles.formGroup}>
-                <label htmlFor="delivery-address" className={styles.formLabel}>
-                  <span>📍</span>
-                  <span>Commercial Delivery Address in UAE *</span>
-                </label>
-                <input
-                  id="delivery-address"
-                  type="text"
-                  className={styles.formInput}
-                  placeholder="e.g. Warehouse 14, Al Quoz Industrial Area 3, Dubai"
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                  required
-                />
+            <div
+              className={`${styles.radioCard} ${styles.radioCardActive}`}
+              style={{ cursor: 'default', borderColor: 'rgba(34, 197, 94, 0.4)' }}
+            >
+              <div className={styles.radioContent}>
+                <span className={styles.radioTitle}>
+                  <span>🏬</span>
+                  <span>Stall Pickup at Al Aweer</span>
+                </span>
+                <span className={styles.radioDesc}>
+                  Collect pallets or crates directly from <strong>{shopName || 'the stall'}</strong>&apos;s loading dock at Al Aweer Central Wholesale Market.
+                </span>
               </div>
-            ) : (
-              <div className={styles.formGroup}>
-                <label htmlFor="pickup-time" className={styles.formLabel}>
-                  <span>⏱️</span>
-                  <span>Preferred Stall Pickup Window *</span>
-                </label>
-                <select
-                  id="pickup-time"
-                  className={styles.formSelect}
-                  value={pickupTime}
-                  onChange={(e) => setPickupTime(e.target.value)}
-                >
-                  <option value="Early Morning (04:00 - 08:00 AM)">Early Morning (04:00 - 08:00 AM)</option>
-                  <option value="Morning (08:00 - 12:00 PM)">Morning (08:00 - 12:00 PM)</option>
-                  <option value="Afternoon (12:00 - 04:00 PM)">Afternoon (12:00 - 04:00 PM)</option>
-                  <option value="Evening (04:00 - 08:00 PM)">Evening (04:00 - 08:00 PM)</option>
-                </select>
-              </div>
-            )}
+            </div>
+
+            {/* Preferred stall pickup time selector */}
+            <div className={styles.formGroup} style={{ marginTop: 16 }}>
+              <label htmlFor="pickup-time" className={styles.formLabel}>
+                <span>⏱️</span>
+                <span>Preferred Stall Pickup Window *</span>
+              </label>
+              <select
+                id="pickup-time"
+                className={styles.formSelect}
+                value={pickupTime}
+                onChange={(e) => setPickupTime(e.target.value)}
+              >
+                <option value="Early Morning (04:00 - 08:00 AM)">Early Morning (04:00 - 08:00 AM) — Peak Market</option>
+                <option value="Morning (08:00 - 12:00 PM)">Morning (08:00 - 12:00 PM)</option>
+                <option value="Afternoon (12:00 - 04:00 PM)">Afternoon (12:00 - 04:00 PM)</option>
+                <option value="Evening (04:00 - 08:00 PM)">Evening (04:00 - 08:00 PM)</option>
+              </select>
+            </div>
           </div>
         </div>
 

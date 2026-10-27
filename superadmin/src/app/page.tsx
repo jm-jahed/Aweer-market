@@ -34,6 +34,7 @@ import {
   AdminResellerItem
 } from '../lib/api-client';
 import type { UserSummary } from '@aweermarket/types';
+import { formatCountryWithFlag } from '../lib/country-flags';
 import styles from './Dashboard.module.css';
 
 export default function SuperAdminDashboard() {
@@ -2572,7 +2573,7 @@ export default function SuperAdminDashboard() {
                               {prod.category.replace(/_/g, ' ')}
                             </span>
                           </td>
-                          <td>{prod.originCountry}</td>
+                          <td>{formatCountryWithFlag(prod.originCountry)}</td>
                           <td>{prod.offers?.length || 0} vendor offers</td>
                           <td>
                             <span className={`${styles.statusPill} ${prod.isActive ? styles.statusActive : styles.statusSuspended}`}>

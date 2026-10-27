@@ -21,6 +21,7 @@ import {
   CategoryItem
 } from '../lib/api-client';
 import { ProductCategory, WholesaleUnit, getDefaultUnitWeightKg } from '@aweermarket/types';
+import { getCountryFlag, formatCountryWithFlag, COMMON_PRODUCE_ORIGINS } from '../lib/country-flags';
 import styles from './Dashboard.module.css';
 
 // Pre-defined produce options with realistic local imagery & automated category mapping
@@ -1777,7 +1778,7 @@ export default function ShopAdminDashboard() {
                             <td>
                               <strong>{p.name}</strong>
                               <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                                Origin: {p.originCountry} | MOQ: {o?.minOrderQuantity || 1}
+                                Origin: {formatCountryWithFlag(p.originCountry)} | MOQ: {o?.minOrderQuantity || 1}
                               </div>
                             </td>
                             <td>
@@ -2422,7 +2423,7 @@ export default function ShopAdminDashboard() {
                             <td>
                               <strong>{p.name}</strong>
                               <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                                Origin: {p.originCountry}
+                                Origin: {formatCountryWithFlag(p.originCountry)}
                               </div>
                             </td>
                             <td>
@@ -3132,31 +3133,67 @@ export default function ShopAdminDashboard() {
 
                   {/* 3. Country of Origin */}
                   <div className={styles.fieldGroup}>
-                    <label className={styles.formLabel} htmlFor="field-prod-origin">
-                      Country of Origin *
-                    </label>
-                    <input
-                      id="field-prod-origin"
-                      type="text"
-                      list="country-origins-list"
-                      className={styles.formInput}
-                      placeholder="e.g. United Arab Emirates, Egypt, India, Spain"
-                      value={prodOrigin}
-                      onChange={(e) => setProdOrigin(e.target.value)}
-                      required
-                      autoComplete="country-name"
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <label className={styles.formLabel} htmlFor="field-prod-origin" style={{ margin: 0 }}>
+                        Country of Origin *
+                      </label>
+                      {getCountryFlag(prodOrigin) && (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            color: '#4ade80',
+                            background: 'rgba(34, 197, 94, 0.14)',
+                            border: '1px solid rgba(34, 197, 94, 0.35)',
+                            padding: '2px 8px',
+                            borderRadius: 6
+                          }}
+                        >
+                          <span style={{ fontSize: '1.05rem', lineHeight: 1 }}>{getCountryFlag(prodOrigin)}</span>
+                          <span>Auto Flag</span>
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      {getCountryFlag(prodOrigin) && (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            left: 12,
+                            fontSize: '1.25rem',
+                            pointerEvents: 'none',
+                            lineHeight: 1,
+                            zIndex: 2
+                          }}
+                        >
+                          {getCountryFlag(prodOrigin)}
+                        </span>
+                      )}
+                      <input
+                        id="field-prod-origin"
+                        type="text"
+                        list="country-origins-list"
+                        className={styles.formInput}
+                        style={{
+                          paddingLeft: getCountryFlag(prodOrigin) ? 44 : undefined,
+                          transition: 'padding-left 0.2s ease'
+                        }}
+                        placeholder="e.g. Pakistan, Egypt, Turkey, Sri Lanka"
+                        value={prodOrigin}
+                        onChange={(e) => setProdOrigin(e.target.value)}
+                        required
+                        autoComplete="country-name"
+                      />
+                    </div>
                     <datalist id="country-origins-list">
-                      <option value="United Arab Emirates" />
-                      <option value="Egypt" />
-                      <option value="India" />
-                      <option value="Pakistan" />
-                      <option value="Spain" />
-                      <option value="South Africa" />
-                      <option value="Turkey" />
-                      <option value="Netherlands" />
-                      <option value="Australia" />
-                      <option value="United States" />
+                      {COMMON_PRODUCE_ORIGINS.map((c) => (
+                        <option key={c.name} value={c.name}>
+                          {c.flag} {c.name}
+                        </option>
+                      ))}
                     </datalist>
                   </div>
                 </div>

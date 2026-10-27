@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { useCart } from '@/lib/cart-context';
 import { getShopById, ShopPublicSummary, ShopStorefrontProduct } from '@/lib/api-client';
 import { resolveProduceImage } from '@/lib/catalog-utils';
+import { formatCountryWithFlag } from '@/lib/country-flags';
 import styles from './Storefront.module.css';
 
 type StorefrontTab = 'products' | 'info' | 'reviews' | 'location';
@@ -414,7 +415,7 @@ export default function ShopStorefrontPage() {
                           {(item.category || 'produce').replace(/_/g, ' ')}
                         </span>
                         <span className={styles.originTag}>
-                          Origin: {item.originCountry || 'UAE'}
+                          Origin: {formatCountryWithFlag(item.originCountry || 'UAE')}
                         </span>
                       </div>
 

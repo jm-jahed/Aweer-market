@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCart, CartItem } from '@/lib/cart-context';
 import { getProductById } from '@/lib/api-client';
 import { resolveProduceImage, CATEGORY_DISPLAY_CONFIG } from '@/lib/catalog-utils';
+import { formatCountryWithFlag } from '@/lib/country-flags';
 import type { ProductItem, ProductOfferSummary } from '@aweermarket/types';
 import styles from './ProductDetails.module.css';
 
@@ -218,7 +219,7 @@ export default function ProductDetailPage() {
             </span>
             <span className={styles.originTag}>
               <span>📍</span>
-              <span>Origin: {product.originCountry}</span>
+              <span>Origin: {formatCountryWithFlag(product.originCountry)}</span>
             </span>
             <span className={styles.skuTag}>
               SKU: {product.id.slice(-8).toUpperCase()}
