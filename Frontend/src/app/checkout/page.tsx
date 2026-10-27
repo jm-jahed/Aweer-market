@@ -1,11 +1,18 @@
 'use client';
 
+/**
+ * AweerMarket — Dedicated Wholesale Checkout Route (/checkout)
+ * Luxury dark-emerald UI with single-vendor isolation, real-time totals,
+ * produce line thumbnails, and mobile quick-confirmation bar.
+ */
+
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useCart } from '@/lib/cart-context';
 import { createOrder, OrderSummary, ApiClientError } from '@/lib/api-client';
+import { resolveProduceImage } from '@/lib/catalog-utils';
 import { DeliveryType } from '@aweermarket/types';
 import styles from './Checkout.module.css';
 
@@ -16,7 +23,7 @@ export default function CheckoutPage() {
 
   const [deliveryType, setDeliveryType] = useState<DeliveryType>(DeliveryType.SCHEDULED_DELIVERY);
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
-  const [pickupTime, setPickupTime] = useState<string>('Morning (06:00 - 10:00 AM)');
+  const [pickupTime, setPickupTime] = useState<string>('Morning (08:00 - 12:00 PM)');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [placedOrder, setPlacedOrder] = useState<OrderSummary | null>(null);
@@ -36,7 +43,7 @@ export default function CheckoutPage() {
     }
 
     if (deliveryType === DeliveryType.SCHEDULED_DELIVERY && !deliveryAddress.trim()) {
-      setError('Please provide a delivery address for scheduled wholesale delivery.');
+      setError('Please provide a valid delivery address in the UAE for scheduled wholesale delivery.');
       return;
     }
 
@@ -68,92 +75,65 @@ export default function CheckoutPage() {
     }
   };
 
-  // Order Success Screen
+  // -------------------------------------------------------------------------
+  // 1. Order Success Screen
+  // -------------------------------------------------------------------------
   if (placedOrder) {
     return (
       <main className={styles.container}>
         <div className={styles.successCard}>
-          <div className={styles.successIcon}>✓</div>
-          <h1 style={{ margin: '0 0 8px 0', fontSize: '1.8rem', color: '#0f172a' }}>
-            Wholesale Order Confirmed!
-          </h1>
-          <p style={{ margin: 0, color: '#64748b', fontSize: '1rem' }}>
-            Your order has been submitted to <strong>{placedOrder.shopName}</strong> at Al Aweer Market.
+          <div className={styles.successIconWrap}>✓</div>
+          <h1 className={styles.successTitle}>Wholesale Order Confirmed!</h1>
+          <p className={styles.successSub}>
+            Your wholesale booking has been submitted to <strong>{placedOrder.shopName}</strong> at Al Aweer Central Market.
           </p>
 
           <div>
-            <span className={styles.orderNumBadge}>{placedOrder.orderNumber}</span>
+            <span className={styles.orderNumBadge}>Order #{placedOrder.orderNumber}</span>
           </div>
 
-          <div
-            style={{
-              backgroundColor: '#f8fafc',
-              borderRadius: '10px',
-              padding: '16px',
-              textAlign: 'left',
-              marginBottom: '24px',
-              border: '1px solid #e2e8f0'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ color: '#64748b' }}>Fulfillment Method:</span>
-              <strong style={{ color: '#0f172a' }}>
+          <div className={styles.successDetailsCard}>
+            <div className={styles.successRow}>
+              <span>Fulfillment Method:</span>
+              <strong className={styles.successRowVal}>
                 {placedOrder.deliveryType === DeliveryType.SHOP_PICKUP
                   ? 'Stall Pickup at Al Aweer'
                   : 'Scheduled Wholesale Delivery'}
               </strong>
             </div>
+
             {placedOrder.deliveryAddress && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ color: '#64748b' }}>Delivery Address:</span>
-                <strong style={{ color: '#0f172a' }}>{placedOrder.deliveryAddress}</strong>
+              <div className={styles.successRow}>
+                <span>Delivery Address:</span>
+                <strong className={styles.successRowVal}>{placedOrder.deliveryAddress}</strong>
               </div>
             )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ color: '#64748b' }}>Produce Items:</span>
-              <strong style={{ color: '#0f172a' }}>{placedOrder.items.length} wholesale lines</strong>
+
+            <div className={styles.successRow}>
+              <span>Produce Lines:</span>
+              <strong className={styles.successRowVal}>{placedOrder.items.length} bulk produce lines</strong>
             </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                paddingTop: '8px',
-                borderTop: '1px solid #e2e8f0',
-                fontSize: '1.1rem'
-              }}
-            >
-              <span style={{ fontWeight: 700, color: '#0f172a' }}>Total Amount:</span>
-              <strong style={{ color: '#16a34a' }}>Dhs {placedOrder.totalAmountAed.toFixed(2)}</strong>
+
+            <div className={styles.successTotalRow}>
+              <span>Total Estimated:</span>
+              <span className={styles.totalHighlight}>Dhs {placedOrder.totalAmountAed.toFixed(2)}</span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link
               href="/account"
-              style={{
-                background: '#16a34a',
-                color: '#ffffff',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                fontWeight: 700,
-                textDecoration: 'none'
-              }}
+              className={styles.checkoutBtn}
+              style={{ width: 'auto', padding: '12px 28px' }}
             >
-              View Order in Account
+              View Order in Account →
             </Link>
             <Link
               href="/"
-              style={{
-                background: '#f1f5f9',
-                color: '#334155',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                fontWeight: 600,
-                textDecoration: 'none',
-                border: '1px solid #cbd5e1'
-              }}
+              className={styles.registerBtn}
+              style={{ padding: '12px 24px', display: 'inline-flex', alignItems: 'center' }}
             >
-              Continue Sourcing
+              ← Continue Sourcing Market
             </Link>
           </div>
         </div>
@@ -161,49 +141,69 @@ export default function CheckoutPage() {
     );
   }
 
-  // Empty Cart Screen
+  // -------------------------------------------------------------------------
+  // 2. Empty Cart Screen
+  // -------------------------------------------------------------------------
   if (items.length === 0) {
     return (
       <main className={styles.container}>
-        <h1 className={styles.pageTitle}>Wholesale Cart</h1>
-        <p className={styles.pageSub}>Review your bulk produce order and select fulfillment options.</p>
+        <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
+          <Link href="/" className={styles.breadcrumbLink}>Home</Link>
+          <span className={styles.breadcrumbSep}>/</span>
+          <span className={styles.breadcrumbCurrent}>Checkout</span>
+        </nav>
 
-        <div style={{ textAlign: 'center', padding: '60px 20px', background: '#fff', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
-          <h2 style={{ fontSize: '1.3rem', color: '#334155', marginBottom: '8px' }}>Your Cart is Empty</h2>
-          <p style={{ color: '#64748b', marginBottom: '24px' }}>
-            Browse Al Aweer wholesale catalog to source fresh produce by the carton, crate, or sack.
+        <div className={styles.emptyCard}>
+          <div className={styles.emptyIconWrap}>🛒</div>
+          <h1 className={styles.emptyTitle}>Your Wholesale Cart is Empty</h1>
+          <p className={styles.emptyText}>
+            Review bulk produce crates, cartons, or sacks from verified Al Aweer stalls before proceeding to checkout.
           </p>
-          <Link
-            href="/"
-            style={{
-              background: '#16a34a',
-              color: '#ffffff',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              fontWeight: 700,
-              textDecoration: 'none',
-              display: 'inline-block'
-            }}
-          >
-            Explore Wholesale Produce &rarr;
-          </Link>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link href="/" className={styles.checkoutBtn} style={{ width: 'auto', padding: '12px 24px' }}>
+              Explore Wholesale Market →
+            </Link>
+          </div>
         </div>
       </main>
     );
   }
 
+  // -------------------------------------------------------------------------
+  // 3. Active Checkout Form Screen
+  // -------------------------------------------------------------------------
+  const totalUnits = items.reduce((acc, i) => acc + i.quantity, 0);
+
   return (
     <main className={styles.container}>
-      <h1 className={styles.pageTitle}>Wholesale Checkout</h1>
-      <p className={styles.pageSub}>
-        Review produce quantities and fulfill your order directly from Al Aweer market.
-      </p>
+      {/* Breadcrumb Navigation */}
+      <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
+        <Link href="/" className={styles.breadcrumbLink}>Home</Link>
+        <span className={styles.breadcrumbSep}>/</span>
+        <Link href="/cart" className={styles.breadcrumbLink}>Wholesale Cart</Link>
+        <span className={styles.breadcrumbSep}>/</span>
+        <span className={styles.breadcrumbCurrent}>Checkout</span>
+      </nav>
+
+      {/* Page Header */}
+      <header className={styles.pageHeader}>
+        <div className={styles.headerRow}>
+          <h1 className={styles.pageTitle}>
+            Wholesale Checkout
+          </h1>
+          <span className={styles.stepBadge}>Step 2 of 2: Fulfillment & Terms</span>
+        </div>
+        <p className={styles.pageSub}>
+          Confirm dispatch terms, delivery address, or stall pickup window for your bulk produce lines.
+        </p>
+      </header>
 
       {/* Auth Guard Banner if not logged in */}
       {!user && (
         <div className={styles.authBanner}>
           <div className={styles.authBannerText}>
-            You must be logged in as a Buyer to place wholesale orders.
+            <span>⚠️</span>
+            <span>You must be logged in as a registered Buyer to place wholesale orders.</span>
           </div>
           <div className={styles.authBtns}>
             <Link href="/login" className={styles.loginBtn}>
@@ -216,79 +216,147 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      {/* Single-Vendor Stall Notice */}
-      <div className={styles.shopBanner}>
-        <div className={styles.shopBannerTitle}>
-          Wholesale Order Fulfilled by: <strong>{shopName}</strong> (Al Aweer Stall)
+      {/* Fulfilling Stall Banner */}
+      <section className={styles.shopBanner} aria-label="Fulfilling Stall">
+        <div className={styles.shopBannerLeft}>
+          <div className={styles.stallIconWrap}>🏬</div>
+          <div>
+            <div className={styles.shopBannerTitle}>
+              {shopId ? (
+                <Link
+                  href={`/shops/${shopId}`}
+                  style={{ textDecoration: 'none', color: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <span>{shopName || 'Wholesale Stall'}</span>
+                  <span style={{ fontSize: '0.82rem', color: '#86efac' }}>↗</span>
+                </Link>
+              ) : (
+                <span>{shopName || 'Wholesale Stall'}</span>
+              )}
+            </div>
+            <p className={styles.shopBannerSubtitle}>
+              Single-vendor bulk isolation enforced • Dispatched directly from Al Aweer Central Market
+            </p>
+          </div>
         </div>
-        <button type="button" onClick={clearCart} className={styles.clearCartBtn}>
-          Clear Cart
+        <button
+          type="button"
+          onClick={clearCart}
+          className={styles.clearCartBtn}
+          title="Clear all lines in cart"
+        >
+          🗑️ Clear Cart
         </button>
-      </div>
+      </section>
 
+      {/* Error Message */}
       {error && <div className={styles.errorBanner}>{error}</div>}
 
       <form onSubmit={handlePlaceOrder} className={styles.cartGrid}>
-        {/* Left Column: Cart Items & Delivery Options */}
+        {/* Left Column: Cart Items & Fulfillment Options */}
         <div>
-          <div className={styles.itemsCard}>
-            <h2 className={styles.cardTitle}>Produce Line Items ({items.length})</h2>
+          {/* Produce Lines Card */}
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>
+              <span>Produce Line Items</span>
+              <span className={styles.itemCountBadge}>{items.length} Lines</span>
+            </div>
 
-            {items.map((item) => (
-              <div key={item.productId} className={styles.itemRow}>
-                <div className={styles.itemInfo}>
-                  <h3 className={styles.itemName}>{item.name}</h3>
-                  <div className={styles.itemPackaging}>
-                    Packaging: {item.unitWeightKg}kg {item.unit} | Min Order: {item.minOrderQuantity}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeFromCart(item.productId)}
-                    className={styles.removeBtn}
-                  >
-                    Remove item
-                  </button>
-                </div>
+            <div className={styles.itemList}>
+              {items.map((item) => {
+                const produceImg = resolveProduceImage(item.name, item.category, item.imageUrl);
+                const lineTotal = item.quantity * item.unitPriceAed;
+                const minQty = item.minOrderQuantity || 1;
 
-                <div className={styles.qtyGroup}>
-                  <button
-                    type="button"
-                    className={styles.qtyBtn}
-                    onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                    disabled={item.quantity <= item.minOrderQuantity}
-                  >
-                    -
-                  </button>
-                  <span className={styles.qtyValue}>{item.quantity}</span>
-                  <button
-                    type="button"
-                    className={styles.qtyBtn}
-                    onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                    disabled={item.quantity >= item.availableStock}
-                  >
-                    +
-                  </button>
-                </div>
+                return (
+                  <div key={item.productId} className={styles.itemRow}>
+                    {/* Thumbnail */}
+                    <div className={styles.itemThumbWrap}>
+                      <img
+                        src={produceImg}
+                        alt={item.name}
+                        className={styles.itemThumb}
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = '/logo.svg';
+                        }}
+                      />
+                    </div>
 
-                <div className={styles.priceCol}>
-                  <div className={styles.lineTotal}>
-                    Dhs {(item.quantity * item.unitPriceAed).toFixed(2)}
+                    {/* Produce Info */}
+                    <div className={styles.itemInfo}>
+                      <h2 className={styles.itemName} style={{ margin: 0 }}>
+                        <Link
+                          href={`/products/${item.productId}`}
+                          style={{ color: '#ffffff', textDecoration: 'none' }}
+                        >
+                          {item.name}
+                        </Link>
+                      </h2>
+                      <div className={styles.itemPackaging}>
+                        <span className={styles.specPill}>📦 {item.unit}</span>
+                        {item.unitWeightKg > 0 && (
+                          <span className={styles.specPill}>⚖️ {item.unitWeightKg} kg/{item.unit}</span>
+                        )}
+                        <span>MOQ: {minQty}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart(item.productId)}
+                        className={styles.removeBtn}
+                      >
+                        ✕ Remove line
+                      </button>
+                    </div>
+
+                    {/* Quantity Controls */}
+                    <div className={styles.qtyGroup}>
+                      <button
+                        type="button"
+                        className={styles.qtyBtn}
+                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                        disabled={item.quantity <= minQty}
+                        aria-label={`Decrease ${item.name} quantity`}
+                      >
+                        −
+                      </button>
+                      <span className={styles.qtyValue}>{item.quantity}</span>
+                      <button
+                        type="button"
+                        className={styles.qtyBtn}
+                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                        disabled={item.availableStock > 0 && item.quantity >= item.availableStock}
+                        aria-label={`Increase ${item.name} quantity`}
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    {/* Line Total */}
+                    <div className={styles.priceCol}>
+                      <div className={styles.lineTotal}>
+                        Dhs {lineTotal.toFixed(2)}
+                      </div>
+                      <div className={styles.unitRate}>
+                        Dhs {item.unitPriceAed.toFixed(2)} / {item.unit}
+                      </div>
+                    </div>
                   </div>
-                  <div className={styles.unitRate}>
-                    Dhs {item.unitPriceAed} / {item.unit}
-                  </div>
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
 
-          {/* Delivery & Fulfillment Details */}
-          <div className={styles.deliverySection}>
-            <h2 className={styles.cardTitle}>Fulfillment Method</h2>
+          {/* Fulfillment Method Card */}
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle} style={{ margin: '0 0 16px 0' }}>
+              Fulfillment Method
+            </h2>
 
             <div className={styles.radioGroup}>
+              {/* Option 1: Scheduled Delivery */}
               <label
-                className={`${styles.radioLabel} ${deliveryType === DeliveryType.SCHEDULED_DELIVERY ? styles.radioLabelActive : ''}`}
+                className={`${styles.radioCard} ${deliveryType === DeliveryType.SCHEDULED_DELIVERY ? styles.radioCardActive : ''}`}
               >
                 <input
                   type="radio"
@@ -297,16 +365,20 @@ export default function CheckoutPage() {
                   checked={deliveryType === DeliveryType.SCHEDULED_DELIVERY}
                   onChange={() => setDeliveryType(DeliveryType.SCHEDULED_DELIVERY)}
                 />
-                <div>
-                  <span className={styles.radioTitle}>Scheduled Wholesale Delivery</span>
+                <div className={styles.radioContent}>
+                  <span className={styles.radioTitle}>
+                    <span>🚚</span>
+                    <span>Scheduled Delivery</span>
+                  </span>
                   <span className={styles.radioDesc}>
-                    Temperature-controlled wholesale truck dispatch directly to your commercial address in Dubai/UAE.
+                    Temperature-controlled truck dispatch directly to your warehouse, store, or commercial kitchen in the UAE.
                   </span>
                 </div>
               </label>
 
+              {/* Option 2: Stall Pickup */}
               <label
-                className={`${styles.radioLabel} ${deliveryType === DeliveryType.SHOP_PICKUP ? styles.radioLabelActive : ''}`}
+                className={`${styles.radioCard} ${deliveryType === DeliveryType.SHOP_PICKUP ? styles.radioCardActive : ''}`}
               >
                 <input
                   type="radio"
@@ -315,19 +387,24 @@ export default function CheckoutPage() {
                   checked={deliveryType === DeliveryType.SHOP_PICKUP}
                   onChange={() => setDeliveryType(DeliveryType.SHOP_PICKUP)}
                 />
-                <div>
-                  <span className={styles.radioTitle}>Stall Pickup (Al Aweer Central Market)</span>
+                <div className={styles.radioContent}>
+                  <span className={styles.radioTitle}>
+                    <span>🏬</span>
+                    <span>Stall Pickup</span>
+                  </span>
                   <span className={styles.radioDesc}>
-                    Collect pallets or crates directly from {shopName}&apos;s stall at Al Aweer Central Wholesale Market.
+                    Collect pallets or crates directly from {shopName || 'the stall'}&apos;s loading dock at Al Aweer Central Wholesale Market.
                   </span>
                 </div>
               </label>
             </div>
 
+            {/* Address input or pickup time selector */}
             {deliveryType === DeliveryType.SCHEDULED_DELIVERY ? (
               <div className={styles.formGroup}>
                 <label htmlFor="delivery-address" className={styles.formLabel}>
-                  Delivery Address in UAE *
+                  <span>📍</span>
+                  <span>Commercial Delivery Address in UAE *</span>
                 </label>
                 <input
                   id="delivery-address"
@@ -342,11 +419,12 @@ export default function CheckoutPage() {
             ) : (
               <div className={styles.formGroup}>
                 <label htmlFor="pickup-time" className={styles.formLabel}>
-                  Preferred Pickup Window *
+                  <span>⏱️</span>
+                  <span>Preferred Stall Pickup Window *</span>
                 </label>
                 <select
                   id="pickup-time"
-                  className={styles.formInput}
+                  className={styles.formSelect}
                   value={pickupTime}
                   onChange={(e) => setPickupTime(e.target.value)}
                 >
@@ -362,27 +440,34 @@ export default function CheckoutPage() {
 
         {/* Right Column: Order Summary Card */}
         <div>
-          <div className={styles.summaryCard}>
-            <h2 className={styles.cardTitle}>Order Summary</h2>
+          <aside className={styles.summaryCard} aria-label="Order Summary">
+            <h2 className={styles.cardTitle} style={{ borderBottomColor: 'rgba(34, 197, 94, 0.2)' }}>
+              Order Summary
+            </h2>
 
             <div className={styles.summaryRow}>
-              <span>Fulfilling Stall:</span>
-              <strong style={{ color: '#0f172a' }}>{shopName}</strong>
+              <span>Fulfilling Stall</span>
+              <strong className={styles.summaryRowVal}>{shopName || 'Al Aweer Stall'}</strong>
             </div>
 
             <div className={styles.summaryRow}>
-              <span>Total Produce Items:</span>
-              <span>{items.reduce((acc, i) => acc + i.quantity, 0)} units</span>
+              <span>Total Produce Lines</span>
+              <span className={styles.summaryRowVal}>{items.length} lines ({totalUnits} units)</span>
             </div>
 
             <div className={styles.summaryRow}>
-              <span>Fulfillment Fee:</span>
-              <span style={{ color: '#16a34a', fontWeight: 600 }}>Calculated on Dispatch</span>
+              <span>Market VAT (Wholesale 0%)</span>
+              <span className={styles.summaryRowVal}>Dhs 0.00</span>
+            </div>
+
+            <div className={styles.summaryRow}>
+              <span>Stall Dispatch Fee</span>
+              <span style={{ color: '#4ade80', fontWeight: 700 }}>Direct from Al Aweer</span>
             </div>
 
             <div className={styles.summaryTotalRow}>
-              <span>Subtotal:</span>
-              <span className={styles.summaryTotalAed}>Dhs {cartTotalAed.toFixed(2)}</span>
+              <span>Total Estimated</span>
+              <span className={styles.totalHighlight}>Dhs {cartTotalAed.toFixed(2)}</span>
             </div>
 
             <button
@@ -392,13 +477,49 @@ export default function CheckoutPage() {
               disabled={isSubmitting || !user}
             >
               {isSubmitting
-                ? 'Reserving Stock & Placing Order...'
+                ? 'Submitting Wholesale Order...'
                 : user
-                ? 'Confirm & Place Wholesale Order'
+                ? 'Confirm & Place Wholesale Order →'
                 : 'Log In to Place Order'}
             </button>
-          </div>
+
+            {/* Payment Terms Notice */}
+            <div className={styles.paymentNotice}>
+              💵 Payment on Delivery / Stall Handover (COD) & Bank Transfer
+            </div>
+
+            {/* Trust Signals */}
+            <div className={styles.summaryTrustList}>
+              <div className={styles.summaryTrustItem}>
+                <span>🛡️</span>
+                <span>Guaranteed Al Aweer Central Market Rates</span>
+              </div>
+              <div className={styles.summaryTrustItem}>
+                <span>❄️</span>
+                <span>Cold-Chain Maintained Produce Quality</span>
+              </div>
+              <div className={styles.summaryTrustItem}>
+                <span>📑</span>
+                <span>Commercial Invoice with VAT Breakdown</span>
+              </div>
+            </div>
+          </aside>
         </div>
+
+        {/* Mobile Sticky Action Bar */}
+        <aside className={styles.mobileCheckoutBar} aria-label="Mobile Checkout Bar">
+          <div className={styles.mobileTotalWrap}>
+            <span className={styles.mobileTotalLabel}>Total Estimated</span>
+            <span className={styles.mobileTotalAmount}>Dhs {cartTotalAed.toFixed(2)}</span>
+          </div>
+          <button
+            type="submit"
+            className={`${styles.mobileSubmitBtn} ${isSubmitting || !user ? styles.checkoutBtnDisabled : ''}`}
+            disabled={isSubmitting || !user}
+          >
+            {isSubmitting ? 'Submitting...' : user ? 'Confirm Order →' : 'Log In'}
+          </button>
+        </aside>
       </form>
     </main>
   );

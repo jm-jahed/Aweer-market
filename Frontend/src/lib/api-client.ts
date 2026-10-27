@@ -26,7 +26,20 @@ export class ApiClientError extends Error {
  * Normalizes NEXT_PUBLIC_API_URL and prevents duplicate '/api/v1' path segments.
  */
 export function resolveApiUrl(path: string): string {
-  const envUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1').trim();
+  let envUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
+
+  // In the browser, ensure we don't attempt to connect to localhost from a production hostname
+  if (typeof window !== 'undefined') {
+    const isLocalhostHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isLocalhostHost && (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
+      envUrl = `${window.location.origin}/api/v1`;
+    }
+  }
+
+  if (!envUrl) {
+    envUrl = 'http://localhost:4000/api/v1';
+  }
+
   const cleanBase = envUrl.replace(/\/+$/, '');
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
 

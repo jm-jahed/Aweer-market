@@ -119,7 +119,7 @@ export default function CartPage() {
         {/* Left Column: Produce Items */}
         <section className={styles.itemList} aria-label="Cart Produce Lines">
           {items.map((item) => {
-            const produceImg = resolveProduceImage(item.name);
+            const produceImg = resolveProduceImage(item.name, item.category, item.imageUrl);
             const lineTotal = item.unitPriceAed * item.quantity;
             const minQty = item.minOrderQuantity || 1;
 

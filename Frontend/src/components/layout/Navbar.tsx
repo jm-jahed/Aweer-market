@@ -97,7 +97,9 @@ export function Navbar() {
       quantity: bestOffer.minOrderQuantity || 1,
       unitPriceAed: bestOffer.priceAed,
       minOrderQuantity: bestOffer.minOrderQuantity || 1,
-      availableStock: bestOffer.availableStock
+      availableStock: bestOffer.availableStock,
+      imageUrl: prod.imageUrl,
+      category: prod.category
     };
     const shop = {
       id: bestOffer.vendorId,

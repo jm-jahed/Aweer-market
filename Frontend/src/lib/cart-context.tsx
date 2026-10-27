@@ -18,6 +18,8 @@ export interface CartItem {
   quantity: number;
   minOrderQuantity: number;
   availableStock: number;
+  imageUrl?: string;
+  category?: string;
 }
 
 export interface VendorConflict {

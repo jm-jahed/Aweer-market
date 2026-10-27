@@ -466,7 +466,9 @@ export default function ShopStorefrontPage() {
                                       unitPriceAed: offer.priceAed,
                                       quantity: offer.minOrderQuantity || 1,
                                       minOrderQuantity: offer.minOrderQuantity || 1,
-                                      availableStock: offer.availableStock
+                                      availableStock: offer.availableStock,
+                                      imageUrl: item.imageUrl,
+                                      category: item.category
                                     },
                                     { id: shop.id, name: shop.name }
                                   );

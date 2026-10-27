@@ -188,8 +188,11 @@ export function resolveProduceImage(name: string, category?: string, imageUrl?: 
   if (c.includes('leafy') || c.includes('herb') || n.includes('herb') || n.includes('coriander') || n.includes('mint')) {
     return '/images/carrots.jpg';
   }
-  if (n.includes('orange') || n.includes('citrus') || n.includes('lemon') || n.includes('lime')) {
-    return '/images/tomato.jpg';
+  if (n.includes('orange') || n.includes('citrus') || n.includes('lemon') || n.includes('lime') || c.includes('fruit')) {
+    return '/images/category-fruits.jpg';
+  }
+  if (c.includes('veg')) {
+    return '/images/category-vegetables.jpg';
   }
   return '/images/hero-basket.jpg';
 }

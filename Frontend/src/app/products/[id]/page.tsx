@@ -79,7 +79,9 @@ export default function ProductDetailPage() {
       quantity: offer.minOrderQuantity || 1,
       unitPriceAed: offer.priceAed,
       minOrderQuantity: offer.minOrderQuantity || 1,
-      availableStock: offer.availableStock
+      availableStock: offer.availableStock,
+      imageUrl: product.image,
+      category: product.category
     };
 
     const shop = {

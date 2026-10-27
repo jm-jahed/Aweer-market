@@ -19,6 +19,12 @@ import {
 import type { ProductItem } from '@aweermarket/types';
 import styles from './Catalog.module.css';
 
+const DEFAULT_INITIAL_CATEGORIES: CategoryItem[] = [
+  { id: 'fresh_fruits', key: 'fresh_fruits', name: 'Fruits', label: 'Fruits', slug: 'fresh_fruits', icon: '🍎' },
+  { id: 'fresh_vegetables', key: 'fresh_vegetables', name: 'Vegetables', label: 'Vegetables', slug: 'fresh_vegetables', icon: '🥦' },
+  { id: 'leafy_greens', key: 'leafy_greens', name: 'Leaf', label: 'Leaf', slug: 'leafy_greens', icon: '🌿' }
+];
+
 function MarketplaceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -31,8 +37,8 @@ function MarketplaceContent() {
   const { addToCart, conflict, resolveConflict, totalItemsCount } = useCart();
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [categoriesLoading, setCategoriesLoading] = useState<boolean>(true);
+  const [categories, setCategories] = useState<CategoryItem[]>(DEFAULT_INITIAL_CATEGORIES);
+  const [categoriesLoading, setCategoriesLoading] = useState<boolean>(false);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [apiProducts, setApiProducts] = useState<ProductItem[]>([]);
   const [shops, setShops] = useState<ShopPublicSummary[]>([]);
@@ -157,13 +163,14 @@ function MarketplaceContent() {
       const [catsRes, shopsRes, prodsRes] = await Promise.all([
         getCategories().catch((err) => {
           console.error('Failed to load categories:', err);
-          setCategoriesError('Unable to load categories. Please check connection.');
           return { statusCode: 500, categories: [] as CategoryItem[] };
         }),
         getShops().catch(() => ({ shops: [] })),
         getProducts({ limit: 100 }).catch(() => ({ products: [] }))
       ]);
-      setCategories(catsRes.categories || []);
+      if (catsRes.categories && catsRes.categories.length > 0) {
+        setCategories(catsRes.categories);
+      }
       setShops(shopsRes.shops || []);
       setApiProducts(prodsRes.products || []);
     } catch (err) {
@@ -205,7 +212,9 @@ function MarketplaceContent() {
       quantity: offer.minOrderQuantity || 1,
       unitPriceAed: offer.priceAed,
       minOrderQuantity: offer.minOrderQuantity || 1,
-      availableStock: offer.availableStock
+      availableStock: offer.availableStock,
+      imageUrl: prod.imageUrl,
+      category: prod.category
     };
     const shop = {
       id: offer.vendorId,
@@ -1142,14 +1151,13 @@ function MarketplaceContent() {
           </svg>
           <span>Home</span>
         </Link>
-        <Link href="/categories" className={styles.mobileNavItem}>
+        <Link href="/products" className={styles.mobileNavItem}>
           <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
           </svg>
-          <span>Categories</span>
+          <span>Shop Now</span>
         </Link>
         <Link href="/account/orders" className={styles.mobileNavItem}>
           <svg className={styles.mobileNavSvg} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

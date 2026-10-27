@@ -126,7 +126,9 @@ export function CategoryView({
       unitPriceAed: offer.priceAed,
       quantity: offer.minOrderQuantity || 1,
       minOrderQuantity: offer.minOrderQuantity || 1,
-      availableStock: offer.availableStock
+      availableStock: offer.availableStock,
+      imageUrl: product.imageUrl,
+      category: product.category
     };
 
     const shop = {
