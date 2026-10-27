@@ -129,6 +129,22 @@ export async function buildServer(options?: BuildServerOptions) {
     }
   });
 
+  // Support empty JSON body if client sends Content-Type: application/json without a body (e.g. DELETE)
+  server.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    const str = typeof body === 'string' ? body : body.toString('utf8');
+    if (!str || str.trim() === '') {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(str));
+    } catch (err: unknown) {
+      const parseError: any = err instanceof Error ? err : new Error('Invalid JSON');
+      parseError.statusCode = 400;
+      done(parseError, undefined);
+    }
+  });
+
   // Multipart support for image uploads (enforce 5 MiB ceiling)
   await server.register(multipart, {
     limits: {
