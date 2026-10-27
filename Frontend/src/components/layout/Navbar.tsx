@@ -104,7 +104,7 @@ export function Navbar() {
     const success = addToCart(item, shop);
     if (success) {
       setAddedToast(
-        `Added ${prod.name} from ${bestOffer.shopName} (${bestOffer.equivalentPricePerKg.toFixed(2)} Dhs/kg) to cart!`
+        `Added ${prod.name} from ${bestOffer.shopName} (Dhs ${bestOffer.priceAed.toFixed(2)} / ${bestOffer.unit}) to cart!`
       );
       setTimeout(() => setAddedToast(null), 2500);
     }
@@ -274,13 +274,9 @@ export function Navbar() {
                     const activeOffers = (prod.offers || []).filter((o) => o.availableStock > 0);
                     const bestOffer = activeOffers[0] || prod.offers?.[0];
                     const hasStock = Boolean(bestOffer && bestOffer.availableStock > 0);
-                    const img = resolveProduceImage(prod.name, prod.category);
-                    const priceDisplay =
-                      prod.lowestPriceAedPerKg > 0
-                        ? prod.lowestPriceAedPerKg.toFixed(2)
-                        : bestOffer?.equivalentPricePerKg
-                        ? bestOffer.equivalentPricePerKg.toFixed(2)
-                        : '—';
+                    const img = resolveProduceImage(prod.name, prod.category, prod.imageUrl);
+                    const displayPrice = bestOffer ? bestOffer.priceAed.toFixed(2) : '—';
+                    const displayUnit = bestOffer ? bestOffer.unit : 'unit';
 
                     return (
                       <div
@@ -312,9 +308,9 @@ export function Navbar() {
                         <div className={styles.dropdownItemRight}>
                           <div className={styles.dropdownItemPrice}>
                             <span className={styles.priceAed}>
-                              Dhs {priceDisplay}
+                              Dhs {displayPrice}
                             </span>
-                            <span className={styles.pricePerKg}>per kg</span>
+                            <span className={styles.pricePerKg}> / {displayUnit}</span>
                           </div>
                           {hasStock ? (
                             <button

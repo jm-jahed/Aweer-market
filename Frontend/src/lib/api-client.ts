@@ -128,6 +128,7 @@ export interface ShopStorefrontProduct {
   category: string;
   originCountry: string;
   description: string;
+  imageUrl?: string;
   offers: ProductOfferSummary[];
 }
 

@@ -207,7 +207,7 @@ function MarketplaceContent() {
     const added = addToCart(item, shop);
     if (added) {
       setAddedMessage(
-        `Added ${prod.name} from ${offer.shopName} (${offer.equivalentPricePerKg.toFixed(2)} Dhs/kg) to cart!`
+        `Added ${prod.name} from ${offer.shopName} (Dhs ${offer.priceAed.toFixed(2)} / ${offer.unit}) to cart!`
       );
       setTimeout(() => setAddedMessage(null), 2500);
     }
@@ -436,13 +436,9 @@ function MarketplaceContent() {
                       const activeOffers = (prod.offers || []).filter((o) => o.availableStock > 0);
                       const bestOffer = activeOffers[0] || prod.offers?.[0];
                       const hasStock = Boolean(bestOffer && bestOffer.availableStock > 0);
-                      const img = resolveProduceImage(prod.name, prod.category);
-                      const priceDisplay =
-                        prod.lowestPriceAedPerKg > 0
-                          ? prod.lowestPriceAedPerKg.toFixed(2)
-                          : bestOffer?.equivalentPricePerKg
-                          ? bestOffer.equivalentPricePerKg.toFixed(2)
-                          : '—';
+                      const img = resolveProduceImage(prod.name, prod.category, prod.imageUrl);
+                      const displayPrice = bestOffer ? bestOffer.priceAed.toFixed(2) : '—';
+                      const displayUnit = bestOffer ? bestOffer.unit : 'unit';
 
                       return (
                         <div
@@ -477,9 +473,9 @@ function MarketplaceContent() {
                           <div className={styles.dropdownItemRight}>
                             <div className={styles.dropdownItemPrice}>
                               <span className={styles.priceAed}>
-                                Dhs {priceDisplay}
+                                Dhs {displayPrice}
                               </span>
-                              <span className={styles.pricePerKg}>per kg</span>
+                              <span className={styles.pricePerKg}> / {displayUnit}</span>
                             </div>
                             {hasStock ? (
                               <button
@@ -833,8 +829,9 @@ function MarketplaceContent() {
                   const activeOffers = (prod.offers || []).filter((o) => o.availableStock > 0);
                   const bestOffer = activeOffers[0] || prod.offers?.[0];
                   const hasStock = Boolean(bestOffer && bestOffer.availableStock > 0);
-                  const img = resolveProduceImage(prod.name, prod.category);
-                  const displayPrice = prod.lowestPriceAedPerKg > 0 ? prod.lowestPriceAedPerKg.toFixed(2) : (bestOffer?.equivalentPricePerKg ? bestOffer.equivalentPricePerKg.toFixed(2) : '120.00');
+                  const img = resolveProduceImage(prod.name, prod.category, prod.imageUrl);
+                  const displayPrice = bestOffer ? bestOffer.priceAed.toFixed(2) : '—';
+                  const displayUnit = bestOffer ? bestOffer.unit : 'unit';
 
                   return (
                     <div key={prod.id} className={styles.productCard}>
@@ -871,8 +868,8 @@ function MarketplaceContent() {
                         {/* Mobile-only price & cart action row */}
                         <div className={styles.mobilePriceActionRow}>
                           <div className={styles.productPrice}>
-                            AED {displayPrice}
-                            <span className={styles.priceUnit}> / kg</span>
+                            Dhs {displayPrice}
+                            <span className={styles.priceUnit}> / {displayUnit}</span>
                           </div>
                           {hasStock && bestOffer ? (
                             <button
@@ -904,7 +901,7 @@ function MarketplaceContent() {
                         {/* Desktop price, badge & vendor */}
                         <div className={`${styles.productPrice} ${styles.desktopOnlyPrice}`}>
                           Dhs {displayPrice}
-                          <span className={styles.priceUnit}>/kg</span>
+                          <span className={styles.priceUnit}> / {displayUnit}</span>
                         </div>
                         <span className={`${styles.cardBadge} ${styles.desktopOnlyBadge}`}>
                           {idx === 0 && hasStock

@@ -322,6 +322,10 @@ describe('AweerMarket Step 6 — Buyer Marketplace Catalog & Shop Storefront', (
       assert.strictEqual(resolveProduceImage('Sweet Carrots'), '/images/carrots.jpg');
       assert.strictEqual(resolveProduceImage('Fresh Culinary Mint'), '/images/carrots.jpg');
       assert.strictEqual(resolveProduceImage('Unknown Specialty Item'), '/images/hero-basket.jpg');
+      assert.strictEqual(
+        resolveProduceImage('Chili - India', 'exotic_produce', 'https://pub-5ab63.r2.dev/products/chili.webp'),
+        'https://pub-5ab63.r2.dev/products/chili.webp'
+      );
     });
   });
 });

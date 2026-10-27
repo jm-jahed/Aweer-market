@@ -48,7 +48,7 @@ export default function ProductDetailPage() {
             originCountry: p.originCountry,
             description: p.description || 'Wholesale produce sourced directly from Dubai Al Aweer Central Market.',
             lowestPriceAedPerKg: p.lowestPriceAedPerKg || 0,
-            image: resolveProduceImage(p.name, p.category)
+            image: resolveProduceImage(p.name, p.category, p.imageUrl)
           });
           // Sort offers by equivalent price per kg ascending
           const sortedOffers = [...(p.offers || [])].sort(
@@ -220,8 +220,11 @@ export default function ProductDetailPage() {
             <div>
               <div className={styles.priceLabel}>Best Available Wholesale Price</div>
               <div className={styles.priceVal}>
-                Dhs {product.lowestPriceAedPerKg.toFixed(2)}
-                <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 500 }}> /kg</span>
+                Dhs {offers[0] ? offers[0].priceAed.toFixed(2) : product.lowestPriceAedPerKg.toFixed(2)}
+                <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 500 }}>
+                  {' '}
+                  / {offers[0] ? offers[0].unit : 'unit'}
+                </span>
               </div>
             </div>
             <span
@@ -275,7 +278,7 @@ export default function ProductDetailPage() {
                       </div>
                     </td>
                     <td style={{ fontWeight: 700, color: '#ffffff' }}>
-                      Dhs {offer.priceAed.toFixed(2)}
+                      Dhs {offer.priceAed.toFixed(2)} / {offer.unit}
                     </td>
                     <td>
                       <span

@@ -231,6 +231,7 @@ export default function ShopAdminDashboard() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
   const [draftUploadedKey, setDraftUploadedKey] = useState<string | null>(null);
+  const draftUploadedKeyRef = useRef<string | null>(null);
   const [addModalError, setAddModalError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cleanedDraftKeysRef = useRef<Set<string>>(new Set());
@@ -249,12 +250,14 @@ export default function ShopAdminDashboard() {
     }
   }, []);
 
-  const resetAddProductForm = () => {
+  const resetAddProductForm = (skipCleanup = false) => {
     // If a draft image was uploaded but form was canceled without saving, safely clean it up
-    if (draftUploadedKey) {
-      safeCleanupDraftImage(draftUploadedKey);
-      setDraftUploadedKey(null);
+    const key = draftUploadedKeyRef.current || draftUploadedKey;
+    if (!skipCleanup && key) {
+      safeCleanupDraftImage(key);
     }
+    draftUploadedKeyRef.current = null;
+    setDraftUploadedKey(null);
     setProdName('');
     const defaultCat = categories.find((c) => c.isActive !== false)?.slug || 'fresh_fruits';
     setProdCategory(defaultCat);
@@ -282,8 +285,10 @@ export default function ShopAdminDashboard() {
     }
 
     // Clean up previous unsubmitted draft image if replacing
-    if (draftUploadedKey) {
-      safeCleanupDraftImage(draftUploadedKey);
+    const prevKey = draftUploadedKeyRef.current || draftUploadedKey;
+    if (prevKey) {
+      safeCleanupDraftImage(prevKey);
+      draftUploadedKeyRef.current = null;
       setDraftUploadedKey(null);
     }
 
@@ -297,6 +302,7 @@ export default function ShopAdminDashboard() {
       const res = await uploadProductImage(file);
       // Persist the stable public HTTPS URL and track draft key for safety
       setProdImageUrl(res.url);
+      draftUploadedKeyRef.current = res.key;
       setDraftUploadedKey(res.key);
       setUploadPreviewUrl(null);
     } catch (err: unknown) {
@@ -304,6 +310,7 @@ export default function ShopAdminDashboard() {
       setAddModalError(`Image Upload Failed: ${msg}`);
       setUploadPreviewUrl(null);
       setProdImageUrl('');
+      draftUploadedKeyRef.current = null;
       setDraftUploadedKey(null);
     } finally {
       setIsUploadingImage(false);
@@ -667,9 +674,10 @@ export default function ShopAdminDashboard() {
         }
       });
       // Product successfully saved in MongoDB: image is now permanently active, not a draft!
+      draftUploadedKeyRef.current = null;
       setDraftUploadedKey(null);
       setIsAddModalOpen(false);
-      resetAddProductForm();
+      resetAddProductForm(true);
       await loadInventory();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create produce listing';
@@ -1751,7 +1759,7 @@ export default function ShopAdminDashboard() {
                             <td>{o ? `${o.unitWeightKg} kg / ${o.unit}` : '—'}</td>
                             <td>
                               <strong style={{ color: '#ffffff' }}>
-                                Dhs {o ? o.priceAed.toFixed(2) : '—'}
+                                Dhs {o ? `${o.priceAed.toFixed(2)} / ${o.unit}` : '—'}
                               </strong>
                             </td>
                             <td>
@@ -2543,7 +2551,7 @@ export default function ShopAdminDashboard() {
                           <td><strong>{p.name}</strong></td>
                           <td><span style={{ textTransform: 'capitalize', color: '#34d399' }}>{p.category.replace(/_/g, ' ')}</span></td>
                           <td><strong>{qtySold} packages</strong></td>
-                          <td>Dhs {p.offer?.priceAed.toFixed(2) || '0.00'}</td>
+                          <td>Dhs {p.offer ? `${p.offer.priceAed.toFixed(2)} / ${p.offer.unit}` : '0.00'}</td>
                           <td><strong style={{ color: '#34d399' }}>Dhs {gross.toFixed(2)}</strong></td>
                         </tr>
                       );
@@ -3385,11 +3393,13 @@ export default function ShopAdminDashboard() {
               <div className={styles.modalBody}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className={styles.fieldGroup}>
-                    <label className={styles.formLabel}>Price (Dhs) *</label>
+                    <label className={styles.formLabel}>
+                      Selling Price (AED per {editingItem.offer?.unit || 'unit'}) *
+                    </label>
                     <input
                       type="number"
-                      step="0.5"
-                      min="0.1"
+                      step="0.01"
+                      min="0.01"
                       className={styles.formInput}
                       value={editPrice}
                       onChange={(e) => setEditPrice(Number(e.target.value))}

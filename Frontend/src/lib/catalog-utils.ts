@@ -128,9 +128,14 @@ export const CATEGORY_DISPLAY_CONFIG: Record<
 };
 
 /**
- * Resolves deterministic produce food photography based on name and category keywords.
+ * Resolves produce food photography: prioritizes vendor uploaded image,
+ * falling back to deterministic keyword matching.
  */
-export function resolveProduceImage(name: string, category?: string): string {
+export function resolveProduceImage(name: string, category?: string, imageUrl?: string): string {
+  if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
+    return imageUrl.trim();
+  }
+
   const n = (name || '').toLowerCase();
   const c = (category || '').toLowerCase();
 
@@ -148,3 +153,4 @@ export function resolveProduceImage(name: string, category?: string): string {
   }
   return '/images/hero-basket.jpg';
 }
+

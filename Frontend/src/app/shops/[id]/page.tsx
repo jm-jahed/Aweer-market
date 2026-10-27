@@ -394,7 +394,7 @@ export default function ShopStorefrontPage() {
           ) : (
             <div className={styles.grid}>
               {filteredProducts.map((item) => {
-                const produceImg = resolveProduceImage(item.name, item.category);
+                const produceImg = resolveProduceImage(item.name, item.category, item.imageUrl);
                 const isFav = favoriteProductIds.has(item.id);
 
                 return (
@@ -451,9 +451,12 @@ export default function ShopStorefrontPage() {
                               </div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
-                              <div className={styles.offerPriceAed}>Dhs {offer.priceAed.toFixed(2)}</div>
-                              <div className={styles.eqAedKg}>
-                                {offer.equivalentPricePerKg.toFixed(2)} Dhs/kg
+                              <div className={styles.offerPriceAed}>
+                                Dhs {offer.priceAed.toFixed(2)}
+                                <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 500 }}>
+                                  {' '}
+                                  / {offer.unit}
+                                </span>
                               </div>
                             </div>
                           </div>

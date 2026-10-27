@@ -133,7 +133,7 @@ export function CategoryView({
     const added = addToCart(item, shop);
     if (added) {
       setToastMessage(
-        `Added ${product.name} from ${offer.shopName} (${offer.equivalentPricePerKg.toFixed(2)} Dhs/kg) to cart!`
+        `Added ${product.name} from ${offer.shopName} (Dhs ${offer.priceAed.toFixed(2)} / ${offer.unit}) to cart!`
       );
       setTimeout(() => setToastMessage(null), 2500);
     }
@@ -253,8 +253,10 @@ export function CategoryView({
             const bestOffer: ProductOfferSummary | undefined =
               activeOffers.length > 0 ? activeOffers[0] : prod.offers?.[0];
 
-            const img = resolveProduceImage(prod.name, prod.category);
+            const img = resolveProduceImage(prod.name, prod.category, prod.imageUrl);
             const hasStock = Boolean(bestOffer && bestOffer.availableStock > 0);
+            const displayPrice = bestOffer ? bestOffer.priceAed.toFixed(2) : '—';
+            const displayUnit = bestOffer ? bestOffer.unit : 'unit';
 
             return (
               <div key={prod.id} className={styles.productCard}>
@@ -279,8 +281,8 @@ export function CategoryView({
                     </Link>
                   </h3>
                   <div className={styles.productPrice}>
-                    Dhs {prod.lowestPriceAedPerKg > 0 ? prod.lowestPriceAedPerKg.toFixed(2) : (bestOffer?.equivalentPricePerKg ? bestOffer.equivalentPricePerKg.toFixed(2) : '—')}
-                    <span className={styles.priceUnit}>/kg</span>
+                    Dhs {displayPrice}
+                    <span className={styles.priceUnit}> / {displayUnit}</span>
                   </div>
                   <span className={styles.cardBadge}>
                     {idx === 0 && sortBy === 'lowest_price' && hasStock
