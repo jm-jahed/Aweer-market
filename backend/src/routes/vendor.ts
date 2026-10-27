@@ -15,6 +15,7 @@ import {
   createProduct,
   addOrUpdateProductOffer,
   updateProductOffer,
+  removeProductOffer,
   listProductsByVendor,
   rollbackOfferStock
 } from '../models/product.model.js';
@@ -318,6 +319,52 @@ export const vendorRoutes: FastifyPluginAsync = async (fastify) => {
       statusCode: 200,
       message: 'Offer updated successfully',
       product: updatedProduct ? updatedProduct.toPublicProductItem() : null
+    });
+  });
+
+  /**
+   * DELETE /api/v1/vendor/products/:id
+   * Removes the authenticated vendor's offer from the produce item.
+   * If no other vendor offers exist, removes the produce catalog item.
+   * STRICT TENANT ISOLATION: A vendor can ONLY delete their own stall's produce offer.
+   */
+  fastify.delete('/products/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    const shopId = await resolveVendorShopId(request);
+    if (!shopId) {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'No shop associated with this vendor account'
+      });
+    }
+
+    const { id: productId } = request.params;
+    const product = await findProductById(productId);
+    if (!product) {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Produce item not found'
+      });
+    }
+
+    // Verify vendor has an offer on this product
+    const vendorOffer = product.offers.find((o) => o.shopId === shopId);
+    if (!vendorOffer) {
+      return reply.status(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Access denied: You cannot delete a produce item not belonging to your stall'
+      });
+    }
+
+    const result = await removeProductOffer(productId, shopId);
+
+    return reply.status(200).send({
+      statusCode: 200,
+      message: 'Produce offer deleted successfully from your stall catalog',
+      deleted: result.deleted,
+      remainingOffers: result.remainingOffers
     });
   });
 

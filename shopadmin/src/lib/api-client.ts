@@ -204,6 +204,14 @@ export async function adjustVendorProductStock(
   return await updateVendorOffer(productId, { availableStock: newStock });
 }
 
+export async function deleteVendorProduct(
+  productId: string
+): Promise<{ statusCode: number; message: string; deleted: boolean; remainingOffers: number }> {
+  return await request<{ statusCode: number; message: string; deleted: boolean; remainingOffers: number }>(`/vendor/products/${productId}`, {
+    method: 'DELETE'
+  });
+}
+
 export interface VendorOrderItem {
   productId: string;
   name: string;

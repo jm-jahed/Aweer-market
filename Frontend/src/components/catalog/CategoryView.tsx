@@ -208,7 +208,10 @@ export function CategoryView({
       {/* Category Hero Banner */}
       <header className={styles.categoryHero}>
         <div className={styles.categoryHeroText}>
-          <span className={styles.categoryBadge}>{meta.badge}</span>
+          <span className={styles.categoryBadge}>
+            <span className={styles.pulseDot} />
+            {meta.badge || 'Wholesale Direct'}
+          </span>
           <h1 className={styles.categoryTitle}>{meta.title}</h1>
           <p className={styles.categorySubtitle}>{meta.description}</p>
         </div>
@@ -216,25 +219,36 @@ export function CategoryView({
           <span className={styles.categoryMetaCount}>
             {loading ? '...' : sortedProducts.length}
           </span>
-          <span className={styles.categoryMetaLabel}>Available Items</span>
+          <span className={styles.categoryMetaLabel}>Available Offers</span>
         </div>
       </header>
 
       {/* Filter and Sort Controls */}
       <div className={styles.controlsBar}>
         <div className={styles.controlsLeft}>
-          <input
-            type="text"
-            placeholder={`Filter ${meta.title}...`}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className={styles.searchInput}
-          />
+          <div className={styles.searchBoxWrap}>
+            <span className={styles.searchIcon}>🔍</span>
+            <input
+              type="text"
+              placeholder={`Search in ${meta.title}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={styles.searchInput}
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className={styles.clearSearchBtn}
+                title="Clear filter"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
         <div className={styles.controlsRight}>
-          <label htmlFor="category-sort" style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
-            Sort:
-          </label>
+          <span className={styles.sortLabel}>Sort:</span>
           <select
             id="category-sort"
             value={sortBy}
@@ -281,7 +295,7 @@ export function CategoryView({
             return (
               <div key={item.id} className={styles.productCard}>
                 <div className={styles.cardImageContainer}>
-                  <button type="button" className={styles.heartBtn} title="Save to favorites">
+                  <button type="button" className={`${styles.heartBtn} ${styles.desktopOnlyHeart}`} title="Save to favorites">
                     ♡
                   </button>
                   <img
@@ -292,26 +306,79 @@ export function CategoryView({
                   />
                 </div>
                 <div className={styles.cardBody}>
-                  <h3 className={styles.productName}>
-                    <Link
-                      href={`/products/${prod.id}`}
-                      style={{ color: 'inherit', textDecoration: 'none' }}
+                  {/* Mobile Title Row with Heart Button */}
+                  <div className={styles.cardTitleRow}>
+                    <h3 className={styles.productName}>
+                      <Link
+                        href={`/products/${prod.id}`}
+                        style={{ color: 'inherit', textDecoration: 'none' }}
+                      >
+                        {prod.name}
+                      </Link>
+                    </h3>
+                    <button
+                      type="button"
+                      className={styles.mobileHeartBtn}
+                      title="Save to favorites"
+                      aria-label={`Save ${prod.name} to favorites`}
                     >
-                      {prod.name}
-                    </Link>
-                  </h3>
-                  <div className={styles.productPrice}>
+                      ♡
+                    </button>
+                  </div>
+
+                  <div className={styles.mobileProductSubtitle}>
+                    {bestOffer?.shopName || 'Al Aweer Stall'} • {formatCountryWithFlag(prod.originCountry || 'Dubai Market')}
+                  </div>
+
+                  {/* Mobile-only price & cart action row */}
+                  <div className={styles.mobilePriceActionRow}>
+                    <div className={styles.mobilePriceBlock}>
+                      <div className={styles.mobilePriceMain}>
+                        <span className={styles.mobileCurrency}>Dhs</span>
+                        <span className={styles.mobilePriceVal}>{displayPrice}</span>
+                      </div>
+                      <span className={styles.mobilePriceUnit}>/ {displayUnit}</span>
+                    </div>
+                    {hasStock && bestOffer ? (
+                      <button
+                        type="button"
+                        onClick={() => handleAddToCart(prod, bestOffer)}
+                        className={styles.addToCartBtn}
+                        id={`add-cart-${item.id}`}
+                      >
+                        <span>🛒</span>
+                        <span>Add to Cart</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className={styles.addToCartBtn}
+                        style={{
+                          background: '#1e293b',
+                          color: '#64748b',
+                          cursor: 'not-allowed',
+                          border: '1px solid #334155'
+                        }}
+                      >
+                        <span>Unavailable</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Desktop price, badge & vendor */}
+                  <div className={`${styles.productPrice} ${styles.desktopOnlyPrice}`}>
                     Dhs {displayPrice}
                     <span className={styles.priceUnit}> / {displayUnit}</span>
                   </div>
                   {(!hasStock || (idx === 0 && sortBy === 'lowest_price' && hasStock)) && (
-                    <span className={styles.cardBadge}>
+                    <span className={`${styles.cardBadge} ${styles.desktopOnlyBadge}`}>
                       {idx === 0 && sortBy === 'lowest_price' && hasStock
                         ? '🏆 Lowest Price'
                         : 'Out of Stock'}
                     </span>
                   )}
-                  <div className={styles.vendorInfo}>
+                  <div className={`${styles.vendorInfo} ${styles.desktopOnlyVendor}`}>
                     {bestOffer?.vendorId ? (
                       <Link
                         href={`/shops/${bestOffer.vendorId}`}
@@ -332,25 +399,27 @@ export function CategoryView({
                       <span>{formatCountryWithFlag(prod.originCountry)}</span>
                     </div>
                   </div>
-                  {hasStock && bestOffer ? (
-                    <button
-                      type="button"
-                      onClick={() => handleAddToCart(prod, bestOffer)}
-                      className={styles.addToCartBtn}
-                      id={`add-cart-${item.id}`}
-                    >
-                      <span>Add to Cart</span>
-                      <span>🛒</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled
-                      className={`${styles.addToCartBtn} ${styles.disabledBtn}`}
-                    >
-                      <span>Unavailable</span>
-                    </button>
-                  )}
+                  <div className={styles.desktopOnlyAddToCart}>
+                    {hasStock && bestOffer ? (
+                      <button
+                        type="button"
+                        onClick={() => handleAddToCart(prod, bestOffer)}
+                        className={styles.addToCartBtn}
+                        id={`add-cart-desktop-${item.id}`}
+                      >
+                        <span>Add to Cart</span>
+                        <span>🛒</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className={`${styles.addToCartBtn} ${styles.disabledBtn}`}
+                      >
+                        <span>Unavailable</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

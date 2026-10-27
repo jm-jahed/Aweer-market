@@ -11,6 +11,7 @@ import {
   updateVendorOffer,
   toggleVendorProductPublish,
   adjustVendorProductStock,
+  deleteVendorProduct,
   getVendorOrders,
   updateVendorOrderStatus,
   getCategories,
@@ -534,6 +535,27 @@ export default function ShopAdminDashboard() {
           await loadInventory();
         } catch (err: unknown) {
           alert(err instanceof Error ? err.message : 'Failed to toggle offer visibility');
+        }
+      }
+    });
+  };
+
+  // Delete produce offer from catalog
+  const handleDeleteProduct = (item: VendorProductItem) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Produce Offer',
+      message: `Are you sure you want to permanently delete "${item.name}" from your stall catalog?`,
+      detail: `Stall: ${shop?.name || 'Your Stall'} | Package: ${item.offer?.unitWeightKg || 10}kg ${item.offer?.unit || 'box'} | Current Price: Dhs ${Number(item.offer?.priceAed || 0).toFixed(2)}`,
+      warningNotice: 'This action is permanent. This produce offer will be completely removed from your inventory and the marketplace.',
+      confirmLabel: 'Yes, Delete Permanently',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteVendorProduct(item.id);
+          await loadInventory();
+        } catch (err: unknown) {
+          alert(err instanceof Error ? err.message : 'Failed to delete produce offer');
         }
       }
     });
@@ -1830,6 +1852,15 @@ export default function ShopAdminDashboard() {
                                   title={isPublished ? 'Unpublish from marketplace' : 'Publish to marketplace'}
                                 >
                                   {isPublished ? 'Unpublish' : 'Publish'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.actionBtnDanger}
+                                  onClick={() => handleDeleteProduct(p)}
+                                  title="Permanently delete produce offer from your stall"
+                                  style={{ background: '#7f1d1d', borderColor: '#ef4444', color: '#fca5a5' }}
+                                >
+                                  🗑️ Delete
                                 </button>
                               </div>
                             </td>

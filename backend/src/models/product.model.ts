@@ -718,4 +718,43 @@ export async function removeDemoProducts(): Promise<number> {
   return deleted;
 }
 
+export async function removeProductOffer(
+  productId: string,
+  shopId: string
+): Promise<{ deleted: boolean; remainingOffers: number }> {
+  if (isDatabaseConnected()) {
+    const product = await ProductModel.findById(productId);
+    if (!product) return { deleted: false, remainingOffers: 0 };
+
+    product.offers = product.offers.filter((o) => o.shopId !== shopId);
+
+    if (product.offers.length === 0) {
+      await ProductModel.findByIdAndDelete(productId);
+      return { deleted: true, remainingOffers: 0 };
+    } else {
+      product.lowestPriceAedPerKg = computeLowestPricePerKg(product.offers);
+      product.markModified('offers');
+      await product.save();
+      return { deleted: true, remainingOffers: product.offers.length };
+    }
+  }
+
+  if (!isInMemoryProductStoreAllowed()) {
+    throw new DatabaseUnavailableError('Database is disconnected. Operation rejected in fail-closed mode.');
+  }
+
+  const prod = inMemoryProducts.get(productId);
+  if (!prod) return { deleted: false, remainingOffers: 0 };
+
+  prod.offers = prod.offers.filter((o) => o.shopId !== shopId);
+  if (prod.offers.length === 0) {
+    inMemoryProducts.delete(productId);
+    return { deleted: true, remainingOffers: 0 };
+  } else {
+    prod.lowestPriceAedPerKg = computeLowestPricePerKg(prod.offers);
+    prod.updatedAt = new Date();
+    return { deleted: true, remainingOffers: prod.offers.length };
+  }
+}
+
 
